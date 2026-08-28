@@ -214,10 +214,10 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     fontFamily: type.family,
-    gap: space.x5,
+    gap: space.x4,
     inlineSize: '100%',
-    maxInlineSize: '34rem',
-    padding: space.x5,
+    maxInlineSize: '38rem',
+    padding: space.x4,
   },
   content: {
     display: 'flex',
