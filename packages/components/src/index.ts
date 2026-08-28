@@ -10,10 +10,28 @@ export type {
   ActivityListItem,
   ActivityListProps,
 } from './activity-list'
+export { Artifact } from './artifact'
+export type {
+  ArtifactKind,
+  ArtifactMetadata,
+  ArtifactProps,
+  ArtifactState,
+} from './artifact'
 export { CitationList } from './citation-list'
 export type { Citation, CitationListProps } from './citation-list'
+export { CodeBlock } from './code-block'
+export type { CodeBlockProps } from './code-block'
 export { Composer } from './composer'
 export type { ComposerProps } from './composer'
+export { Diff } from './diff'
+export type {
+  DiffFile,
+  DiffFileStatus,
+  DiffHunk,
+  DiffLine,
+  DiffLineKind,
+  DiffProps,
+} from './diff'
 export { Message } from './message'
 export type { MessageActor, MessageProps } from './message'
 export { Outcome } from './outcome'
