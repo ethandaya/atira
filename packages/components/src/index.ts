@@ -1,5 +1,17 @@
-export { Activity } from './activity'
-export type { ActivityProps, ActivityState } from './activity'
+export { Activity, Activity as ActivitySummary } from './activity'
+export type {
+  ActivityProps,
+  ActivityProps as ActivitySummaryProps,
+  ActivityState,
+} from './activity'
+export { ActivityList } from './activity-list'
+export type {
+  ActivityListDisplay,
+  ActivityListItem,
+  ActivityListProps,
+} from './activity-list'
+export { CitationList } from './citation-list'
+export type { Citation, CitationListProps } from './citation-list'
 export { Composer } from './composer'
 export type { ComposerProps } from './composer'
 export { Message } from './message'
@@ -12,6 +24,13 @@ export type {
   PermissionRequestProps,
   PermissionRequestState,
 } from './permission-request'
+export { Plan } from './plan'
+export type {
+  PlanProps,
+  PlanStatus,
+  PlanStep,
+  PlanStepStatus,
+} from './plan'
 export { Response } from './response'
 export type { ResponseProps } from './response'
 export { Thread } from './thread'

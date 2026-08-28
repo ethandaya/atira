@@ -1,8 +1,21 @@
 export { Button } from './button'
 export type { ButtonProps } from './button'
+export { Dialog } from './dialog'
+export type { DialogProps } from './dialog'
 export { Disclosure } from './disclosure'
 export type { DisclosureProps } from './disclosure'
-export { TextareaField } from './textarea-field'
-export type { TextareaFieldProps } from './textarea-field'
+export { IconButton } from './icon-button'
+export type { IconButtonProps } from './icon-button'
+export { Progress } from './progress'
+export type { ProgressProps } from './progress'
+export { Status } from './status'
+export type { StatusProps } from './status'
+export { TextareaField, TextareaField as ComposerField } from './textarea-field'
+export type {
+  TextareaFieldProps,
+  TextareaFieldProps as ComposerFieldProps,
+} from './textarea-field'
+export { TextField } from './text-field'
+export type { TextFieldProps } from './text-field'
 export { VisuallyHidden } from './visually-hidden'
 export type { VisuallyHiddenProps } from './visually-hidden'
