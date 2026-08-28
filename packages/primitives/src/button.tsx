@@ -17,7 +17,7 @@ type NativeButtonProps = Omit<
 export type ButtonProps = NativeButtonProps & {
   focusableWhenDisabled?: boolean
   size?: 'compact' | 'regular'
-  variant?: 'primary' | 'secondary' | 'quiet' | 'danger'
+  variant?: 'primary' | 'secondary' | 'outline' | 'quiet' | 'danger'
 }
 
 export function Button({
@@ -69,9 +69,10 @@ const styles = stylex.create({
       default: 'transparent',
       ':focus-visible': colors.focus,
     },
-    outlineOffset: '2px',
+    outlineOffset: 0,
     outlineStyle: 'solid',
-    outlineWidth: '2px',
+    outlineWidth: '3px',
+    position: 'relative',
     textDecoration: 'none',
     transitionDuration: {
       default: motion.durationFast,
@@ -80,8 +81,8 @@ const styles = stylex.create({
     transitionProperty: 'background-color, border-color, color, transform',
     transitionTimingFunction: motion.easingStandard,
     transform: {
-      default: 'scale(1)',
-      ':active': 'scale(0.96)',
+      default: 'translateY(0)',
+      ':active': 'translateY(1px)',
       '@media (prefers-reduced-motion: reduce)': 'none',
     },
     touchAction: 'manipulation',
@@ -96,15 +97,25 @@ const styles = stylex.create({
 const sizes = stylex.create({
   compact: {
     borderRadius: radii.control,
-    minHeight: '2.25rem',
-    paddingBlock: space.x2,
+    minHeight: '2rem',
+    paddingBlock: space.x1,
     paddingInline: space.x3,
+    '::before': {
+      content: '""',
+      inset: '-0.375rem',
+      position: 'absolute',
+    },
   },
   regular: {
     borderRadius: radii.control,
-    minHeight: '2.75rem',
+    minHeight: '2.25rem',
     paddingBlock: space.x2,
     paddingInline: space.x4,
+    '::before': {
+      content: '""',
+      inset: '-0.25rem',
+      position: 'absolute',
+    },
   },
 })
 
@@ -123,6 +134,18 @@ const variants = stylex.create({
   },
   secondary: {
     backgroundColor: {
+      default: colors.surfaceMuted,
+      ':hover': {
+        default: null,
+        '@media (hover: hover) and (pointer: fine)': colors.border,
+      },
+      ':active': colors.border,
+    },
+    borderColor: 'transparent',
+    color: colors.text,
+  },
+  outline: {
+    backgroundColor: {
       default: colors.surface,
       ':hover': {
         default: null,
@@ -130,7 +153,7 @@ const variants = stylex.create({
       },
       ':active': colors.surfaceMuted,
     },
-    borderColor: colors.borderStrong,
+    borderColor: colors.border,
     color: colors.text,
   },
   quiet: {
@@ -147,14 +170,14 @@ const variants = stylex.create({
   },
   danger: {
     backgroundColor: {
-      default: colors.danger,
+      default: colors.dangerSurface,
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.dangerHover,
+        '@media (hover: hover) and (pointer: fine)': colors.dangerSurfaceHover,
       },
-      ':active': colors.dangerPressed,
+      ':active': colors.dangerSurfaceHover,
     },
     borderColor: 'transparent',
-    color: colors.onDanger,
+    color: colors.danger,
   },
 })

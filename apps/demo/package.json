@@ -9,6 +9,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "catalog:",
+    "@fontsource-variable/geist-mono": "catalog:",
     "@pretty-amped/components": "workspace:*",
     "@pretty-amped/foundations": "workspace:*",
     "@pretty-amped/primitives": "workspace:*",

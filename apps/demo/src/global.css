@@ -12,9 +12,21 @@
   }
 
   body {
+    font-family:
+      "Geist Variable", "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-optical-sizing: auto;
     min-height: 100%;
     margin: 0;
     -webkit-font-smoothing: antialiased;
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family:
+      "Geist Mono Variable", "SFMono-Regular", Consolas, monospace;
   }
 
   button,

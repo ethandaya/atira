@@ -1,7 +1,6 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import {
   colors,
-  motion,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -64,15 +63,9 @@ const styles = stylex.create({
   trigger: {
     alignItems: 'center',
     appearance: 'none',
-    backgroundColor: {
-      default: 'transparent',
-      ':hover': {
-        default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
-      },
-    },
+    backgroundColor: 'transparent',
     borderColor: 'transparent',
-    borderRadius: '0.375rem',
+    borderRadius: 0,
     borderStyle: 'solid',
     borderWidth: '1px',
     color: colors.textMuted,
@@ -89,26 +82,22 @@ const styles = stylex.create({
       default: 'transparent',
       ':focus-visible': colors.focus,
     },
-    outlineOffset: '2px',
+    outlineOffset: '-3px',
     outlineStyle: 'solid',
-    outlineWidth: '2px',
+    outlineWidth: '3px',
     paddingBlock: space.x2,
-    paddingInline: space.x2,
+    paddingInline: space.x3,
     textAlign: 'start',
     touchAction: 'manipulation',
-    transitionDuration: {
-      default: motion.durationFast,
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    transitionProperty: 'background-color, color',
-    transitionTimingFunction: motion.easingStandard,
   },
   panel: {
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
     color: colors.textMuted,
     fontFamily: type.family,
     fontSize: type.sizeSmall,
     lineHeight: type.lineBody,
-    paddingBlockEnd: space.x3,
-    paddingInline: space.x2,
+    padding: space.x3,
   },
 })
