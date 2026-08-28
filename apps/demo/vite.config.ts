@@ -18,4 +18,7 @@ export default defineConfig(({ mode }) => ({
     }),
     react(),
   ],
+  server: {
+    allowedHosts: ['.onamp.dev'],
+  },
 }))
