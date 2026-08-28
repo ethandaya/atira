@@ -12,9 +12,9 @@ export const colors = stylex.defineVars({
   accentHover: 'oklch(0.32 0 0)',
   accentPressed: 'oklch(0.26 0 0)',
   onAccent: 'oklch(0.985 0 0)',
-  danger: 'oklch(0.577 0.245 27.325)',
-  dangerSurface: 'oklch(0.577 0.245 27.325 / 0.1)',
-  dangerSurfaceHover: 'oklch(0.577 0.245 27.325 / 0.2)',
+  danger: 'oklch(0.52 0.22 27.325)',
+  dangerSurface: 'oklch(0.52 0.22 27.325 / 0.1)',
+  dangerSurfaceHover: 'oklch(0.52 0.22 27.325 / 0.15)',
   focus: 'oklch(0.708 0 0 / 0.5)',
 })
 

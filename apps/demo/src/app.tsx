@@ -19,7 +19,10 @@ import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useEffect, useRef, useState } from 'react'
 
+import { ComponentGallery } from './component-gallery'
+
 type Theme = 'light' | 'dark'
+type View = 'workflow' | 'components'
 type Decision = 'approve' | 'reject'
 type ComposerStatus = 'idle' | 'submitting'
 type DemoReplyState = 'idle' | 'streaming' | 'complete' | 'interrupted'
@@ -37,6 +40,7 @@ export function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   )
+  const [view, setView] = useState<View>('workflow')
   const [requestState, setRequestState] =
     useState<PermissionRequestState>({ status: 'pending' })
   const [draft, setDraft] = useState('')
@@ -117,26 +121,47 @@ export function App() {
       )}
     >
       <header {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.headerInner)}>
+        <div
+          {...stylex.props(
+            styles.headerInner,
+            view === 'components' && styles.headerInnerWide,
+          )}
+        >
           <div {...stylex.props(styles.identity)}>
-            <h1 {...stylex.props(styles.title)}>Initial component wave</h1>
+            <h1 {...stylex.props(styles.title)}>
+              {view === 'workflow' ? 'Initial component wave' : 'Components'}
+            </h1>
             <span {...stylex.props(styles.product)}>Pretty Amped</span>
           </div>
-          <Button
-            aria-pressed={theme === 'dark'}
-            onClick={toggleTheme}
-            size="compact"
-            variant="quiet"
-          >
-            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </Button>
+          <div {...stylex.props(styles.headerActions)}>
+            <Button
+              onClick={() =>
+                setView((currentView) =>
+                  currentView === 'workflow' ? 'components' : 'workflow',
+                )
+              }
+              size="compact"
+              variant="quiet"
+            >
+              {view === 'workflow' ? 'Components' : 'Workflow'}
+            </Button>
+            <Button
+              aria-pressed={theme === 'dark'}
+              onClick={toggleTheme}
+              size="compact"
+              variant="quiet"
+            >
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </Button>
+          </div>
         </div>
       </header>
 
-      <div {...stylex.props(styles.workspace)}>
-        <main {...stylex.props(styles.scroller)}>
-          <div {...stylex.props(styles.transcript)}>
-            <Thread label="Component library implementation thread">
+      {view === 'workflow' ? (
+        <div {...stylex.props(styles.workspace)}>
+          <main {...stylex.props(styles.scroller)}>
+            <div {...stylex.props(styles.transcript)}>
+              <Thread label="Component library implementation thread">
               <Message actor="user">
                 Build the first AI interface components. Keep them minimal,
                 explicit, and accessible.
@@ -237,31 +262,34 @@ export function App() {
                   )}
                 </Message>
               )}
-            </Thread>
-          </div>
-        </main>
+              </Thread>
+            </div>
+          </main>
 
-        <div {...stylex.props(styles.composerDock)}>
-          <div {...stylex.props(styles.composerWrap)}>
-            {composerStatus === 'submitting' ? (
-              <Composer
-                onStop={stopReply}
-                onSubmit={submitMessage}
-                onValueChange={setDraft}
-                status="submitting"
-                value={draft}
-              />
-            ) : (
-              <Composer
-                onSubmit={submitMessage}
-                onValueChange={setDraft}
-                status="idle"
-                value={draft}
-              />
-            )}
+          <div {...stylex.props(styles.composerDock)}>
+            <div {...stylex.props(styles.composerWrap)}>
+              {composerStatus === 'submitting' ? (
+                <Composer
+                  onStop={stopReply}
+                  onSubmit={submitMessage}
+                  onValueChange={setDraft}
+                  status="submitting"
+                  value={draft}
+                />
+              ) : (
+                <Composer
+                  onSubmit={submitMessage}
+                  onValueChange={setDraft}
+                  status="idle"
+                  value={draft}
+                />
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <ComponentGallery />
+      )}
     </div>
   )
 }
@@ -287,7 +315,7 @@ const styles = stylex.create({
   headerInner: {
     alignItems: 'center',
     display: 'flex',
-    gap: space.x4,
+    gap: space.x2,
     justifyContent: 'space-between',
     marginInline: 'auto',
     maxInlineSize: '46rem',
@@ -296,6 +324,9 @@ const styles = stylex.create({
       default: space.x4,
       '@media (min-width: 48rem)': space.x6,
     },
+  },
+  headerInnerWide: {
+    maxInlineSize: '60rem',
   },
   identity: {
     alignItems: 'baseline',
@@ -314,6 +345,12 @@ const styles = stylex.create({
     color: colors.textMuted,
     fontSize: type.sizeCaption,
     lineHeight: type.lineCompact,
+  },
+  headerActions: {
+    alignItems: 'center',
+    display: 'flex',
+    flexShrink: 0,
+    gap: space.x1,
   },
   workspace: {
     display: 'flex',
