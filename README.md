@@ -7,7 +7,20 @@ Pretty Amped is the working title for two related products:
 
 The client should stay thin and protocol-neutral. The first live adapter will use native `fx acp`; Nanocodex and Amp remain useful future adapters. Protocol handling and product-specific composition belong at the application edge; visual language, interaction contracts, accessibility, semantic agent states, and theming belong in the library.
 
-This repository is currently in research and definition. Start with the [knowledge base](docs/knowledge-base/README.md).
+The repository now contains the first runnable vertical slice. Start with the
+[knowledge base](docs/knowledge-base/README.md), then run the demo:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+## Workspace
+
+- `packages/foundations` — semantic StyleX tokens and scoped themes
+- `packages/primitives` — owned React APIs backed by Base UI and styled with StyleX
+- `packages/components` — agent-interface components built only on owned primitives
+- `apps/demo` — Vite app consuming the workspace packages from source
 
 ## Knowledge base
 
@@ -23,4 +36,7 @@ This repository is currently in research and definition. Start with the [knowled
 
 ## Status
 
-No framework, package, or application scaffold has been committed yet. Statements marked **Proposal** or **Hypothesis** in the knowledge base are starting positions to validate, not settled project decisions.
+The first slice includes light/dark themes, a Base UI-backed `Button`, and a
+controlled `PermissionRequest`. Registry, CLI, MCP, blocks, and runtime adapters
+remain future tasks. Statements marked **Proposal** or **Hypothesis** in the
+knowledge base are starting positions to validate, not settled project decisions.

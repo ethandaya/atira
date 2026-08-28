@@ -5,7 +5,7 @@ import {
   radii,
   space,
   type,
-} from '@pretty-amped/foundations/tokens'
+} from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef } from 'react'
 

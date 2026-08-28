@@ -7,6 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
+    "build": "pnpm --filter @pretty-amped/demo build",
+    "check": "pnpm typecheck && pnpm build",
+    "dev": "pnpm --filter @pretty-amped/demo dev",
     "typecheck": "pnpm --recursive --if-present typecheck"
   },
   "devDependencies": {

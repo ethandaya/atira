@@ -3,10 +3,10 @@ import {
   radii,
   space,
   type,
-} from '@pretty-amped/foundations/tokens'
+} from '@pretty-amped/foundations/tokens.stylex'
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import { useId } from 'react'
+import { useEffect, useId, useRef, type MouseEvent } from 'react'
 
 export type PermissionConsequence =
   | 'reversible'
@@ -23,9 +23,9 @@ type PermissionRequestBaseProps = {
   approveLabel?: string
   consequence: PermissionConsequence
   effect: string
+  headingLevel?: 2 | 3 | 4 | 5 | 6
   id: string
   rejectLabel?: string
-  state: PermissionRequestState
   title: string
 }
 
@@ -54,11 +54,56 @@ const consequenceText: Record<PermissionConsequence, string> = {
 export function PermissionRequest(props: PermissionRequestProps) {
   const titleId = useId()
   const descriptionId = useId()
+  const rootRef = useRef<HTMLElement>(null)
+  const statusRef = useRef<HTMLParagraphElement>(null)
+  const focusStatusOnSettle = useRef(false)
   const isSubmitting = props.state.status === 'submitting'
   const decision = 'decision' in props.state ? props.state.decision : undefined
+  const Heading = `h${props.headingLevel ?? 2}` as const
+
+  useEffect(() => {
+    if (props.state.status === 'pending') {
+      focusStatusOnSettle.current = false
+      return
+    }
+
+    if (
+      focusStatusOnSettle.current &&
+      (props.state.status === 'resolved' || props.state.status === 'expired')
+    ) {
+      const activeElement = document.activeElement
+
+      if (
+        activeElement === document.body ||
+        rootRef.current?.contains(activeElement)
+      ) {
+        statusRef.current?.focus({ preventScroll: true })
+      }
+
+      focusStatusOnSettle.current = false
+    }
+  }, [props.state.status])
+
+  function submitDecision(
+    event: MouseEvent<HTMLButtonElement>,
+    nextDecision: 'approve' | 'reject',
+  ) {
+    if (props.state.status !== 'pending') {
+      return
+    }
+
+    focusStatusOnSettle.current = document.activeElement === event.currentTarget
+
+    if (nextDecision === 'approve') {
+      props.onApprove?.()
+    } else {
+      props.onReject?.()
+    }
+  }
 
   return (
     <section
+      ref={rootRef}
       aria-busy={isSubmitting || undefined}
       aria-describedby={descriptionId}
       aria-labelledby={titleId}
@@ -70,13 +115,13 @@ export function PermissionRequest(props: PermissionRequestProps) {
       {...stylex.props(styles.root)}
     >
       <div data-slot="permission-request-content" {...stylex.props(styles.content)}>
-        <h2
+        <Heading
           id={titleId}
           data-slot="permission-request-title"
           {...stylex.props(styles.title)}
         >
           {props.title}
-        </h2>
+        </Heading>
         <p
           id={descriptionId}
           data-slot="permission-request-effect"
@@ -97,7 +142,9 @@ export function PermissionRequest(props: PermissionRequestProps) {
 
       <div data-slot="permission-request-footer" {...stylex.props(styles.footer)}>
         <p
+          ref={statusRef}
           role="status"
+          tabIndex={-1}
           data-slot="permission-request-status"
           {...stylex.props(styles.status)}
         >
@@ -113,10 +160,8 @@ export function PermissionRequest(props: PermissionRequestProps) {
           >
             <Button
               disabled={isSubmitting}
-              focusableWhenDisabled={isSubmitting}
-              onClick={
-                props.state.status === 'pending' ? props.onReject : undefined
-              }
+              focusableWhenDisabled={isSubmitting && decision === 'reject'}
+              onClick={(event) => submitDecision(event, 'reject')}
               variant="secondary"
             >
               {isSubmitting && decision === 'reject'
@@ -125,10 +170,8 @@ export function PermissionRequest(props: PermissionRequestProps) {
             </Button>
             <Button
               disabled={isSubmitting}
-              focusableWhenDisabled={isSubmitting}
-              onClick={
-                props.state.status === 'pending' ? props.onApprove : undefined
-              }
+              focusableWhenDisabled={isSubmitting && decision === 'approve'}
+              onClick={(event) => submitDecision(event, 'approve')}
               variant="primary"
             >
               {isSubmitting && decision === 'approve'
