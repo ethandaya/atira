@@ -1,5 +1,12 @@
 import {
+  Activity,
+  Composer,
+  Message,
+  Outcome,
   PermissionRequest,
+  Response,
+  Thread,
+  ToolActivity,
   type PermissionRequestState,
 } from '@pretty-amped/components'
 import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
@@ -14,21 +21,56 @@ import { useEffect, useRef, useState } from 'react'
 
 type Theme = 'light' | 'dark'
 type Decision = 'approve' | 'reject'
+type ComposerStatus = 'idle' | 'submitting'
+type DemoReplyState = 'idle' | 'streaming' | 'complete' | 'interrupted'
+
+const requestCopy = {
+  consequence: 'reversible' as const,
+  effect:
+    'Write the first conversation and agent-state components to this local workspace. Existing source files may be updated.',
+  headingLevel: 2 as const,
+  id: 'write-component-wave',
+  title: 'Allow these component changes?',
+}
 
 export function App() {
-  const [theme, setTheme] = useState<Theme>('light')
+  const [theme, setTheme] = useState<Theme>(() =>
+    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+  )
   const [requestState, setRequestState] =
     useState<PermissionRequestState>({ status: 'pending' })
-  const pendingResolution = useRef<number | undefined>(undefined)
+  const [draft, setDraft] = useState('')
+  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null)
+  const [composerStatus, setComposerStatus] =
+    useState<ComposerStatus>('idle')
+  const [replyState, setReplyState] = useState<DemoReplyState>('idle')
+  const requestTimer = useRef<number | undefined>(undefined)
+  const replyTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
-    return () => window.clearTimeout(pendingResolution.current)
+    return () => {
+      window.clearTimeout(requestTimer.current)
+      window.clearTimeout(replyTimer.current)
+    }
   }, [])
+
+  function toggleTheme() {
+    document.documentElement.dataset.themeSwitching = 'true'
+    setTheme((currentTheme) =>
+      currentTheme === 'dark' ? 'light' : 'dark',
+    )
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        delete document.documentElement.dataset.themeSwitching
+      })
+    })
+  }
 
   function decide(decision: Decision) {
     setRequestState({ status: 'submitting', decision })
 
-    pendingResolution.current = window.setTimeout(() => {
+    requestTimer.current = window.setTimeout(() => {
       setRequestState({
         status: 'resolved',
         decision: decision === 'approve' ? 'approved' : 'rejected',
@@ -36,19 +78,34 @@ export function App() {
     }, 500)
   }
 
-  function resetRequest() {
-    window.clearTimeout(pendingResolution.current)
-    setRequestState({ status: 'pending' })
+  function submitMessage(value: string) {
+    window.clearTimeout(replyTimer.current)
+    setSubmittedMessage(value)
+    setDraft('')
+    setComposerStatus('submitting')
+    setReplyState('streaming')
+
+    replyTimer.current = window.setTimeout(() => {
+      setComposerStatus('idle')
+      setReplyState('complete')
+    }, 700)
   }
 
-  const requestProps = {
-    consequence: 'reversible' as const,
-    effect:
-      'Run pnpm build in this local project. The command may read source files and replace generated build output.',
-    headingLevel: 3 as const,
-    id: 'demo-build-approval',
-    title: 'Allow the agent to build this project?',
+  function stopReply() {
+    window.clearTimeout(replyTimer.current)
+    setComposerStatus('idle')
+    setReplyState('interrupted')
   }
+
+  const activityState =
+    requestState.status === 'pending'
+      ? ({ status: 'waiting' } as const)
+      : requestState.status === 'submitting'
+        ? ({ status: 'running' } as const)
+        : requestState.status === 'resolved' &&
+            requestState.decision === 'approved'
+          ? ({ status: 'succeeded' } as const)
+          : ({ status: 'cancelled' } as const)
 
   return (
     <div
@@ -59,55 +116,151 @@ export function App() {
         themeStyles[theme],
       )}
     >
-      <main {...stylex.props(styles.main)}>
-        <header {...stylex.props(styles.header)}>
-          <div {...stylex.props(styles.intro)}>
-            <h1 {...stylex.props(styles.heading)}>Pretty Amped</h1>
-            <p {...stylex.props(styles.description)}>
-              A StyleX-first React component system for agent interfaces.
-            </p>
+      <header {...stylex.props(styles.header)}>
+        <div {...stylex.props(styles.headerInner)}>
+          <div {...stylex.props(styles.identity)}>
+            <h1 {...stylex.props(styles.title)}>Initial component wave</h1>
+            <span {...stylex.props(styles.product)}>Pretty Amped</span>
           </div>
           <Button
             aria-pressed={theme === 'dark'}
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            variant="secondary"
+            onClick={toggleTheme}
+            variant="quiet"
           >
-            Use {theme === 'dark' ? 'light' : 'dark'} theme
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </Button>
-        </header>
+        </div>
+      </header>
 
-        <section aria-labelledby="permission-example" {...stylex.props(styles.demo)}>
-          <div {...stylex.props(styles.demoHeading)}>
-            <h2 id="permission-example" {...stylex.props(styles.sectionTitle)}>
-              Permission request
-            </h2>
-            <p {...stylex.props(styles.sectionDescription)}>
-              Controlled application state, explicit effects, and stable semantic
-              slots.
-            </p>
+      <div {...stylex.props(styles.workspace)}>
+        <main {...stylex.props(styles.scroller)}>
+          <div {...stylex.props(styles.transcript)}>
+            <Thread label="Component library implementation thread">
+              <Message actor="user">
+                Build the first AI interface components. Keep them minimal,
+                explicit, and accessible.
+              </Message>
+
+              <Message actor="assistant">
+                <Response status="complete">
+                  <p {...stylex.props(styles.responseText)}>
+                    I’m starting with the conversation and agent-state layer, then
+                    composing it into one small workflow instead of a component
+                    gallery.
+                  </p>
+
+                  <div {...stylex.props(styles.workflow)}>
+                    <ToolActivity
+                      id="reference-review"
+                      state={{ status: 'succeeded' }}
+                      summary="Compared the reference systems"
+                      tool="research"
+                    >
+                      <ul {...stylex.props(styles.evidenceList)}>
+                        <li>shadcn — source ownership and restrained controls</li>
+                        <li>AICSS — AI-specific states and compact surfaces</li>
+                        <li>
+                          Fluid Functionalism — substrate, motion, and lighter
+                          message anatomy
+                        </li>
+                      </ul>
+                    </ToolActivity>
+
+                    <Activity
+                      detail="Eight controlled React components with stable state and slot markers."
+                      id="component-boundary"
+                      label="Defined the component boundary"
+                      state={activityState}
+                    />
+
+                    {requestState.status === 'pending' ? (
+                      <PermissionRequest
+                        {...requestCopy}
+                        state={requestState}
+                        onApprove={() => decide('approve')}
+                        onReject={() => decide('reject')}
+                      />
+                    ) : (
+                      <PermissionRequest {...requestCopy} state={requestState} />
+                    )}
+
+                    {requestState.status === 'resolved' &&
+                      (requestState.decision === 'approved' ? (
+                        <Outcome
+                          headingLevel={2}
+                          id="component-wave-outcome"
+                          state={{ status: 'reviewable' }}
+                          title="Components ready for review"
+                        >
+                          The initial wave is composed and can now be evaluated as
+                          one human-and-agent workflow.
+                        </Outcome>
+                      ) : (
+                        <Outcome
+                          headingLevel={2}
+                          id="component-wave-outcome"
+                          state={{ status: 'blocked' }}
+                          title="Changes were not allowed"
+                        >
+                          The workflow stopped at the permission boundary.
+                        </Outcome>
+                      ))}
+                  </div>
+                </Response>
+              </Message>
+
+              {submittedMessage && (
+                <Message actor="user">{submittedMessage}</Message>
+              )}
+
+              {replyState !== 'idle' && (
+                <Message actor="assistant">
+                  {replyState === 'streaming' ? (
+                    <Response status="streaming">
+                      <Activity
+                        id="demo-response"
+                        label="Preparing a controlled response"
+                        state={{ status: 'running' }}
+                      />
+                    </Response>
+                  ) : replyState === 'interrupted' ? (
+                    <Response status="interrupted">
+                      The demo request was stopped before completion.
+                    </Response>
+                  ) : (
+                    <Response status="complete">
+                      The composer emitted a named submit action; the demo fixture
+                      owns this response state. The component itself owns no timer,
+                      network request, or model runtime.
+                    </Response>
+                  )}
+                </Message>
+              )}
+            </Thread>
           </div>
+        </main>
 
-          {requestState.status === 'pending' ? (
-            <PermissionRequest
-              {...requestProps}
-              state={requestState}
-              onApprove={() => decide('approve')}
-              onReject={() => decide('reject')}
-            />
-          ) : (
-            <PermissionRequest {...requestProps} state={requestState} />
-          )}
-
-          {(requestState.status === 'resolved' ||
-            requestState.status === 'expired') && (
-            <div {...stylex.props(styles.reset)}>
-              <Button onClick={resetRequest} variant="quiet">
-                Reset request
-              </Button>
-            </div>
-          )}
-        </section>
-      </main>
+        <div {...stylex.props(styles.composerDock)}>
+          <div {...stylex.props(styles.composerWrap)}>
+            {composerStatus === 'submitting' ? (
+              <Composer
+                onStop={stopReply}
+                onSubmit={submitMessage}
+                onValueChange={setDraft}
+                status="submitting"
+                value={draft}
+              />
+            ) : (
+              <Composer
+                onSubmit={submitMessage}
+                onValueChange={setDraft}
+                status="idle"
+                value={draft}
+              />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -115,94 +268,108 @@ export function App() {
 const styles = stylex.create({
   app: {
     backgroundColor: colors.canvas,
+    blockSize: '100dvh',
     color: colors.text,
-    fontFamily: type.family,
-    minHeight: '100dvh',
-  },
-  main: {
     display: 'flex',
     flexDirection: 'column',
-    gap: {
-      default: '3.5rem',
-      '@media (min-width: 48rem)': '5rem',
-    },
+    fontFamily: type.family,
+    minBlockSize: '30rem',
+    overflow: 'hidden',
+  },
+  header: {
+    backgroundColor: colors.canvas,
+    borderBlockEndColor: colors.border,
+    borderBlockEndStyle: 'solid',
+    borderBlockEndWidth: '1px',
+    flexShrink: 0,
+  },
+  headerInner: {
+    alignItems: 'center',
+    display: 'flex',
+    gap: space.x4,
+    justifyContent: 'space-between',
     marginInline: 'auto',
-    maxWidth: '68rem',
+    maxInlineSize: '46rem',
+    minBlockSize: '3.5rem',
+    paddingInline: {
+      default: space.x4,
+      '@media (min-width: 48rem)': space.x6,
+    },
+  },
+  identity: {
+    alignItems: 'baseline',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: space.x2,
+    minInlineSize: 0,
+  },
+  title: {
+    fontSize: type.sizeBody,
+    fontWeight: type.weightStrong,
+    lineHeight: type.lineCompact,
+    margin: 0,
+  },
+  product: {
+    color: colors.textMuted,
+    fontSize: type.sizeCaption,
+    lineHeight: type.lineCompact,
+  },
+  workspace: {
+    display: 'flex',
+    flex: 1,
+    flexDirection: 'column',
+    minBlockSize: 0,
+  },
+  scroller: {
+    flex: 1,
+    minBlockSize: 0,
+    overflowY: 'auto',
+    overscrollBehaviorY: 'contain',
+  },
+  transcript: {
+    marginInline: 'auto',
+    maxInlineSize: '46rem',
     paddingBlock: {
       default: space.x6,
-      '@media (min-width: 48rem)': '3.5rem',
+      '@media (min-width: 48rem)': space.x8,
     },
     paddingInline: {
       default: space.x4,
-      '@media (min-width: 48rem)': space.x8,
+      '@media (min-width: 48rem)': space.x6,
     },
   },
-  header: {
-    alignItems: {
-      default: 'flex-start',
-      '@media (min-width: 36rem)': 'center',
-    },
-    display: 'flex',
-    flexDirection: {
-      default: 'column',
-      '@media (min-width: 36rem)': 'row',
-    },
-    gap: space.x4,
-    justifyContent: 'space-between',
+  responseText: {
+    margin: 0,
+    maxInlineSize: '65ch',
   },
-  intro: {
+  workflow: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x2,
+    gap: space.x3,
+    inlineSize: '100%',
+    paddingBlockStart: space.x2,
   },
-  heading: {
-    fontSize: {
-      default: '1.5rem',
-      '@media (min-width: 48rem)': '1.75rem',
-    },
-    fontWeight: type.weightStrong,
-    letterSpacing: '-0.025em',
-    lineHeight: type.lineCompact,
-    margin: 0,
-    textWrap: 'balance',
-  },
-  description: {
-    color: colors.textMuted,
-    fontSize: type.sizeBody,
-    lineHeight: type.lineBody,
-    margin: 0,
-    maxWidth: '42rem',
-  },
-  demo: {
-    alignItems: 'center',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x5,
-  },
-  demoHeading: {
+  evidenceList: {
     display: 'flex',
     flexDirection: 'column',
     gap: space.x1,
-    maxWidth: '34rem',
-    width: '100%',
-  },
-  sectionTitle: {
-    fontSize: type.sizeTitle,
-    fontWeight: type.weightStrong,
-    lineHeight: type.lineCompact,
+    listStyle: 'none',
     margin: 0,
+    padding: 0,
   },
-  sectionDescription: {
-    color: colors.textMuted,
-    fontSize: type.sizeSmall,
-    lineHeight: type.lineBody,
-    margin: 0,
+  composerDock: {
+    backgroundColor: colors.canvas,
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
+    flexShrink: 0,
+    paddingBlockEnd: `max(${space.x4}, env(safe-area-inset-bottom))`,
+    paddingBlockStart: space.x3,
+    paddingInline: space.x4,
   },
-  reset: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    maxWidth: '34rem',
-    width: '100%',
+  composerWrap: {
+    marginInline: 'auto',
+    maxInlineSize: '43rem',
   },
 })
 

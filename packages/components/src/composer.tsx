@@ -98,7 +98,7 @@ export function Composer({
     >
       <TextareaField
         autoComplete="off"
-        disabled={disabled || active}
+        disabled={disabled}
         label={inputLabel}
         labelHidden
         onKeyDown={submitWithKeyboard}
@@ -149,7 +149,8 @@ const styles = stylex.create({
     borderWidth: '1px',
     boxSizing: 'border-box',
     display: 'flex',
-    flexDirection: 'column',
+    alignItems: 'flex-end',
+    flexDirection: 'row',
     gap: space.x1,
     inlineSize: '100%',
     outlineColor: {
@@ -159,7 +160,7 @@ const styles = stylex.create({
     outlineOffset: '2px',
     outlineStyle: 'solid',
     outlineWidth: '2px',
-    padding: space.x2,
+    padding: space.x1,
     transitionDuration: {
       default: motion.durationFast,
       '@media (prefers-reduced-motion: reduce)': '0ms',
@@ -170,14 +171,14 @@ const styles = stylex.create({
   footer: {
     alignItems: 'center',
     display: 'flex',
-    gap: space.x2,
+    flexShrink: 0,
+    gap: space.x1,
     justifyContent: 'space-between',
   },
   actions: {
     alignItems: 'center',
     display: 'flex',
     gap: space.x1,
-    minBlockSize: '2.75rem',
     minInlineSize: 0,
   },
 })

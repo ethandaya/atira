@@ -25,7 +25,7 @@ export function Thread({
   label,
   ...props
 }: ThreadProps) {
-  const isEmpty = Children.count(children) === 0
+  const isEmpty = Children.toArray(children).length === 0
 
   return (
     <section

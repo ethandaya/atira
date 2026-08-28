@@ -78,15 +78,19 @@ export function Activity({
 const styles = stylex.create({
   root: {
     alignItems: 'baseline',
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
     color: colors.textMuted,
-    display: 'flex',
-    flexWrap: 'wrap',
+    display: 'grid',
     fontFamily: type.family,
     fontSize: type.sizeSmall,
     gap: space.x2,
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
     lineHeight: type.lineBody,
     minBlockSize: '2.75rem',
     paddingBlock: space.x2,
+    paddingInline: space.x2,
   },
   label: {
     color: colors.text,
@@ -99,7 +103,7 @@ const styles = stylex.create({
     color: colors.danger,
   },
   detail: {
-    flexBasis: '100%',
+    gridColumn: '1 / -1',
     overflowWrap: 'anywhere',
   },
 })
