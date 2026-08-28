@@ -100,7 +100,13 @@ export function Diff({
                 defaultOpen={file.defaultOpen ?? true}
                 summary={<FileSummary file={file} />}
               >
-                <div data-slot="diff-file-content" {...stylex.props(styles.fileContent)}>
+                <div
+                  role="region"
+                  aria-label={`${file.path} changed lines`}
+                  tabIndex={0}
+                  data-slot="diff-file-content"
+                  {...stylex.props(styles.fileContent)}
+                >
                   {file.hunks.length === 0 ? (
                     <p data-slot="diff-file-empty" {...stylex.props(styles.fileEmpty)}>
                       No line changes provided.
@@ -173,9 +179,11 @@ function Hunk({ hunk }: { hunk: DiffHunk }) {
             </span>
             <code data-slot="diff-line-code" {...stylex.props(styles.lineCode)}>
               <VisuallyHidden>{getLineLabel(line)}</VisuallyHidden>
-              <span aria-hidden="true" {...stylex.props(styles.prefix)}>
-                {getLinePrefix(line.kind)}
-              </span>
+              <span
+                aria-hidden="true"
+                data-prefix={getLinePrefix(line.kind)}
+                {...stylex.props(styles.prefix)}
+              />
               {line.content || ' '}
             </code>
           </li>
@@ -264,6 +272,13 @@ const styles = stylex.create({
     color: colors.danger,
   },
   fileContent: {
+    outlineColor: {
+      default: 'transparent',
+      ':focus-visible': colors.focus,
+    },
+    outlineOffset: '-3px',
+    outlineStyle: 'solid',
+    outlineWidth: '3px',
     overflowX: 'auto',
   },
   fileEmpty: {
@@ -324,7 +339,9 @@ const styles = stylex.create({
     whiteSpace: 'pre',
   },
   prefix: {
-    color: colors.textMuted,
+    '::before': {
+      content: 'attr(data-prefix)',
+    },
     userSelect: 'none',
   },
   empty: {

@@ -107,6 +107,7 @@ export function CodeBlock({
         </div>
       )}
       <pre
+        role="region"
         tabIndex={wrap ? undefined : 0}
         aria-label={`${label} contents`}
         data-slot="code-block-scroll-area"

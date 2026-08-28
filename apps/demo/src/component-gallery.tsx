@@ -1,9 +1,15 @@
 import {
-  Activity,
+  ActivityList,
+  ActivitySummary,
+  Artifact,
+  CitationList,
+  CodeBlock,
   Composer,
+  Diff,
   Message,
   Outcome,
   PermissionRequest,
+  Plan,
   Response,
   Thread,
   ToolActivity,
@@ -17,18 +23,29 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import {
   Button,
+  ComposerField,
+  Dialog,
   Disclosure,
-  TextareaField,
+  IconButton,
+  Progress,
+  Status,
+  TextField,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useId, useState, type ReactNode } from 'react'
 
 export function ComponentGallery() {
-  const [textareaValue, setTextareaValue] = useState('')
+  const [textFieldValue, setTextFieldValue] = useState('')
+  const [composerFieldValue, setComposerFieldValue] = useState('')
   const [composerValue, setComposerValue] = useState('')
   const [composerResult, setComposerResult] = useState('No message submitted.')
   const [buttonResult, setButtonResult] = useState('No button pressed.')
+  const [iconButtonResult, setIconButtonResult] = useState('No icon button pressed.')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogResult, setDialogResult] = useState('Dialog has not been opened.')
+  const [activityListOpen, setActivityListOpen] = useState(false)
+  const [artifactResult, setArtifactResult] = useState('No artifact opened.')
   const [permissionState, setPermissionState] =
     useState<PermissionRequestState>({ status: 'pending' })
 
@@ -77,16 +94,53 @@ export function ComponentGallery() {
             </ComponentSample>
 
             <ComponentSample
-              title="TextareaField"
-              description="A labeled, controlled textarea with mobile-safe text sizing."
+              title="IconButton"
+              description="A square button with a required accessible label."
             >
-              <TextareaField
+              <div {...stylex.props(styles.controls)}>
+                <IconButton
+                  aria-label="Add item"
+                  onClick={() => setIconButtonResult('Add item pressed.')}
+                >
+                  <PlusIcon />
+                </IconButton>
+                <IconButton
+                  aria-label="Remove item"
+                  onClick={() => setIconButtonResult('Remove item pressed.')}
+                  variant="outline"
+                >
+                  <MinusIcon />
+                </IconButton>
+              </div>
+              <p role="status" {...stylex.props(styles.sampleStatus)}>
+                {iconButtonResult}
+              </p>
+            </ComponentSample>
+
+            <ComponentSample
+              title="TextField"
+              description="A labeled, controlled single-line field."
+            >
+              <TextField
+                description="The label and description remain associated with the control."
+                label="Component name"
+                onValueChange={setTextFieldValue}
+                placeholder="Message"
+                value={textFieldValue}
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="ComposerField"
+              description="A multiline field with mobile-safe text sizing."
+            >
+              <ComposerField
                 description="The label and description remain associated with the control."
                 label="Instruction"
-                onValueChange={setTextareaValue}
+                onValueChange={setComposerFieldValue}
                 placeholder="Describe the change…"
                 rows={3}
-                value={textareaValue}
+                value={composerFieldValue}
               />
             </ComponentSample>
 
@@ -99,6 +153,62 @@ export function ComponentGallery() {
                   State and relationships remain explicit while secondary evidence
                   stays out of the primary reading flow.
                 </Disclosure>
+              </div>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Dialog"
+              description="A modal surface with focus management and Escape handling."
+            >
+              <Dialog
+                actions={(
+                  <Button
+                    onClick={() => {
+                      setDialogResult('Dialog action confirmed.')
+                      setDialogOpen(false)
+                    }}
+                    size="compact"
+                    variant="primary"
+                  >
+                    Confirm
+                  </Button>
+                )}
+                description="Focus stays inside this dialog until it closes."
+                headingLevel={4}
+                onOpenChange={(open) => {
+                  setDialogOpen(open)
+                  if (open) setDialogResult('Dialog opened.')
+                }}
+                open={dialogOpen}
+                title="Review component behavior"
+                trigger="Open dialog"
+              >
+                <p {...stylex.props(styles.note)}>
+                  Press Escape or use Close to return focus to the trigger.
+                </p>
+              </Dialog>
+              <p role="status" {...stylex.props(styles.sampleStatus)}>
+                {dialogResult}
+              </p>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Status"
+              description="Compact semantic state text with neutral and danger tones."
+            >
+              <div {...stylex.props(styles.controls)}>
+                <Status>Ready</Status>
+                <Status tone="danger">Failed</Status>
+              </div>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Progress"
+              description="Determinate and indeterminate progress with reduced motion."
+            >
+              <div {...stylex.props(styles.stack)}>
+                <Progress label="Indexing files" value={64} valueLabel="64%" />
+                <Progress label="Preparing preview" value={null} valueLabel="Working" />
               </div>
             </ComponentSample>
 
@@ -178,22 +288,22 @@ export function ComponentGallery() {
 
           <div {...stylex.props(styles.grid)}>
             <ComponentSample
-              title="Activity"
+              title="ActivitySummary"
               description="Stable identifiers and named progress states."
             >
               <div {...stylex.props(styles.stack)}>
-                <Activity
+                <ActivitySummary
                   id="gallery-running"
                   label="Reading component sources"
                   state={{ status: 'running' }}
                 />
-                <Activity
+                <ActivitySummary
                   detail="Waiting for a decision before writing files."
                   id="gallery-waiting"
                   label="Preparing changes"
                   state={{ status: 'waiting' }}
                 />
-                <Activity
+                <ActivitySummary
                   id="gallery-failed"
                   label="Production build"
                   state={{ status: 'failed' }}
@@ -214,6 +324,32 @@ export function ComponentGallery() {
               >
                 <code {...stylex.props(styles.code)}>2 files changed</code>
               </ToolActivity>
+            </ComponentSample>
+
+            <ComponentSample
+              title="ActivityList"
+              description="A controlled, chronological disclosure for tool evidence."
+              wide
+            >
+              <ActivityList
+                id="gallery-activity-list"
+                label="Recent activity"
+                mode="disclosed"
+                onOpenChange={setActivityListOpen}
+                open={activityListOpen}
+              >
+                <ActivitySummary
+                  id="gallery-list-read"
+                  label="Read component contracts"
+                  state={{ status: 'succeeded' }}
+                />
+                <ToolActivity
+                  id="gallery-list-build"
+                  state={{ status: 'running' }}
+                  summary="Building the demo"
+                  tool="pnpm"
+                />
+              </ActivityList>
             </ComponentSample>
 
             <ComponentSample
@@ -293,6 +429,186 @@ export function ComponentGallery() {
             </ComponentSample>
           </div>
         </section>
+
+        <section aria-labelledby="output-heading" {...stylex.props(styles.group)}>
+          <GroupHeading
+            id="output-heading"
+            title="Structured output"
+            description="Typed plans, code, changes, provenance, and generated artifacts."
+          />
+
+          <div {...stylex.props(styles.grid)}>
+            <ComponentSample
+              title="Plan"
+              description="Ordered work with explicit plan and step states."
+              wide
+            >
+              <Plan
+                headingLevel={4}
+                id="gallery-plan"
+                status="active"
+                steps={[
+                  {
+                    detail: 'Mapped to the canonical catalog.',
+                    id: 'gallery-plan-contracts',
+                    status: 'complete',
+                    title: 'Define component contracts',
+                  },
+                  {
+                    detail: 'Translating the neutral baseline into StyleX.',
+                    id: 'gallery-plan-styles',
+                    status: 'active',
+                    title: 'Implement accessible components',
+                  },
+                  {
+                    id: 'gallery-plan-review',
+                    status: 'queued',
+                    title: 'Review representative states',
+                  },
+                ]}
+                title="Component parity"
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="CodeBlock"
+              description="Geist Mono code with wrapping, scrolling, and copy feedback."
+              wide
+            >
+              <CodeBlock
+                code={`export function ActivitySummary(props: ActivityProps) {\n  return <Activity {...props} />\n}\n\nconst componentBoundary = 'presentation remains protocol-neutral and runtime state stays outside the component';`}
+                filename="activity-summary.tsx"
+                language="tsx"
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="Diff"
+              description="Structured files, hunks, and lines with accessible labels."
+              wide
+            >
+              <Diff
+                files={[
+                  {
+                    additions: 2,
+                    deletions: 1,
+                    hunks: [
+                      {
+                        header: '@@ -18,3 +18,4 @@ export function Composer',
+                        id: 'gallery-diff-hunk-composer',
+                        lines: [
+                          {
+                            content: '  const canSubmit = value.trim().length > 0',
+                            id: 'gallery-diff-context-1',
+                            kind: 'context',
+                            newLine: 18,
+                            oldLine: 18,
+                          },
+                          {
+                            content: '  const submitLabel = "Send"',
+                            id: 'gallery-diff-deletion-1',
+                            kind: 'deletion',
+                            oldLine: 19,
+                          },
+                          {
+                            content: '  const submitLabel = status === "submitting" ? "Sending…" : "Send"',
+                            id: 'gallery-diff-addition-1',
+                            kind: 'addition',
+                            newLine: 19,
+                          },
+                          {
+                            content: '  const submitDisabled = !canSubmit || status === "submitting"',
+                            id: 'gallery-diff-addition-2',
+                            kind: 'addition',
+                            newLine: 20,
+                          },
+                        ],
+                      },
+                    ],
+                    id: 'gallery-diff-composer',
+                    path: 'packages/components/src/composer.tsx',
+                    status: 'modified',
+                  },
+                  {
+                    additions: 24,
+                    defaultOpen: false,
+                    deletions: 0,
+                    hunks: [],
+                    id: 'gallery-diff-manifest',
+                    path: 'packages/components/src/composer.manifest.ts',
+                    status: 'added',
+                  },
+                ]}
+                headingLevel={4}
+                id="gallery-diff"
+                title="Composer changes"
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="CitationList"
+              description="Source provenance with valid, unavailable, and invalid links."
+            >
+              <CitationList
+                citations={[
+                  {
+                    description: 'Why Linear adopted StyleX for long-lived product UI.',
+                    href: 'https://linear.app/now/styling-linear-for-the-future-stylex',
+                    id: 'gallery-citation-linear',
+                    source: 'Linear',
+                    title: 'Styling Linear for the future',
+                  },
+                  {
+                    id: 'gallery-citation-notes',
+                    source: 'Research notes',
+                    title: 'Internal component boundary notes',
+                  },
+                  {
+                    href: 'ftp://example.com/component-notes',
+                    id: 'gallery-citation-invalid',
+                    title: 'Unsupported source URL',
+                  },
+                ]}
+                headingLevel={4}
+                id="gallery-citations"
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="Artifact"
+              description="Protocol-neutral references with explicit availability and actions."
+            >
+              <div {...stylex.props(styles.stack)}>
+                <Artifact
+                  description="A visual review capture from the component gallery."
+                  headingLevel={4}
+                  id="gallery-artifact-ready"
+                  kind="image"
+                  metadata={[
+                    { id: 'format', label: 'Format', value: 'PNG' },
+                    { id: 'size', label: 'Size', value: '1440×900' },
+                  ]}
+                  onOpen={() =>
+                    setArtifactResult('Open requested for component-gallery.png.')
+                  }
+                  state={{ status: 'ready' }}
+                  title="component-gallery.png"
+                />
+                <Artifact
+                  description="The runtime owns generation progress."
+                  headingLevel={4}
+                  id="gallery-artifact-generating"
+                  kind="result"
+                  state={{ status: 'generating' }}
+                  title="Accessibility report"
+                />
+              </div>
+              <p role="status" {...stylex.props(styles.sampleStatus)}>
+                {artifactResult}
+              </p>
+            </ComponentSample>
+          </div>
+        </section>
       </div>
     </main>
   )
@@ -343,6 +659,22 @@ function ComponentSample({
       </div>
       <div {...stylex.props(styles.preview)}>{children}</div>
     </article>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="1em" height="1em" fill="none" focusable="false">
+      <path d="M10 4v12M4 10h12" stroke="currentColor" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function MinusIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="1em" height="1em" fill="none" focusable="false">
+      <path d="M4 10h12" stroke="currentColor" strokeLinecap="round" />
+    </svg>
   )
 }
 
