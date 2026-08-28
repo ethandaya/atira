@@ -1,0 +1,27 @@
+{
+  "name": "@pretty-amped/components",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@pretty-amped/foundations": "workspace:*",
+    "@pretty-amped/primitives": "workspace:*"
+  },
+  "peerDependencies": {
+    "@stylexjs/stylex": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@stylexjs/stylex": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:"
+  }
+}
