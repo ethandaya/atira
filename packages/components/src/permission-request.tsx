@@ -162,7 +162,8 @@ export function PermissionRequest(props: PermissionRequestProps) {
               disabled={isSubmitting}
               focusableWhenDisabled={isSubmitting && decision === 'reject'}
               onClick={(event) => submitDecision(event, 'reject')}
-              variant="secondary"
+              size="compact"
+              variant="outline"
             >
               {isSubmitting && decision === 'reject'
                 ? 'Denying…'
@@ -172,6 +173,7 @@ export function PermissionRequest(props: PermissionRequestProps) {
               disabled={isSubmitting}
               focusableWhenDisabled={isSubmitting && decision === 'approve'}
               onClick={(event) => submitDecision(event, 'approve')}
+              size="compact"
               variant="primary"
             >
               {isSubmitting && decision === 'approve'
@@ -214,18 +216,19 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     fontFamily: type.family,
-    gap: space.x3,
+    gap: 0,
     inlineSize: '100%',
-    padding: space.x3,
+    overflow: 'hidden',
   },
   content: {
     display: 'flex',
     flexDirection: 'column',
     gap: space.x2,
+    padding: space.x4,
   },
   title: {
     fontSize: type.sizeTitle,
-    fontWeight: type.weightStrong,
+    fontWeight: type.weightMedium,
     lineHeight: type.lineCompact,
     margin: 0,
     textWrap: 'balance',
@@ -250,15 +253,21 @@ const styles = stylex.create({
   footer: {
     alignItems: {
       default: 'stretch',
-      '@media (min-width: 30rem)': 'center',
+      '@media (min-width: 40rem)': 'center',
     },
+    backgroundColor: colors.surfaceMuted,
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
     display: 'flex',
     flexDirection: {
       default: 'column',
-      '@media (min-width: 30rem)': 'row',
+      '@media (min-width: 40rem)': 'row',
     },
     gap: space.x3,
     justifyContent: 'space-between',
+    paddingBlock: space.x3,
+    paddingInline: space.x4,
   },
   status: {
     color: colors.textMuted,
@@ -270,7 +279,7 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: {
       default: 'column-reverse',
-      '@media (min-width: 22rem)': 'row',
+      '@media (min-width: 40rem)': 'row',
     },
     gap: space.x2,
   },

@@ -72,7 +72,6 @@ const styles = stylex.create({
     outlineOffset: 0,
     outlineStyle: 'solid',
     outlineWidth: '3px',
-    position: 'relative',
     textDecoration: 'none',
     transitionDuration: {
       default: motion.durationFast,
@@ -97,25 +96,21 @@ const styles = stylex.create({
 const sizes = stylex.create({
   compact: {
     borderRadius: radii.control,
-    minHeight: '2rem',
+    minHeight: {
+      default: '2rem',
+      '@media (hover: none)': '2.75rem',
+    },
     paddingBlock: space.x1,
     paddingInline: space.x3,
-    '::before': {
-      content: '""',
-      inset: '-0.375rem',
-      position: 'absolute',
-    },
   },
   regular: {
     borderRadius: radii.control,
-    minHeight: '2.25rem',
+    minHeight: {
+      default: '2.25rem',
+      '@media (hover: none)': '2.75rem',
+    },
     paddingBlock: space.x2,
     paddingInline: space.x4,
-    '::before': {
-      content: '""',
-      inset: '-0.25rem',
-      position: 'absolute',
-    },
   },
 })
 

@@ -136,10 +136,11 @@ const articleStyles = stylex.create({
 
 const contentStyles = stylex.create({
   user: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.accent,
     borderRadius: radii.surface,
-    paddingBlock: space.x3,
-    paddingInline: space.x4,
+    color: colors.onAccent,
+    paddingBlock: space.x2,
+    paddingInline: space.x3,
   },
   assistant: {},
   system: {

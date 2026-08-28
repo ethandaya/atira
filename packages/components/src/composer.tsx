@@ -121,11 +121,16 @@ export function Composer({
           {actions}
         </div>
         {active ? (
-          <Button onClick={onStop} variant="secondary">
+          <Button onClick={onStop} size="compact" variant="primary">
             Stop
           </Button>
         ) : (
-          <Button disabled={!canSubmit} type="submit" variant="primary">
+          <Button
+            disabled={!canSubmit}
+            size="compact"
+            type="submit"
+            variant="primary"
+          >
             {sendLabel}
           </Button>
         )}
@@ -137,30 +142,24 @@ export function Composer({
 const styles = stylex.create({
   root: {
     backgroundColor: colors.surface,
-    borderColor: {
-      default: colors.border,
-      ':hover': {
-        default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.borderStrong,
-      },
-    },
+    borderColor: colors.border,
     borderRadius: radii.surface,
     borderStyle: 'solid',
     borderWidth: '1px',
     boxSizing: 'border-box',
     display: 'flex',
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: space.x1,
+    alignItems: 'stretch',
+    flexDirection: 'column',
+    gap: 0,
     inlineSize: '100%',
     outlineColor: {
       default: 'transparent',
       ':focus-within': colors.focus,
     },
-    outlineOffset: '2px',
+    outlineOffset: 0,
     outlineStyle: 'solid',
-    outlineWidth: '2px',
-    padding: space.x1,
+    outlineWidth: '3px',
+    padding: 0,
     transitionDuration: {
       default: motion.durationFast,
       '@media (prefers-reduced-motion: reduce)': '0ms',
@@ -172,8 +171,11 @@ const styles = stylex.create({
     alignItems: 'center',
     display: 'flex',
     flexShrink: 0,
-    gap: space.x1,
+    gap: space.x2,
     justifyContent: 'space-between',
+    minBlockSize: '2.5rem',
+    paddingBlockEnd: space.x2,
+    paddingInline: space.x2,
   },
   actions: {
     alignItems: 'center',

@@ -125,6 +125,7 @@ export function App() {
           <Button
             aria-pressed={theme === 'dark'}
             onClick={toggleTheme}
+            size="compact"
             variant="quiet"
           >
             {theme === 'dark' ? 'Light mode' : 'Dark mode'}
@@ -330,7 +331,7 @@ const styles = stylex.create({
     marginInline: 'auto',
     maxInlineSize: '46rem',
     paddingBlock: {
-      default: space.x6,
+      default: space.x4,
       '@media (min-width: 48rem)': space.x8,
     },
     paddingInline: {
@@ -359,9 +360,6 @@ const styles = stylex.create({
   },
   composerDock: {
     backgroundColor: colors.canvas,
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
     flexShrink: 0,
     paddingBlockEnd: `max(${space.x4}, env(safe-area-inset-bottom))`,
     paddingBlockStart: space.x3,

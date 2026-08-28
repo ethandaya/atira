@@ -77,10 +77,7 @@ export function Activity({
 
 const styles = stylex.create({
   root: {
-    alignItems: 'baseline',
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
+    alignItems: 'center',
     color: colors.textMuted,
     display: 'grid',
     fontFamily: type.family,
@@ -88,21 +85,31 @@ const styles = stylex.create({
     gap: space.x2,
     gridTemplateColumns: 'minmax(0, 1fr) auto',
     lineHeight: type.lineBody,
-    minBlockSize: '2.75rem',
-    paddingBlock: space.x2,
-    paddingInline: space.x2,
+    minBlockSize: '2rem',
+    paddingBlock: space.x1,
   },
   label: {
     color: colors.text,
     fontWeight: type.weightMedium,
   },
   status: {
+    borderColor: colors.border,
+    borderRadius: '999px',
+    borderStyle: 'solid',
+    borderWidth: '1px',
     color: colors.textMuted,
+    fontSize: type.sizeCaption,
+    lineHeight: type.lineCompact,
+    paddingBlock: '0.125rem',
+    paddingInline: space.x2,
   },
   failed: {
+    backgroundColor: colors.dangerSurface,
+    borderColor: colors.danger,
     color: colors.danger,
   },
   detail: {
+    fontSize: type.sizeSmall,
     gridColumn: '1 / -1',
     overflowWrap: 'anywhere',
   },

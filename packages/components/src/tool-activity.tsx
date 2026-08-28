@@ -50,8 +50,16 @@ export function ToolActivity({
 }: ToolActivityProps) {
   const header = (
     <span data-slot="tool-activity-header" {...stylex.props(styles.header)}>
-      <span data-slot="tool-activity-summary" {...stylex.props(styles.summary)}>
-        {summary}
+      <span {...stylex.props(styles.heading)}>
+        <span
+          data-slot="tool-activity-summary"
+          {...stylex.props(styles.summary)}
+        >
+          {summary}
+        </span>
+        <span data-slot="tool-activity-tool" {...stylex.props(styles.tool)}>
+          {tool}
+        </span>
       </span>
       <span data-slot="tool-activity-state" {...stylex.props(styles.state)}>
         {stateLabels[state.status]}
@@ -100,24 +108,34 @@ export function ToolActivity({
 
 const styles = stylex.create({
   root: {
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    borderRadius: radii.surface,
+    borderStyle: 'solid',
+    borderWidth: '1px',
     color: colors.text,
     fontFamily: type.family,
     inlineSize: '100%',
+    overflow: 'hidden',
   },
   staticHeader: {
+    boxSizing: 'border-box',
     minBlockSize: '2.75rem',
     paddingBlock: space.x2,
-    paddingInline: space.x2,
+    paddingInline: space.x3,
   },
   header: {
-    alignItems: 'baseline',
+    alignItems: 'center',
     display: 'flex',
     gap: space.x3,
     inlineSize: '100%',
     justifyContent: 'space-between',
+    minInlineSize: 0,
+  },
+  heading: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.125rem',
     minInlineSize: 0,
   },
   summary: {
@@ -128,26 +146,41 @@ const styles = stylex.create({
     minInlineSize: 0,
     overflowWrap: 'anywhere',
   },
+  tool: {
+    color: colors.textMuted,
+    fontFamily: type.familyMono,
+    fontSize: type.sizeCaption,
+    fontWeight: type.weightRegular,
+    lineHeight: type.lineCompact,
+  },
   state: {
+    borderColor: colors.border,
+    borderRadius: '999px',
+    borderStyle: 'solid',
+    borderWidth: '1px',
     color: colors.textMuted,
     flexShrink: 0,
     fontSize: type.sizeCaption,
     fontWeight: type.weightRegular,
     lineHeight: type.lineCompact,
+    paddingBlock: '0.125rem',
+    paddingInline: space.x2,
   },
   evidence: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
     borderRadius: radii.control,
     color: colors.textMuted,
     overflow: 'auto',
     padding: space.x3,
   },
   error: {
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
     color: colors.danger,
     fontSize: type.sizeSmall,
     lineHeight: type.lineBody,
     margin: 0,
-    paddingBlockEnd: space.x3,
-    paddingInline: space.x2,
+    padding: space.x3,
   },
 })

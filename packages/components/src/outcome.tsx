@@ -1,5 +1,6 @@
 import {
   colors,
+  radii,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -95,16 +96,19 @@ export function Outcome({
 
 const styles = stylex.create({
   root: {
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.surface,
+    borderStyle: 'solid',
+    borderWidth: '1px',
+    boxSizing: 'border-box',
     color: colors.text,
     display: 'flex',
     flexDirection: 'column',
     fontFamily: type.family,
     gap: space.x2,
     inlineSize: '100%',
-    paddingBlockStart: space.x4,
+    padding: space.x3,
   },
   state: {
     color: colors.textMuted,
@@ -118,7 +122,7 @@ const styles = stylex.create({
   },
   title: {
     fontSize: type.sizeTitle,
-    fontWeight: type.weightStrong,
+    fontWeight: type.weightMedium,
     lineHeight: type.lineCompact,
     margin: 0,
     textWrap: 'balance',
