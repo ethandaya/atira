@@ -77,8 +77,14 @@ const styles = stylex.create({
       default: motion.durationFast,
       '@media (prefers-reduced-motion: reduce)': '0ms',
     },
-    transitionProperty: 'background-color, border-color, color',
+    transitionProperty: 'background-color, border-color, color, transform',
     transitionTimingFunction: motion.easingStandard,
+    transform: {
+      default: 'scale(1)',
+      ':active': 'scale(0.96)',
+      '@media (prefers-reduced-motion: reduce)': 'none',
+    },
+    touchAction: 'manipulation',
     userSelect: 'none',
   },
   disabled: {

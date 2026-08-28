@@ -1,2 +1,8 @@
 export { Button } from './button'
 export type { ButtonProps } from './button'
+export { Disclosure } from './disclosure'
+export type { DisclosureProps } from './disclosure'
+export { TextareaField } from './textarea-field'
+export type { TextareaFieldProps } from './textarea-field'
+export { VisuallyHidden } from './visually-hidden'
+export type { VisuallyHiddenProps } from './visually-hidden'

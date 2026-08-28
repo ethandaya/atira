@@ -1,22 +1,22 @@
 import * as stylex from '@stylexjs/stylex'
 
 export const colors = stylex.defineVars({
-  canvas: 'oklch(0.975 0.004 260)',
-  surface: 'oklch(0.995 0.002 260)',
-  surfaceMuted: 'oklch(0.955 0.006 260)',
-  text: 'oklch(0.205 0.012 260)',
-  textMuted: 'oklch(0.49 0.014 260)',
-  border: 'oklch(0.885 0.008 260)',
-  borderStrong: 'oklch(0.79 0.012 260)',
-  accent: 'oklch(0.49 0.19 264)',
-  accentHover: 'oklch(0.445 0.19 264)',
-  accentPressed: 'oklch(0.405 0.18 264)',
+  canvas: 'oklch(0.985 0.003 260)',
+  surface: 'oklch(0.998 0.001 260)',
+  surfaceMuted: 'oklch(0.96 0.004 260)',
+  text: 'oklch(0.205 0.01 260)',
+  textMuted: 'oklch(0.5 0.012 260)',
+  border: 'oklch(0.9 0.006 260)',
+  borderStrong: 'oklch(0.82 0.009 260)',
+  accent: 'oklch(0.235 0.012 260)',
+  accentHover: 'oklch(0.29 0.014 260)',
+  accentPressed: 'oklch(0.34 0.014 260)',
   onAccent: 'oklch(0.985 0.002 260)',
   danger: 'oklch(0.51 0.19 25)',
   dangerHover: 'oklch(0.46 0.19 25)',
   dangerPressed: 'oklch(0.415 0.18 25)',
   onDanger: 'oklch(0.985 0.002 25)',
-  focus: 'oklch(0.62 0.18 255)',
+  focus: 'oklch(0.64 0.16 255)',
 })
 
 export const space = stylex.defineVars({
@@ -30,24 +30,27 @@ export const space = stylex.defineVars({
 })
 
 export const radii = stylex.defineVars({
-  control: '0.625rem',
-  surface: '0.875rem',
+  control: '0.5rem',
+  surface: '0.75rem',
 })
 
 export const type = stylex.defineVars({
   family:
     'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  sizeSmall: '0.875rem',
-  sizeBody: '1rem',
-  sizeTitle: '1.125rem',
-  lineCompact: '1.25',
-  lineBody: '1.5',
+  sizeCaption: '0.75rem',
+  sizeSmall: '0.8125rem',
+  sizeBody: '0.9375rem',
+  sizeInput: '1rem',
+  sizeTitle: '1rem',
+  lineCompact: '1.3',
+  lineBody: '1.55',
   weightRegular: '400',
-  weightMedium: '550',
-  weightStrong: '650',
+  weightMedium: '500',
+  weightStrong: '600',
 })
 
 export const motion = stylex.defineVars({
   durationFast: '120ms',
-  easingStandard: 'cubic-bezier(0.2, 0, 0, 1)',
+  durationModerate: '180ms',
+  easingStandard: 'cubic-bezier(0.23, 1, 0.32, 1)',
 })
