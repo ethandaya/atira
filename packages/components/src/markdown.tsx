@@ -42,7 +42,7 @@ export function Markdown({ children, status, ...props }: MarkdownProps) {
         disallowedElements={disallowedElements}
         isAnimating={false}
         linkSafety={linkSafety}
-        mode="streaming"
+        mode={status === 'streaming' ? 'streaming' : 'static'}
         parseIncompleteMarkdown
         skipHtml
       >

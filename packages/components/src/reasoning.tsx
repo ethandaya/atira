@@ -81,7 +81,7 @@ export function Reasoning({
 
 function getDefaultLabel(state: ReasoningState) {
   if (state.status === 'thinking') return 'Thinking'
-  return state.duration ? `Thought for ${state.duration}` : 'Reasoning'
+  return state.duration ? `Thought for ${state.duration}` : 'Reasoning complete'
 }
 
 const styles = stylex.create({

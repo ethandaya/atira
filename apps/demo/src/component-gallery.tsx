@@ -10,6 +10,7 @@ import {
   Diff,
   InlineCitation,
   Loader,
+  Markdown,
   Message,
   Outcome,
   PermissionRequest,
@@ -295,6 +296,27 @@ export function ComponentGallery() {
                   Runtime state remains outside the component layer.
                 </Message>
               </Thread>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Markdown"
+              description="Streaming-safe GFM with source-owned StyleX renderers."
+              wide
+            >
+              <Markdown status="complete">{`## Response structure
+
+- Semantic headings and lists
+- Safe [external links](https://stylexjs.com/)
+- Inline \`code\` and fenced code
+
+\`\`\`tsx
+<Response status="streaming">...</Response>
+\`\`\`
+
+| State | Meaning |
+| --- | --- |
+| streaming | More content is expected |
+| complete | The response is final |`}</Markdown>
             </ComponentSample>
 
             <ComponentSample

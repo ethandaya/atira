@@ -13,6 +13,160 @@ const host = process.env.HOST ?? readArgument('--host') ?? '0.0.0.0'
 const sessions = new Map()
 const sessionMaxAge = 30 * 60 * 1000
 const maxSessions = 20
+const componentCatalog = [
+  {
+    category: 'conversation',
+    name: 'Thread',
+    summary: 'A labelled chronological conversation container.',
+    states: ['empty', 'populated', 'busy'],
+  },
+  {
+    category: 'conversation',
+    name: 'Message',
+    summary: 'An actor-aware content boundary for user, assistant, and system messages.',
+    states: ['user', 'assistant', 'system'],
+  },
+  {
+    category: 'conversation',
+    name: 'Response',
+    summary: 'An explicit lifecycle boundary for assistant output.',
+    states: ['streaming', 'complete', 'interrupted', 'failed'],
+  },
+  {
+    category: 'conversation',
+    name: 'Markdown',
+    summary: 'Streaming-safe GFM rendered through source-owned StyleX components.',
+    states: ['streaming', 'complete'],
+  },
+  {
+    category: 'input',
+    name: 'Composer',
+    summary: 'A controlled prompt input with send and stop behavior.',
+    states: ['idle', 'streaming', 'disabled'],
+  },
+  {
+    category: 'conversation',
+    name: 'Reasoning',
+    summary: 'A progressive disclosure for active and completed reasoning.',
+    states: ['thinking', 'complete'],
+  },
+  {
+    category: 'feedback',
+    name: 'Loader',
+    summary: 'Named pending and streaming feedback that does not rely on motion alone.',
+    states: ['pending', 'streaming', 'complete'],
+  },
+  {
+    category: 'agent activity',
+    name: 'ToolActivity',
+    summary: 'One tool invocation with explicit lifecycle and disclosed evidence.',
+    states: ['queued', 'running', 'awaiting-approval', 'succeeded', 'failed', 'cancelled'],
+  },
+  {
+    category: 'agent activity',
+    name: 'ActivityList',
+    summary: 'A chronological disclosure for agent and tool evidence.',
+    states: ['collapsed', 'disclosed'],
+  },
+  {
+    category: 'agent activity',
+    name: 'Outcome',
+    summary: 'A terminal work state with supporting detail and next action.',
+    states: ['complete', 'failed', 'cancelled', 'blocked', 'reviewable'],
+  },
+  {
+    category: 'approval',
+    name: 'PermissionRequest',
+    summary: 'A controlled decision boundary for consequential agent actions.',
+    states: ['pending', 'approved', 'rejected'],
+  },
+  {
+    category: 'structured output',
+    name: 'Plan',
+    summary: 'Ordered work with explicit plan and step states.',
+    states: ['proposed', 'active', 'partial', 'complete'],
+  },
+  {
+    category: 'structured output',
+    name: 'Diff',
+    summary: 'Accessible file, hunk, and line-level change evidence.',
+    states: ['added', 'removed', 'modified', 'collapsed'],
+  },
+  {
+    category: 'structured output',
+    name: 'CodeBlock',
+    summary: 'Geist Mono code with wrapping, scrolling, and copy feedback.',
+    states: ['wrapped', 'scrollable', 'copied'],
+  },
+  {
+    category: 'provenance',
+    name: 'CitationList',
+    summary: 'Sources and provenance with explicit invalid-link handling.',
+    states: ['available', 'unavailable', 'invalid'],
+  },
+  {
+    category: 'structured output',
+    name: 'Artifact',
+    summary: 'A protocol-neutral file, image, portal, or result reference.',
+    states: ['generating', 'ready', 'failed'],
+  },
+  {
+    category: 'actions',
+    name: 'Actions',
+    summary: 'A labelled toolbar of compact, named message actions.',
+    states: ['available', 'disabled'],
+  },
+  {
+    category: 'input',
+    name: 'Suggestions',
+    summary: 'Horizontally scrollable prompt suggestions with semantic selection.',
+    states: ['available', 'disabled'],
+  },
+]
+const inspectComponentCatalog = {
+  description:
+    'Search the current Pretty Amped React component catalog by responsibility, state, or name. Use this before answering questions about interface components or design patterns in Pretty Amped.',
+  parameters: {
+    additionalProperties: false,
+    properties: {
+      query: {
+        description: 'Short component, state, or design-responsibility search.',
+        maxLength: 200,
+        type: 'string',
+      },
+    },
+    required: ['query'],
+    type: 'object',
+  },
+  handler(input) {
+    const query = isRecord(input) && typeof input.query === 'string'
+      ? input.query.trim().slice(0, 200)
+      : ''
+    const terms = query.toLowerCase().match(/[a-z0-9-]+/g) ?? []
+    const ranked = componentCatalog
+      .map((component) => {
+        const searchable = [
+          component.name,
+          component.category,
+          component.summary,
+          ...component.states,
+        ].join(' ').toLowerCase()
+        const score = terms.reduce(
+          (total, term) => total + (searchable.includes(term) ? 1 : 0),
+          0,
+        )
+        return { component, score }
+      })
+      .filter(({ score }) => score > 0)
+      .sort((left, right) => right.score - left.score)
+    const matches = (ranked.length > 0
+      ? ranked.map(({ component }) => component)
+      : componentCatalog.slice(0, 6)
+    ).slice(0, 8)
+
+    return { matches, query }
+  },
+}
 
 let vite
 const server = createServer((request, response) => {
@@ -159,6 +313,34 @@ async function streamChat(request, response) {
         text: payloadString(event.payload, 'text'),
         type: 'reasoning-delta',
       })
+    } else if (
+      event.type === 'tool.call' &&
+      payloadString(event.payload, 'tool') === 'inspect_component_catalog'
+    ) {
+      writeEvent(response, {
+        id: payloadString(event.payload, 'call_id'),
+        input: catalogToolInput(event.payload.arguments),
+        summary: 'Searching component catalog',
+        tool: 'inspect_component_catalog',
+        type: 'tool-started',
+      })
+    } else if (
+      event.type === 'tool.result' &&
+      payloadString(event.payload, 'tool') === 'inspect_component_catalog'
+    ) {
+      const failed = ['error', 'failed'].includes(
+        payloadString(event.payload, 'status'),
+      )
+      writeEvent(response, {
+        ...(failed
+          ? { error: 'The component catalog search failed.' }
+          : { output: catalogToolOutput(event.payload.structured_result) }),
+        id: payloadString(event.payload, 'call_id'),
+        status: failed ? 'failed' : 'succeeded',
+        summary: 'Searched component catalog',
+        tool: 'inspect_component_catalog',
+        type: 'tool-completed',
+      })
     } else if (event.type === 'run.error') {
       runtimeError = payloadString(event.payload, 'message')
     }
@@ -252,11 +434,11 @@ async function getSession(id) {
     agent: Agent.create({
       apiKey,
       instructions:
-        'You are the assistant inside Pretty Amped, a component playground for AI interfaces. You have no tools or workspace access. Help users inspect and discuss interface design. Be concise and use plain text.',
+        'You are the assistant inside Pretty Amped, a React and StyleX component playground for AI interfaces. Before answering a question about interface components, UI design, or Pretty Amped, call inspect_component_catalog with the key concepts in the request. This read-only catalog is your only tool; you have no workspace, filesystem, shell, or general internet access. Help users inspect and discuss interface design. Be concise. Use GitHub-flavored Markdown with short headings and lists when they improve scanning. Do not use HTML.',
       model,
       thinking: 'low',
       toolMode: 'direct',
-      tools: {},
+      tools: { inspect_component_catalog: inspectComponentCatalog },
     }),
     lastUsed: Date.now(),
   }
@@ -330,6 +512,32 @@ function writeEvent(response, event) {
 
 function payloadString(payload, key) {
   return typeof payload[key] === 'string' ? payload[key] : ''
+}
+
+function catalogToolInput(value) {
+  return isRecord(value) && typeof value.query === 'string'
+    ? value.query.slice(0, 200)
+    : ''
+}
+
+function catalogToolOutput(value) {
+  if (!isRecord(value) || !Array.isArray(value.matches)) {
+    return 'Catalog search complete.'
+  }
+
+  const names = value.matches
+    .map((match) => isRecord(match) && typeof match.name === 'string'
+      ? match.name
+      : undefined)
+    .filter(Boolean)
+
+  return names.length > 0
+    ? names.join(', ')
+    : 'No direct component matches.'
+}
+
+function isRecord(value) {
+  return typeof value === 'object' && value !== null
 }
 
 function publicError(error) {

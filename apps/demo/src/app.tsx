@@ -1,6 +1,7 @@
 import {
   Composer,
   Loader,
+  Markdown,
   Message,
   Outcome,
   Reasoning,
@@ -8,6 +9,7 @@ import {
   Suggestion,
   Suggestions,
   Thread,
+  ToolActivity,
 } from '@pretty-amped/components'
 import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
 import {
@@ -40,6 +42,16 @@ type UserMessage = {
   text: string
 }
 
+type ToolRun = {
+  error?: string
+  id: string
+  input?: string
+  output?: string
+  status: 'running' | 'succeeded' | 'failed' | 'cancelled'
+  summary: string
+  tool: string
+}
+
 type AssistantMessage = {
   actor: 'assistant'
   durationMs?: number
@@ -48,6 +60,7 @@ type AssistantMessage = {
   reasoning: string
   status: 'streaming' | 'complete' | 'interrupted' | 'failed'
   text: string
+  tools: ToolRun[]
   usage?: Usage
 }
 
@@ -58,6 +71,22 @@ type StreamEvent =
   | { type: 'assistant-delta'; text: string }
   | { type: 'assistant-message'; text: string }
   | { type: 'reasoning-delta'; text: string }
+  | {
+      type: 'tool-started'
+      id: string
+      input?: string
+      summary: string
+      tool: string
+    }
+  | {
+      type: 'tool-completed'
+      error?: string
+      id: string
+      output?: string
+      status: 'succeeded' | 'failed'
+      summary: string
+      tool: string
+    }
   | {
       type: 'completed'
       durationMs: number
@@ -176,6 +205,7 @@ export function App() {
       reasoning: '',
       status: 'streaming',
       text: '',
+      tools: [],
     }
     const controller = new AbortController()
     let terminalEvent = false
@@ -232,6 +262,29 @@ export function App() {
             ...projectedMessage,
             reasoning: projectedMessage.reasoning + event.text,
           })
+        } else if (event.type === 'tool-started') {
+          publish({
+            ...projectedMessage,
+            tools: upsertTool(projectedMessage.tools, {
+              id: event.id,
+              ...(event.input === undefined ? {} : { input: event.input }),
+              status: 'running',
+              summary: event.summary,
+              tool: event.tool,
+            }),
+          })
+        } else if (event.type === 'tool-completed') {
+          publish({
+            ...projectedMessage,
+            tools: upsertTool(projectedMessage.tools, {
+              ...(event.error === undefined ? {} : { error: event.error }),
+              id: event.id,
+              ...(event.output === undefined ? {} : { output: event.output }),
+              status: event.status,
+              summary: event.summary,
+              tool: event.tool,
+            }),
+          })
         } else if (event.type === 'completed') {
           terminalEvent = true
           publish(
@@ -250,6 +303,7 @@ export function App() {
             {
               ...projectedMessage,
               status: 'interrupted',
+              tools: settleRunningTools(projectedMessage.tools, 'cancelled'),
             },
             true,
           )
@@ -260,6 +314,11 @@ export function App() {
               ...projectedMessage,
               error: event.message,
               status: 'failed',
+              tools: settleRunningTools(
+                projectedMessage.tools,
+                'failed',
+                event.message,
+              ),
             },
             true,
           )
@@ -279,6 +338,11 @@ export function App() {
                 ? error.message
                 : 'The response could not be completed.',
             status: 'failed',
+            tools: settleRunningTools(
+              projectedMessage.tools,
+              'failed',
+              'The tool was interrupted by a runtime failure.',
+            ),
           },
           true,
         )
@@ -315,7 +379,7 @@ export function App() {
 
   const runtimeLabel =
     runtime.status === 'ready'
-      ? `${runtime.runtime} · ${runtime.model} · text only`
+      ? `${runtime.runtime} · ${runtime.model} · read-only catalog tool`
       : runtime.status === 'loading'
         ? 'Connecting to Nanocodex…'
         : 'Runtime unavailable'
@@ -489,7 +553,8 @@ function EmptyPlayground({
         <h2 {...stylex.props(styles.emptyTitle)}>Try the components live</h2>
         <p {...stylex.props(styles.emptyDescription)}>
           A retained Nanocodex conversation rendered entirely with Pretty Amped.
-          The model has no tools or workspace access.
+          The model can search the read-only component catalog, with no workspace
+          access.
         </p>
       </div>
       <Suggestions>
@@ -516,10 +581,47 @@ function AssistantResponse({ message }: { message: AssistantMessage }) {
 
   const content = (
     <>
+      {message.tools.map((tool) => (
+        <ToolActivity
+          id={tool.id}
+          key={tool.id}
+          state={
+            tool.status === 'failed'
+              ? {
+                  error: tool.error ?? 'The tool could not complete.',
+                  status: 'failed',
+                }
+              : { status: tool.status }
+          }
+          summary={tool.summary}
+          tool={tool.tool}
+        >
+          {tool.input || tool.output ? (
+            <dl {...stylex.props(styles.toolDetails)}>
+              {tool.input && (
+                <div {...stylex.props(styles.toolDetail)}>
+                  <dt {...stylex.props(styles.toolDetailLabel)}>Input</dt>
+                  <dd {...stylex.props(styles.toolDetailValue)}>{tool.input}</dd>
+                </div>
+              )}
+              {tool.output && (
+                <div {...stylex.props(styles.toolDetail)}>
+                  <dt {...stylex.props(styles.toolDetailLabel)}>Result</dt>
+                  <dd {...stylex.props(styles.toolDetailValue)}>{tool.output}</dd>
+                </div>
+              )}
+            </dl>
+          ) : null}
+        </ToolActivity>
+      ))}
       {reasoning}
       {message.text ? (
-        <p {...stylex.props(styles.responseText)}>{message.text}</p>
-      ) : message.status === 'streaming' ? (
+        <Markdown
+          status={message.status === 'streaming' ? 'streaming' : 'complete'}
+        >
+          {message.text}
+        </Markdown>
+      ) : message.status === 'streaming' && !message.reasoning ? (
         <Loader label="Thinking" state={{ status: 'streaming' }} />
       ) : null}
     </>
@@ -608,6 +710,42 @@ function parseEvent(line: string): StreamEvent | null {
     return { text: value.text, type: value.type }
   }
 
+  if (
+    value.type === 'tool-started' &&
+    typeof value.id === 'string' &&
+    typeof value.summary === 'string' &&
+    typeof value.tool === 'string' &&
+    (value.input === undefined || typeof value.input === 'string')
+  ) {
+    return {
+      id: value.id,
+      ...(value.input === undefined ? {} : { input: value.input }),
+      summary: value.summary,
+      tool: value.tool,
+      type: 'tool-started',
+    }
+  }
+
+  if (
+    value.type === 'tool-completed' &&
+    typeof value.id === 'string' &&
+    typeof value.summary === 'string' &&
+    typeof value.tool === 'string' &&
+    (value.status === 'succeeded' || value.status === 'failed') &&
+    (value.output === undefined || typeof value.output === 'string') &&
+    (value.error === undefined || typeof value.error === 'string')
+  ) {
+    return {
+      ...(value.error === undefined ? {} : { error: value.error }),
+      id: value.id,
+      ...(value.output === undefined ? {} : { output: value.output }),
+      status: value.status,
+      summary: value.summary,
+      tool: value.tool,
+      type: 'tool-completed',
+    }
+  }
+
   if (value.type === 'error' && typeof value.message === 'string') {
     return { message: value.message, type: 'error' }
   }
@@ -643,6 +781,31 @@ async function responseError(response: globalThis.Response) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function upsertTool(tools: ToolRun[], tool: ToolRun) {
+  const index = tools.findIndex((current) => current.id === tool.id)
+  if (index === -1) return [...tools, tool]
+
+  const next = [...tools]
+  next[index] = { ...tools[index], ...tool }
+  return next
+}
+
+function settleRunningTools(
+  tools: ToolRun[],
+  status: 'cancelled' | 'failed',
+  error?: string,
+) {
+  return tools.map((tool) =>
+    tool.status === 'running'
+      ? {
+          ...tool,
+          ...(status === 'failed' && error ? { error } : {}),
+          status,
+        }
+      : tool,
+  )
 }
 
 function formatDuration(durationMs: number) {
@@ -762,10 +925,29 @@ const styles = stylex.create({
     margin: 0,
     maxInlineSize: '58ch',
   },
-  responseText: {
+  toolDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
     margin: 0,
-    maxInlineSize: '65ch',
-    whiteSpace: 'pre-wrap',
+  },
+  toolDetail: {
+    display: 'grid',
+    gap: space.x2,
+    gridTemplateColumns: '3.5rem minmax(0, 1fr)',
+  },
+  toolDetailLabel: {
+    color: colors.textMuted,
+    fontSize: type.sizeCaption,
+    fontWeight: type.weightMedium,
+    margin: 0,
+  },
+  toolDetailValue: {
+    color: colors.text,
+    fontFamily: type.familyMono,
+    fontSize: type.sizeCaption,
+    margin: 0,
+    overflowWrap: 'anywhere',
   },
   composerDock: {
     backgroundColor: colors.canvas,

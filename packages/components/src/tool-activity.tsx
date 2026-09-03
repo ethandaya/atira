@@ -85,6 +85,7 @@ export function ToolActivity({
       {children ? (
         <Disclosure
           summary={header}
+          variant="plain"
           {...(defaultOpen === undefined ? {} : { defaultOpen })}
         >
           <div
@@ -108,21 +109,14 @@ export function ToolActivity({
 
 const styles = stylex.create({
   root: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: '1px',
     color: colors.text,
     fontFamily: type.family,
     inlineSize: '100%',
-    overflow: 'hidden',
   },
   staticHeader: {
     boxSizing: 'border-box',
     minBlockSize: '2.75rem',
     paddingBlock: space.x2,
-    paddingInline: space.x3,
   },
   header: {
     alignItems: 'center',
@@ -133,9 +127,10 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   heading: {
+    alignItems: 'baseline',
     display: 'flex',
-    flexDirection: 'column',
-    gap: '0.125rem',
+    flexWrap: 'wrap',
+    gap: space.x2,
     minInlineSize: 0,
   },
   summary: {
@@ -162,19 +157,19 @@ const styles = stylex.create({
   },
   evidence: {
     backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
     borderRadius: radii.control,
+    borderStyle: 'solid',
+    borderWidth: '1px',
     color: colors.textMuted,
     overflow: 'auto',
     padding: space.x3,
   },
   error: {
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
     color: colors.danger,
     fontSize: type.sizeSmall,
     lineHeight: type.lineBody,
     margin: 0,
-    padding: space.x3,
+    paddingBlock: space.x2,
   },
 })
