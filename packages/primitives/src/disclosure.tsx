@@ -44,7 +44,25 @@ export function Disclosure({
         data-slot="disclosure-trigger"
         {...stylex.props(styles.trigger)}
       >
-        {summary}
+        <span data-slot="disclosure-summary" {...stylex.props(styles.summary)}>
+          {summary}
+        </span>
+        <svg
+          aria-hidden="true"
+          focusable="false"
+          viewBox="0 0 16 16"
+          data-slot="disclosure-indicator"
+          {...stylex.props(styles.indicator)}
+        >
+          <path
+            d="m5.75 3.5 4.5 4.5-4.5 4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.5"
+          />
+        </svg>
       </Collapsible.Trigger>
       <Collapsible.Panel
         data-slot="disclosure-panel"
@@ -74,6 +92,7 @@ const styles = stylex.create({
     fontFamily: type.family,
     fontSize: type.sizeSmall,
     fontWeight: type.weightMedium,
+    gap: space.x2,
     inlineSize: '100%',
     justifyContent: 'space-between',
     lineHeight: type.lineCompact,
@@ -89,6 +108,16 @@ const styles = stylex.create({
     paddingInline: space.x3,
     textAlign: 'start',
     touchAction: 'manipulation',
+  },
+  summary: {
+    flex: 1,
+    minInlineSize: 0,
+  },
+  indicator: {
+    blockSize: '1rem',
+    color: colors.textMuted,
+    flexShrink: 0,
+    inlineSize: '1rem',
   },
   panel: {
     borderBlockStartColor: colors.border,

@@ -16,7 +16,7 @@ type NativeButtonProps = Omit<
 
 export type ButtonProps = NativeButtonProps & {
   focusableWhenDisabled?: boolean
-  size?: 'compact' | 'regular' | 'icon'
+  size?: 'chip' | 'compact' | 'regular' | 'icon'
   variant?: 'primary' | 'secondary' | 'outline' | 'quiet' | 'danger'
 }
 
@@ -94,6 +94,15 @@ const styles = stylex.create({
 })
 
 const sizes = stylex.create({
+  chip: {
+    borderRadius: '999px',
+    minHeight: {
+      default: '2rem',
+      '@media (hover: none)': '2.75rem',
+    },
+    paddingBlock: space.x1,
+    paddingInline: space.x3,
+  },
   icon: {
     borderRadius: radii.control,
     minHeight: {
