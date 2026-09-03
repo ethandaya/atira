@@ -43,6 +43,16 @@ export type {
   ReferenceTrayProps,
 } from './chat-composer'
 export {
+  ConnectionNotice,
+  StreamStatus,
+  SubmissionError,
+} from './chat-feedback'
+export type {
+  ConnectionNoticeProps,
+  StreamStatusProps,
+  SubmissionErrorProps,
+} from './chat-feedback'
+export {
   ContextTool,
   ContextToolGroup,
   FileChangeTool,

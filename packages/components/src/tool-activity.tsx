@@ -4,14 +4,15 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Disclosure, VisuallyHidden } from '@pretty-amped/primitives'
+import type { ToolProgress } from '@pretty-amped/foundations/chat'
+import { Disclosure } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
 export type ToolActivityState =
   | { status: 'receiving-input' }
   | { status: 'queued' }
-  | { status: 'running' }
+  | { progress?: ToolProgress; status: 'running' }
   | { status: 'awaiting-permission' }
   | { status: 'awaiting-approval' }
   | { status: 'succeeded' }
@@ -52,6 +53,7 @@ export function ToolActivity({
   tool,
   ...props
 }: ToolActivityProps) {
+  const stateLabel = toolStateLabel(state)
   const header = (
     <span data-slot="tool-activity-header" {...stylex.props(styles.header)}>
       <span {...stylex.props(styles.heading)}>
@@ -66,7 +68,7 @@ export function ToolActivity({
         </span>
       </span>
       <span data-slot="tool-activity-state" {...stylex.props(styles.state)}>
-        {stateLabels[state.status]}
+        {stateLabel}
       </span>
     </span>
   )
@@ -83,9 +85,6 @@ export function ToolActivity({
       data-tool-activity-id={id}
       {...stylex.props(styles.root)}
     >
-      <VisuallyHidden role="status">
-        {summary}: {stateLabels[state.status]}.
-      </VisuallyHidden>
       {children ? (
         <Disclosure
           summary={header}
@@ -109,6 +108,20 @@ export function ToolActivity({
       )}
     </div>
   )
+}
+
+function toolStateLabel(state: ToolActivityState) {
+  if (state.status !== 'running' || !state.progress) {
+    return stateLabels[state.status]
+  }
+  const { current, label, total } = state.progress
+  const count =
+    current === undefined
+      ? undefined
+      : total === undefined
+        ? String(current)
+        : `${current}/${total}`
+  return [label ?? 'Running', count].filter(Boolean).join(' · ')
 }
 
 const styles = stylex.create({

@@ -1,4 +1,8 @@
-import { Turn, type ToolRenderer } from '@pretty-amped/components'
+import {
+  StreamStatus,
+  Turn,
+  type ToolRenderer,
+} from '@pretty-amped/components'
 import type {
   ChatTurn,
   HistoryState,
@@ -9,7 +13,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, VisuallyHidden } from '@pretty-amped/primitives'
+import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
   useEffect,
@@ -293,9 +297,7 @@ export function Timeline({
           pendingCount={follow.pendingCount}
         />
       )}
-      <VisuallyHidden aria-live="polite" role="status">
-        {activityAnnouncement(activity)}
-      </VisuallyHidden>
+      <StreamStatus activity={activity} />
     </section>
   )
 }
@@ -460,12 +462,6 @@ function pinOpenOrFocusedTurns(viewport: HTMLElement, pinned: Set<string>) {
       pinned.delete(id)
     }
   }
-}
-
-function activityAnnouncement(activity: SessionActivity) {
-  if (activity.status === 'busy') return 'Response started.'
-  if (activity.status === 'retrying') return `Response retrying, attempt ${activity.attempt}.`
-  return 'Response complete.'
 }
 
 const styles = stylex.create({

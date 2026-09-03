@@ -197,10 +197,11 @@ function mapPart(part: Part, message: Message): MessagePart | undefined {
 }
 
 function mapToolPart(part: Extract<Part, { type: 'tool' }>): ToolPart {
+  const metadata = toolMetadata(part)
   return {
     callId: part.callID,
     id: part.id,
-    ...(part.metadata ? { metadata: toJsonRecord(part.metadata) } : {}),
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
     presentation: toolPresentation(part.tool),
     state: mapToolState(part.state),
     toolName: part.tool,
@@ -222,6 +223,7 @@ function mapToolState(
     case 'running':
       return {
         input,
+        ...mapToolProgress(state.metadata),
         startedAt: state.time.start,
         status: 'running',
       }
@@ -243,6 +245,53 @@ function mapToolState(
         input,
         status: 'failed',
       }
+  }
+}
+
+function toolMetadata(
+  part: Extract<Part, { type: 'tool' }>,
+): Readonly<Record<string, JsonValue>> {
+  const topLevel = part.metadata ? toJsonRecord(part.metadata) : {}
+  const stateMetadata =
+    'metadata' in part.state && part.state.metadata
+      ? toJsonRecord(part.state.metadata)
+      : {}
+  const duration =
+    'time' in part.state &&
+    part.state.time &&
+    'end' in part.state.time &&
+    typeof part.state.time.end === 'number'
+      ? part.state.time.end - part.state.time.start
+      : undefined
+
+  return {
+    ...topLevel,
+    ...stateMetadata,
+    ...(duration === undefined || 'durationMs' in stateMetadata
+      ? {}
+      : { durationMs: duration }),
+  }
+}
+
+function mapToolProgress(metadata: Record<string, unknown> | undefined) {
+  if (!metadata) return {}
+  const candidate =
+    metadata.progress &&
+    typeof metadata.progress === 'object' &&
+    !Array.isArray(metadata.progress)
+      ? (metadata.progress as Record<string, unknown>)
+      : metadata
+  const current =
+    typeof candidate.current === 'number' ? candidate.current : undefined
+  const total = typeof candidate.total === 'number' ? candidate.total : undefined
+  const label = typeof candidate.label === 'string' ? candidate.label : undefined
+  if (current === undefined && total === undefined && label === undefined) return {}
+  return {
+    progress: {
+      ...(current === undefined ? {} : { current }),
+      ...(total === undefined ? {} : { total }),
+      ...(label === undefined ? {} : { label }),
+    },
   }
 }
 

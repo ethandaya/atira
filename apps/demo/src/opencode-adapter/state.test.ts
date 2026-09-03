@@ -39,6 +39,7 @@ describe('OpenCode event reduction', () => {
     expect(projection.turns[0]?.assistant[0]?.parts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          metadata: { durationMs: 250, lineCount: 2 },
           presentation: { kind: 'context', operation: 'read' },
           state: expect.objectContaining({ status: 'succeeded' }),
           type: 'tool',
@@ -194,6 +195,26 @@ describe('OpenCode event reduction', () => {
           markdown: 'Done.',
           state: { status: 'complete' },
           type: 'text',
+        }),
+      ]),
+    )
+  })
+
+  it('projects structured native tool progress before completion', () => {
+    const progressIndex = nativeLifecycleEvents.findIndex(
+      (event) => event.type === 'session.next.tool.progress',
+    )
+    const state = reduceEvents(nativeLifecycleEvents.slice(0, progressIndex + 1))
+    const parts = projectOpenCodeState(state).turns[0]?.assistant[0]?.parts
+
+    expect(parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          state: expect.objectContaining({
+            progress: { current: 1, total: 1 },
+            status: 'running',
+          }),
+          type: 'tool',
         }),
       ]),
     )

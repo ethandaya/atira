@@ -21,6 +21,7 @@ vi.mock('@stylexjs/stylex', () => ({
 }))
 
 import { ChatComposer } from './chat-composer'
+import { ShellTool } from './chat-tools'
 import { MessageParts } from './message-parts'
 import { PermissionPrompt, QuestionRequest, RequestRegion } from './requests'
 
@@ -220,6 +221,33 @@ describe('chat components', () => {
     expect(document.activeElement).toBe(
       screen.getByRole('textbox', { name: 'Message' }),
     )
+  })
+
+  it('bounds and sanitizes shell output until explicitly revealed', async () => {
+    const part: ToolPart = {
+      callId: 'shell-call',
+      id: 'shell-part',
+      metadata: { durationMs: 1_200, exitCode: 0 },
+      presentation: { kind: 'shell' },
+      state: {
+        endedAt: 2,
+        input: { command: 'printf hello' },
+        output: '\u001b[31mabcdefghij\u001b[0m',
+        status: 'succeeded',
+      },
+      toolName: 'shell',
+      type: 'tool',
+    }
+    const { container } = render(
+      <ShellTool defaultOpen outputCharacterLimit={5} part={part} />,
+    )
+
+    expect(container.textContent).toContain('abcde')
+    expect(container.textContent).not.toContain('abcdefghij')
+    expect(container.textContent).toContain('1.2 s')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show full output' }))
+    expect(container.textContent).toContain('abcdefghij')
   })
 
 })

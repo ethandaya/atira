@@ -11,13 +11,14 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import { CodeBlock } from './code-block'
 import { ToolActivity, type ToolActivityState } from './tool-activity'
 
 export type ChatToolProps = {
   defaultOpen?: boolean
+  outputCharacterLimit?: number
   part: ToolPart
 }
 
@@ -69,12 +70,20 @@ export function ContextToolGroup({ parts }: ContextToolGroupProps) {
   )
 }
 
-export function ShellTool({ defaultOpen, part }: ChatToolProps) {
+export function ShellTool({
+  defaultOpen,
+  outputCharacterLimit,
+  part,
+}: ChatToolProps) {
   const input = toolInput(part.state)
   const command =
     firstString(input, ['command', 'cmd']) ??
     (input === undefined ? '' : formatJson(input))
   const output = toolOutput(part.state)
+  const workingDirectory = firstString(input, ['cwd', 'workdir', 'workingDirectory'])
+  const exitCode = firstNumber(part.metadata, ['exitCode', 'exit'])
+  const durationMs = firstNumber(part.metadata, ['durationMs', 'duration'])
+  const truncated = firstBoolean(part.metadata, ['truncated'])
 
   return (
     <ToolActivity
@@ -89,12 +98,31 @@ export function ShellTool({ defaultOpen, part }: ChatToolProps) {
           <CodeBlock code={command} copyable label="Shell command" language="shell" />
         )}
         {output !== undefined && (
-          <CodeBlock
-            code={formatJson(output)}
-            copyable
+          <BoundedToolOutput
             label="Shell output"
-            wrap
+            value={output}
+            {...(outputCharacterLimit === undefined
+              ? {}
+              : { characterLimit: outputCharacterLimit })}
           />
+        )}
+        {(workingDirectory || exitCode !== undefined || durationMs !== undefined) && (
+          <dl {...stylex.props(styles.evidence)}>
+            {workingDirectory && (
+              <EvidenceRow label="Directory" value={workingDirectory} />
+            )}
+            {exitCode !== undefined && (
+              <EvidenceRow label="Exit" value={String(exitCode)} />
+            )}
+            {durationMs !== undefined && (
+              <EvidenceRow label="Duration" value={formatDuration(durationMs)} />
+            )}
+          </dl>
+        )}
+        {truncated && (
+          <p data-slot="tool-output-truncated" {...stylex.props(styles.notice)}>
+            The runtime truncated this output.
+          </p>
         )}
         <ToolTiming state={part.state} />
       </div>
@@ -122,7 +150,12 @@ export type TaskToolProps = ChatToolProps & {
   onOpenChild?: (sessionId: string) => void
 }
 
-export function TaskTool({ defaultOpen, onOpenChild, part }: TaskToolProps) {
+export function TaskTool({
+  defaultOpen,
+  onOpenChild,
+  outputCharacterLimit,
+  part,
+}: TaskToolProps) {
   const presentation =
     part.presentation.kind === 'task' ? part.presentation : undefined
   const input = toolInput(part.state)
@@ -137,7 +170,12 @@ export function TaskTool({ defaultOpen, onOpenChild, part }: TaskToolProps) {
       summary={description}
       tool={presentation?.agent?.label ?? part.toolName}
     >
-      <ToolEvidence state={part.state} />
+      <ToolEvidence
+        part={part}
+        {...(outputCharacterLimit === undefined
+          ? {}
+          : { outputCharacterLimit })}
+      />
       {childSessionId && onOpenChild && (
         <div {...stylex.props(styles.actions)}>
           <Button
@@ -148,6 +186,9 @@ export function TaskTool({ defaultOpen, onOpenChild, part }: TaskToolProps) {
             Open child session
           </Button>
         </div>
+      )}
+      {childSessionId && !onOpenChild && (
+        <p {...stylex.props(styles.notice)}>Child session unavailable.</p>
       )}
     </ToolActivity>
   )
@@ -196,7 +237,13 @@ type ToolShellProps = ChatToolProps & {
   summary: string
 }
 
-function ToolShell({ defaultOpen, extra, part, summary }: ToolShellProps) {
+function ToolShell({
+  defaultOpen,
+  extra,
+  outputCharacterLimit,
+  part,
+  summary,
+}: ToolShellProps) {
   return (
     <ToolActivity
       {...(defaultOpen === undefined ? {} : { defaultOpen })}
@@ -205,13 +252,25 @@ function ToolShell({ defaultOpen, extra, part, summary }: ToolShellProps) {
       summary={summary}
       tool={part.toolName}
     >
-      <ToolEvidence state={part.state} />
+      <ToolEvidence
+        part={part}
+        {...(outputCharacterLimit === undefined
+          ? {}
+          : { outputCharacterLimit })}
+      />
       {extra}
     </ToolActivity>
   )
 }
 
-function ToolEvidence({ state }: { state: ToolState }) {
+function ToolEvidence({
+  outputCharacterLimit,
+  part,
+}: {
+  outputCharacterLimit?: number
+  part: ToolPart
+}) {
+  const { state } = part
   const input = toolInput(state)
   const output = toolOutput(state)
 
@@ -220,15 +279,97 @@ function ToolEvidence({ state }: { state: ToolState }) {
       {state.status === 'receiving-input' && state.rawInput && (
         <EvidenceRow label="Input" value={state.rawInput} />
       )}
-      {input !== undefined && <EvidenceRow label="Input" value={formatJson(input)} />}
+      {input !== undefined && <BoundedEvidenceRow label="Input" value={input} />}
       {output !== undefined && (
-        <EvidenceRow label="Result" value={formatJson(output)} />
+        <BoundedEvidenceRow
+          label="Result"
+          value={output}
+          {...(outputCharacterLimit !== undefined
+            ? { characterLimit: outputCharacterLimit }
+            : part.presentation.kind === 'context'
+            ? { characterLimit: 20_000 }
+            : {})}
+        />
+      )}
+      {part.metadata && Object.keys(part.metadata).length > 0 && (
+        <BoundedEvidenceRow label="Metadata" value={part.metadata} />
       )}
       {state.status === 'failed' && (
         <EvidenceRow label="Error" value={state.error.message} danger />
       )}
       <ToolTiming state={state} />
     </dl>
+  )
+}
+
+function BoundedEvidenceRow({
+  characterLimit,
+  label,
+  value,
+}: {
+  characterLimit?: number
+  label: string
+  value: JsonValue
+}) {
+  const [revealed, setRevealed] = useState(false)
+  const formatted = stripAnsi(formatJson(value))
+  const limit = characterLimit ?? 12_000
+  const truncated = formatted.length > limit
+  const visible = truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
+
+  return (
+    <div {...stylex.props(styles.evidenceRow)}>
+      <dt {...stylex.props(styles.term)}>{label}</dt>
+      <dd {...stylex.props(styles.boundedValue)}>
+        <span dir="ltr" {...stylex.props(styles.value)}>
+          {visible}
+        </span>
+        {truncated && (
+          <Button
+            aria-expanded={revealed}
+            onClick={() => setRevealed((current) => !current)}
+            size="compact"
+            variant="quiet"
+          >
+            {revealed ? 'Show less' : `Show full ${label.toLowerCase()}`}
+          </Button>
+        )}
+      </dd>
+    </div>
+  )
+}
+
+function BoundedToolOutput({
+  characterLimit,
+  label,
+  value,
+}: {
+  characterLimit?: number
+  label: string
+  value: JsonValue
+}) {
+  const [revealed, setRevealed] = useState(false)
+  const formatted = stripAnsi(formatJson(value))
+  const limit = characterLimit ?? 12_000
+  const truncated = formatted.length > limit
+  const visible = truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
+
+  return (
+    <div {...stylex.props(styles.stack)}>
+      <CodeBlock code={visible} copyable label={label} wrap />
+      {truncated && (
+        <div {...stylex.props(styles.actions)}>
+          <Button
+            aria-expanded={revealed}
+            onClick={() => setRevealed((current) => !current)}
+            size="compact"
+            variant="quiet"
+          >
+            {revealed ? 'Show less' : 'Show full output'}
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -275,7 +416,10 @@ function activityState(state: ToolState): ToolActivityState {
     case 'queued':
       return { status: 'queued' }
     case 'running':
-      return { status: 'running' }
+      return {
+        ...(state.progress === undefined ? {} : { progress: state.progress }),
+        status: 'running',
+      }
     case 'awaiting-permission':
       return { status: 'awaiting-permission' }
     case 'succeeded':
@@ -310,6 +454,30 @@ function firstString(
   return undefined
 }
 
+function firstNumber(
+  value: Readonly<Record<string, JsonValue>> | undefined,
+  keys: readonly string[],
+) {
+  if (!value) return undefined
+  for (const key of keys) {
+    const candidate = value[key]
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
+  }
+  return undefined
+}
+
+function firstBoolean(
+  value: Readonly<Record<string, JsonValue>> | undefined,
+  keys: readonly string[],
+) {
+  if (!value) return undefined
+  for (const key of keys) {
+    const candidate = value[key]
+    if (typeof candidate === 'boolean') return candidate
+  }
+  return undefined
+}
+
 function formatJson(value: JsonValue) {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 }
@@ -320,6 +488,15 @@ function formatTime(value: number) {
     minute: '2-digit',
     second: '2-digit',
   }).format(value)
+}
+
+function formatDuration(value: number) {
+  if (value < 1_000) return `${Math.round(value)} ms`
+  return `${(value / 1_000).toFixed(1)} s`
+}
+
+function stripAnsi(value: string) {
+  return value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
 }
 
 function isTerminal(state: ToolState) {
@@ -409,6 +586,13 @@ const styles = stylex.create({
     overflowWrap: 'anywhere',
     whiteSpace: 'pre-wrap',
   },
+  boundedValue: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
+    margin: 0,
+    minInlineSize: 0,
+  },
   danger: {
     color: colors.danger,
   },
@@ -416,6 +600,12 @@ const styles = stylex.create({
     display: 'flex',
     justifyContent: 'flex-end',
     paddingBlockStart: space.x3,
+  },
+  notice: {
+    color: colors.textMuted,
+    fontFamily: type.family,
+    fontSize: type.sizeCaption,
+    margin: 0,
   },
   link: {
     borderRadius: radii.control,
