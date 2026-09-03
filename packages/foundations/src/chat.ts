@@ -303,6 +303,7 @@ export type QuestionOption = Readonly<{
 
 export type QuestionView =
   | Readonly<{
+      allowCustom: boolean
       id: string
       label: string
       options: readonly QuestionOption[]
@@ -320,6 +321,7 @@ export type QuestionView =
 
 export type QuestionAnswer =
   | Readonly<{
+      customValue?: string
       optionIds: readonly string[]
       questionId: string
       type: 'choice'
@@ -334,12 +336,16 @@ export type QuestionResponse = Readonly<{
   answers: readonly QuestionAnswer[]
 }>
 
+export type QuestionDecision =
+  | Readonly<{ response: QuestionResponse; type: 'answer' }>
+  | Readonly<{ type: 'reject' }>
+
 export type QuestionRequestView = Readonly<{
   id: string
   order: number
   origin: RequestOrigin
   questions: readonly QuestionView[]
-  state: RequestState<QuestionResponse>
+  state: RequestState<QuestionDecision>
   type: 'question'
 }>
 
@@ -446,6 +452,10 @@ export interface ChatStore {
   }): Promise<void>
   getSnapshot(): ChatSnapshot
   loadPrevious(): Promise<void>
+  rejectQuestion(input: {
+    originSessionId: string
+    requestId: string
+  }): Promise<void>
   stop(turnId: string): Promise<void>
   submit(draft: ComposerDraft, intent: SubmitIntent): Promise<void>
   subscribe(listener: () => void): () => void

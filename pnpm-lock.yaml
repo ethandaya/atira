@@ -77,6 +77,9 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: 'catalog:'
         version: 5.3.0
+      '@opencode-ai/sdk':
+        specifier: 1.18.27
+        version: 1.18.27
       '@pretty-amped/components':
         specifier: workspace:*
         version: link:../../packages/components
@@ -114,6 +117,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 6.1.1(vite@8.2.2(@types/node@26.4.0))
+      opencode-ai:
+        specifier: 1.18.27
+        version: 1.18.27
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -407,6 +413,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@opencode-ai/sdk@1.18.27':
+    resolution: {integrity: sha512-VTfAB9SWaGiMtI2L9rf2xl+0fTYDMHB2pHYKCquWG5OIX3rHvth9oM915d9Z38IuPZUZkmdNMVz2iAdxG4IR+A==}
 
   '@oxc-project/types@0.147.0':
     resolution: {integrity: sha512-IJ3s6ltHLp45S0bh7phkX+gJO7A1Wuz2EaqpAhb8WjqDwbzMiWKHhyyT42tskaWjEYXtHtVCPpnBJVT9+dcRLg==}
@@ -832,6 +841,10 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
+  cross-spawn@7.0.6:
+    resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
+    engines: {node: '>= 8'}
+
   css-mediaquery@0.1.2:
     resolution: {integrity: sha512-COtn4EROW5dBGlE/4PiKnh6rZpAPxDeFLaEEwt4i10jpDMFt2EhQGS79QmmrO+iKCHv0PU/HrOWEhijFd1x99Q==}
 
@@ -986,6 +999,9 @@ packages:
 
   is-potential-custom-element-name@1.0.1:
     resolution: {integrity: sha512-bCYeRA2rVibKZd+s2625gGnGF/t7DSqDs4dP7CrLA1m7jKWz6pps0LpYLJN8Q64HtmPKJ1hrN3nzPNKFEKOUiQ==}
+
+  isexe@2.0.0:
+    resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -1264,6 +1280,75 @@ packages:
     resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
     engines: {node: '>=12.20.0'}
 
+  opencode-ai@1.18.27:
+    resolution: {integrity: sha512-5xrG2gQEwV2sLus30SZX9GyLbPX3z57BCxddedDM0wx1bgnwlHVLOS/FD2uve7fEZlmkr7KYFbvs65ySz1rwzA==}
+    cpu: [arm64, x64]
+    os: [darwin, linux, win32]
+    hasBin: true
+
+  opencode-darwin-arm64@1.18.27:
+    resolution: {integrity: sha512-Vkxv2Q0Ne5fKpB/6kyv3fgVuS4PObVlWWYpyC+O39iaSQSFmYoKn2CmXRid0RVXIku6z4GSgv2TpINJXlGGMNA==}
+    cpu: [arm64]
+    os: [darwin]
+
+  opencode-darwin-x64-baseline@1.18.27:
+    resolution: {integrity: sha512-ZJCx6aq4sjsG+4gTgZ2NrZemfKlngIePb+IvfJRRv6J838HxOi6JjIbv/vIY1dN70AUaK8wj68zVrDjPXDBNVQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  opencode-darwin-x64@1.18.27:
+    resolution: {integrity: sha512-ypweBfeKS8E+fEG3F1SKrctxK2ecmwOwdGaPTbyVXj6hnI3FUvVscfMHS1xDLts/qGbhNQ0yCcfgs6iEgd/zKw==}
+    cpu: [x64]
+    os: [darwin]
+
+  opencode-linux-arm64-musl@1.18.27:
+    resolution: {integrity: sha512-Il0Ft+TJrB7UdrzHe+DlY70Y+FLIORobg4uFFHQy8vRrG370WTpQtoml6eksxzwrTNtUozIOaLuK1FNvoI2zPg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  opencode-linux-arm64@1.18.27:
+    resolution: {integrity: sha512-6PPJ+m5kuzA7uUS+Kem6+h2Nn0Dl2siz7B36h/9Y21ga3WNN6a0klo2Obu+Vbq63i8Th2XRFflvsi/r5u76PcA==}
+    cpu: [arm64]
+    os: [linux]
+
+  opencode-linux-x64-baseline-musl@1.18.27:
+    resolution: {integrity: sha512-ov+sRE0qMr+Y0QO6YUZw8IlvsasMw3CpxgT0eH4YyPJdG11XkZ58kxiQLA38Y/2mrwTwBFfMNJsYHl2cuXGsmA==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  opencode-linux-x64-baseline@1.18.27:
+    resolution: {integrity: sha512-XM3OUFc9X3x7CFb2pgbfgFCKvzT3bj+KugBB7IQMff/kNE3R2msq6HzZQnPnGe6Gm5nl6hgIOT8pSi7Oyn0pGw==}
+    cpu: [x64]
+    os: [linux]
+
+  opencode-linux-x64-musl@1.18.27:
+    resolution: {integrity: sha512-SHxcbT7I/44pCKKDbdFnE2L7Viip34qZGZcBEJApS9aHcOayQTYcpL/9Oz5fti843VR1CN6WXPW3+a+NIemotQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  opencode-linux-x64@1.18.27:
+    resolution: {integrity: sha512-hxoPQCv6z/iYh3f8ZlAhJQ0RgzfJZQNOM1ZLRkx7juiZBmtLQLgFtDRiFNhqOKlKgDWsg131fOEEWwsT778aWA==}
+    cpu: [x64]
+    os: [linux]
+
+  opencode-windows-arm64@1.18.27:
+    resolution: {integrity: sha512-MSvvd9/qergkSQEVM8k2ipxbaRjZcw4MlQcnFiwQbg41BdRgE9iwZOBk2EVFql6jyidzXBcxiQvsCvOz8ksy9Q==}
+    cpu: [arm64]
+    os: [win32]
+
+  opencode-windows-x64-baseline@1.18.27:
+    resolution: {integrity: sha512-jsnQOYRNekibOFaDcxpf8GCbsQm9eTdqmt4HAQskwttgoSFTVs/RBRntz61yXg3ki/2xWDLezJg+hr/QpPFnUA==}
+    cpu: [x64]
+    os: [win32]
+
+  opencode-windows-x64@1.18.27:
+    resolution: {integrity: sha512-lbjyfjb2B0bTI56lw4bI8Aik2VBEmdLokW6xPit5Y89ZJw4o0gvbHabDylnbM06eBHarz/flvR8VE1PfAoxpqg==}
+    cpu: [x64]
+    os: [win32]
+
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==}
 
@@ -1272,6 +1357,10 @@ packages:
 
   parse5@8.0.1:
     resolution: {integrity: sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==}
+
+  path-key@3.1.1:
+    resolution: {integrity: sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==}
+    engines: {node: '>=8'}
 
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
@@ -1359,6 +1448,14 @@ packages:
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
+
+  shebang-command@2.0.0:
+    resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
+    engines: {node: '>=8'}
+
+  shebang-regex@3.0.0:
+    resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
+    engines: {node: '>=8'}
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
@@ -1599,6 +1696,11 @@ packages:
   whatwg-url@17.1.0:
     resolution: {integrity: sha512-3GeworPmc2ZfEEHP7lEbUfBX/L75wdEsi0rLNhXcXxnoN5jyq0SL5gCy06SGW2cyTIZdTvWIDQNQoza++vKeaw==}
     engines: {node: ^22.14.0 || >=24.0.0}
+
+  which@2.0.2:
+    resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
+    engines: {node: '>= 8'}
+    hasBin: true
 
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
@@ -1860,6 +1962,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@opencode-ai/sdk@1.18.27':
+    dependencies:
+      cross-spawn: 7.0.6
 
   '@oxc-project/types@0.147.0': {}
 
@@ -2172,6 +2278,12 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
+  cross-spawn@7.0.6:
+    dependencies:
+      path-key: 3.1.1
+      shebang-command: 2.0.0
+      which: 2.0.2
+
   css-mediaquery@0.1.2: {}
 
   css-tree@3.2.1:
@@ -2348,6 +2460,8 @@ snapshots:
   is-plain-obj@4.1.0: {}
 
   is-potential-custom-element-name@1.0.1: {}
+
+  isexe@2.0.0: {}
 
   js-tokens@4.0.0: {}
 
@@ -2813,6 +2927,57 @@ snapshots:
 
   obug@2.1.4: {}
 
+  opencode-ai@1.18.27:
+    optionalDependencies:
+      opencode-darwin-arm64: 1.18.27
+      opencode-darwin-x64: 1.18.27
+      opencode-darwin-x64-baseline: 1.18.27
+      opencode-linux-arm64: 1.18.27
+      opencode-linux-arm64-musl: 1.18.27
+      opencode-linux-x64: 1.18.27
+      opencode-linux-x64-baseline: 1.18.27
+      opencode-linux-x64-baseline-musl: 1.18.27
+      opencode-linux-x64-musl: 1.18.27
+      opencode-windows-arm64: 1.18.27
+      opencode-windows-x64: 1.18.27
+      opencode-windows-x64-baseline: 1.18.27
+
+  opencode-darwin-arm64@1.18.27:
+    optional: true
+
+  opencode-darwin-x64-baseline@1.18.27:
+    optional: true
+
+  opencode-darwin-x64@1.18.27:
+    optional: true
+
+  opencode-linux-arm64-musl@1.18.27:
+    optional: true
+
+  opencode-linux-arm64@1.18.27:
+    optional: true
+
+  opencode-linux-x64-baseline-musl@1.18.27:
+    optional: true
+
+  opencode-linux-x64-baseline@1.18.27:
+    optional: true
+
+  opencode-linux-x64-musl@1.18.27:
+    optional: true
+
+  opencode-linux-x64@1.18.27:
+    optional: true
+
+  opencode-windows-arm64@1.18.27:
+    optional: true
+
+  opencode-windows-x64-baseline@1.18.27:
+    optional: true
+
+  opencode-windows-x64@1.18.27:
+    optional: true
+
   parse-entities@4.0.2:
     dependencies:
       '@types/unist': 2.0.11
@@ -2830,6 +2995,8 @@ snapshots:
   parse5@8.0.1:
     dependencies:
       entities: 8.0.0
+
+  path-key@3.1.1: {}
 
   pathe@2.0.3: {}
 
@@ -2947,6 +3114,12 @@ snapshots:
   scheduler@0.27.0: {}
 
   semver@6.3.1: {}
+
+  shebang-command@2.0.0:
+    dependencies:
+      shebang-regex: 3.0.0
+
+  shebang-regex@3.0.0: {}
 
   siginfo@2.0.0: {}
 
@@ -3186,6 +3359,10 @@ snapshots:
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
+
+  which@2.0.2:
+    dependencies:
+      isexe: 2.0.0
 
   why-is-node-running@2.3.0:
     dependencies:
