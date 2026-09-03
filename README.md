@@ -20,7 +20,8 @@ pnpm dev
 - `packages/foundations` — semantic StyleX tokens and scoped themes
 - `packages/primitives` — owned React APIs backed by Base UI and styled with StyleX
 - `packages/components` — agent-interface components built only on owned primitives
-- `apps/demo` — Vite app consuming the workspace packages from source
+- `packages/blocks` — controlled chat-session and virtualized timeline compositions
+- `apps/demo` — Vite playground, component gallery, and reference runtime adapters
 
 ## Knowledge base
 
@@ -40,8 +41,9 @@ pnpm dev
 
 The workspace includes themed StyleX foundations, owned Base UI-backed
 primitives, conversation and agent-state components, structured coding output,
-and a component gallery. The [50-component parity tracker](docs/knowledge-base/component-system.md#external-ai-component-parity-tracker)
+the controlled chat composition, OpenCode and Nanocodex adapters, and a component
+gallery. The [50-component parity tracker](docs/knowledge-base/component-system.md#external-ai-component-parity-tracker)
 records shipped equivalents and the remaining component work. Registry, CLI,
-MCP, blocks, and runtime adapters remain future tasks. Statements marked
+and MCP distribution remain future tasks. Statements marked
 **Proposal** or **Hypothesis** in the knowledge base are starting positions to
 validate, not settled project decisions.

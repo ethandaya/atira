@@ -29,6 +29,7 @@ describe('ChatSession', () => {
       <ChatSession
         label="OpenCode session"
         onOpenChild={onOpenChild}
+        showRevertActions
         store={store}
       />,
     )

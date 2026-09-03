@@ -14,6 +14,7 @@ import {
 } from '@pretty-amped/components'
 import type {
   ChatStore,
+  ChatTurn,
   DraftAttachment,
   DraftSegment,
 } from '@pretty-amped/foundations/chat'
@@ -28,6 +29,7 @@ import { Timeline } from './timeline'
 export type ChatSessionProps = {
   accept?: string
   commands?: readonly ComposerCommand[]
+  composerActions?: ReactNode
   empty?: ReactNode
   history?: readonly PromptHistoryItem[]
   label: string
@@ -39,6 +41,8 @@ export type ChatSessionProps = {
   ) => void
   onRetryAttachment?: (attachment: DraftAttachment) => void
   references?: readonly ComposerReference[]
+  renderTurnActions?: (turn: ChatTurn) => ReactNode
+  showRevertActions?: boolean
   store: ChatStore
   toolRenderers?: readonly ToolRenderer[]
 }
@@ -46,6 +50,7 @@ export type ChatSessionProps = {
 export function ChatSession({
   accept,
   commands,
+  composerActions,
   empty,
   history,
   label,
@@ -55,6 +60,8 @@ export function ChatSession({
   onRemoveReference,
   onRetryAttachment,
   references,
+  renderTurnActions,
+  showRevertActions = false,
   store,
   toolRenderers,
 }: ChatSessionProps) {
@@ -62,6 +69,36 @@ export function ChatSession({
   const activeTurnId =
     snapshot.activity.status === 'idle' ? undefined : snapshot.activity.turnId
   const reverted = snapshot.revertedPrompt
+  const resolvedTurnActions =
+    renderTurnActions || showRevertActions
+      ? (turn: ChatTurn) => (
+          <>
+            {renderTurnActions?.(turn)}
+            {showRevertActions && turn.state.status !== 'queued' && (
+              <Button
+                aria-label={`Revert prompt ${turn.id}`}
+                onClick={() => run(store.revert(turn.id))}
+                size="compact"
+                variant="quiet"
+              >
+                Revert
+              </Button>
+            )}
+          </>
+        )
+      : undefined
+  const resolvedComposerActions =
+    composerActions || (history && history.length > 0) ? (
+      <>
+        {composerActions}
+        {history && history.length > 0 && (
+          <PromptHistory
+            items={history}
+            onRestore={(item) => store.updateDraft(item.draft)}
+          />
+        )}
+      </>
+    ) : undefined
 
   return (
     <section
@@ -82,18 +119,9 @@ export function ChatSession({
           history={snapshot.history}
           label={`${label} transcript`}
           onLoadPrevious={() => store.loadPrevious()}
-          renderTurnActions={(turn) =>
-            turn.state.status === 'queued' ? null : (
-              <Button
-                aria-label={`Revert prompt ${turn.id}`}
-                onClick={() => run(store.revert(turn.id))}
-                size="compact"
-                variant="quiet"
-              >
-                Revert
-              </Button>
-            )
-          }
+          {...(resolvedTurnActions === undefined
+            ? {}
+            : { renderTurnActions: resolvedTurnActions })}
           toolActions={onOpenChild ? { onOpenChild } : {}}
           {...(toolRenderers === undefined ? {} : { toolRenderers })}
           turns={snapshot.turns}
@@ -161,16 +189,9 @@ export function ChatSession({
             />
             <ChatComposer
               {...(accept === undefined ? {} : { accept })}
-              {...(history && history.length > 0
-                ? {
-                    actions: (
-                      <PromptHistory
-                        items={history}
-                        onRestore={(item) => store.updateDraft(item.draft)}
-                      />
-                    ),
-                  }
-                : {})}
+              {...(resolvedComposerActions === undefined
+                ? {}
+                : { actions: resolvedComposerActions })}
               activity={snapshot.activity}
               capabilities={snapshot.capabilities}
               {...(commands === undefined ? {} : { commands })}
