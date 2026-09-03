@@ -5,6 +5,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./chat": "./src/chat.ts",
+    "./chat-invariants": "./src/chat-invariants.ts",
     "./themes": "./src/themes.ts",
     "./tokens.stylex": "./src/tokens.stylex.ts"
   },

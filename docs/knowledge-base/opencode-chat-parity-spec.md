@@ -1,6 +1,6 @@
 # OpenCode chat-interface parity specification
 
-Research snapshot: **September 3, 2026**  
+Research snapshot: **September 3, 2026**
 Status: **implementation specification**
 
 This document narrows the broader [OpenCode UI replacement gap analysis](opencode-north-star.md) to the chat/session surface. It defines the reusable React + StyleX library work and the minimum application adapter needed to prove that work against OpenCode.
@@ -367,7 +367,7 @@ Specialized renderers may refine validated input and output into more precise lo
 
 ```diagram
 receiving-input ─▶ queued ─▶ running ─────────────▶ succeeded
-                      │         │  │                    
+                      │         │  │
                       │         │  ├───────────────────▶ failed
                       │         │  └───────────────────▶ cancelled
                       │         ▼
