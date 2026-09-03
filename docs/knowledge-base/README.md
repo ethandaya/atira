@@ -11,6 +11,10 @@ This knowledge base turns the reference material into implementation guidance fo
 
 The distinction matters. Design discourse is useful evidence, but it is not a specification. StyleX improves constraints, but it does not make generated UI correct. Accessibility standards cover people; “LLM accessibility” is not an established standard.
 
+## Current north star
+
+As of September 3, 2026, the reference client's north star is behavioral replacement of [OpenCode's graphical web/desktop UI](opencode-north-star.md). The component library remains protocol-neutral; OpenCode-specific event reconciliation, persistence, routing, and native integration remain application concerns. The earlier generic runtime proposals are retained as research, but they no longer determine component priority.
+
 ## Executive thesis
 
 The construction model should borrow shadcn’s layering without depending on shadcn’s schemas, CLI, or Tailwind machinery: owned primitives with accessibility behavior, components and blocks built on those primitives, and source distribution through first-party CLI and MCP tooling. The StyleX-first primitive APIs and machine-readable contracts are the product, not a styling substitution inside someone else’s registry.

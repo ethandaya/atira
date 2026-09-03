@@ -3,9 +3,9 @@
 Pretty Amped is the working title for two related products:
 
 1. a StyleX-first React component system with its own accessible primitives, source registry, CLI, and MCP server for AI and agent interfaces; and
-2. an ultraminimal reference client that proves the component system against a real coding-agent workflow.
+2. an ultraminimal reference client capable of replacing OpenCode's graphical UI while proving the component system against a real coding-agent workflow.
 
-The client should stay thin and protocol-neutral. The first live adapter will use native `fx acp`; Nanocodex and Amp remain useful future adapters. Protocol handling and product-specific composition belong at the application edge; visual language, interaction contracts, accessibility, semantic agent states, and theming belong in the library.
+OpenCode's web/desktop UI is the behavioral north star, not a visual template. The reusable library stays protocol-neutral; OpenCode SDK handling, event reconciliation, persistence, routing, and desktop capabilities belong at the application edge. Visual language, interaction contracts, accessibility, semantic agent states, and theming belong in the library.
 
 The repository now contains the first runnable vertical slice. Start with the
 [knowledge base](docs/knowledge-base/README.md), then run the demo:
@@ -25,6 +25,7 @@ pnpm dev
 ## Knowledge base
 
 - [Executive synthesis](docs/knowledge-base/README.md)
+- [OpenCode UI replacement north star and gap analysis](docs/knowledge-base/opencode-north-star.md)
 - [Library construction plan](docs/knowledge-base/library-construction.md)
 - [StyleX and React foundation](docs/knowledge-base/stylex-react.md)
 - [Design-engineering research](docs/knowledge-base/design-engineering.md)
