@@ -433,6 +433,7 @@ export type ChatSnapshot = Readonly<{
   requests: readonly ChatRequest[]
   revertedPrompt?: RevertedPrompt
   sessionId: string
+  submissionError?: ChatError
   todos?: TodoListView
   turns: readonly ChatTurn[]
 }>
@@ -450,12 +451,22 @@ export interface ChatStore {
     originSessionId: string
     requestId: string
   }): Promise<void>
+  dismissReverted(reverted: RevertedPrompt): Promise<void>
+  dismissSubmissionError(): void
+  editQueued(item: QueuedPrompt): void
   getSnapshot(): ChatSnapshot
   loadPrevious(): Promise<void>
+  reconnect(): Promise<void>
+  redoReverted(reverted: RevertedPrompt): Promise<void>
   rejectQuestion(input: {
     originSessionId: string
     requestId: string
   }): Promise<void>
+  removeQueued(item: QueuedPrompt): void
+  restoreReverted(reverted: RevertedPrompt): Promise<void>
+  retryQueued(item: QueuedPrompt): Promise<void>
+  retrySubmission(): Promise<void>
+  revert(turnId: string): Promise<void>
   stop(turnId: string): Promise<void>
   submit(draft: ComposerDraft, intent: SubmitIntent): Promise<void>
   subscribe(listener: () => void): () => void

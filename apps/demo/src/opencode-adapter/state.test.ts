@@ -19,6 +19,7 @@ import {
   createOpenCodeAdapterState,
   mergeOpenCodeMessagePage,
   reduceOpenCodeEvent,
+  withOpenCodeSessionLineage,
 } from './state'
 
 describe('OpenCode event reduction', () => {
@@ -260,8 +261,64 @@ describe('OpenCode event reduction', () => {
     })
     expect(state.revert).toBeUndefined()
   })
+
+  it('keeps same-ID requests from sibling sessions independently addressable', () => {
+    let state = withOpenCodeSessionLineage(
+      createOpenCodeAdapterState(sessionId),
+      [
+        childSession('child-a', 'Agent A'),
+        childSession('child-b', 'Agent B'),
+      ],
+    )
+    for (const childId of ['child-a', 'child-b']) {
+      state = reduceOpenCodeEvent(state, {
+        id: `asked-${childId}`,
+        properties: {
+          action: 'webfetch',
+          id: 'shared-request-id',
+          resources: ['https://example.com'],
+          sessionID: childId,
+        },
+        type: 'permission.v2.asked',
+      })
+    }
+
+    state = reduceOpenCodeEvent(state, {
+      id: 'resolved-child-a',
+      properties: {
+        reply: 'once',
+        requestID: 'shared-request-id',
+        sessionID: 'child-a',
+      },
+      type: 'permission.v2.replied',
+    })
+
+    expect(state.requests).toEqual([
+      expect.objectContaining({
+        origin: expect.objectContaining({ sessionId: 'child-a' }),
+        state: { decision: 'once', status: 'resolved' },
+      }),
+      expect.objectContaining({
+        origin: expect.objectContaining({ sessionId: 'child-b' }),
+        state: { status: 'pending' },
+      }),
+    ])
+  })
 })
 
 function reduceEvents(events: Parameters<typeof reduceOpenCodeEvent>[1][]) {
   return events.reduce(reduceOpenCodeEvent, createOpenCodeAdapterState(sessionId))
+}
+
+function childSession(id: string, title: string) {
+  return {
+    directory: '/workspace',
+    id,
+    parentID: sessionId,
+    projectID: 'project',
+    slug: id,
+    time: { created: 1, updated: 1 },
+    title,
+    version: '1',
+  }
 }

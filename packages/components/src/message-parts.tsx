@@ -28,19 +28,25 @@ import { Reasoning } from './reasoning'
 
 export type ToolRenderer = Readonly<{
   id: string
-  render: (part: ToolPart) => ReactNode
+  render: (part: ToolPart, actions: ToolActions) => ReactNode
   supports: (part: ToolPart) => boolean
+}>
+
+export type ToolActions = Readonly<{
+  onOpenChild?: (sessionId: string) => void
 }>
 
 export type MessagePartsProps = {
   message: ChatMessage
   suppressTodoTools?: boolean
+  toolActions?: ToolActions
   toolRenderers?: readonly ToolRenderer[]
 }
 
 export function MessageParts({
   message,
   suppressTodoTools = true,
+  toolActions = {},
   toolRenderers = [],
 }: MessagePartsProps) {
   const renderers = [...toolRenderers, ...defaultToolRenderers]
@@ -81,6 +87,7 @@ export function MessageParts({
       <Part
         key={part.id}
         part={part}
+        toolActions={toolActions}
         renderers={renderers}
       />,
     )
@@ -101,9 +108,11 @@ export function MessageParts({
 function Part({
   part,
   renderers,
+  toolActions,
 }: {
   part: MessagePart
   renderers: readonly ToolRenderer[]
+  toolActions: ToolActions
 }) {
   switch (part.type) {
     case 'text':
@@ -137,7 +146,7 @@ function Part({
           data-slot="tool-renderer"
           data-tool-kind={part.presentation.kind}
         >
-          {(renderer ?? genericRenderer).render(part)}
+          {(renderer ?? genericRenderer).render(part, toolActions)}
         </div>
       )
     }
@@ -217,7 +226,18 @@ const defaultToolRenderers: readonly ToolRenderer[] = [
     (part) => part.presentation.kind === 'file-change',
     FileChangeTool,
   ),
-  renderer('task', (part) => part.presentation.kind === 'task', TaskTool),
+  {
+    id: 'task',
+    render: (part, actions) => (
+      <TaskTool
+        part={part}
+        {...(actions.onOpenChild === undefined
+          ? {}
+          : { onOpenChild: actions.onOpenChild })}
+      />
+    ),
+    supports: (part) => part.presentation.kind === 'task',
+  },
   renderer('web', (part) => part.presentation.kind === 'web', WebTool),
   renderer('skill', (part) => part.presentation.kind === 'skill', SkillTool),
   renderer('generic', () => true, GenericTool),

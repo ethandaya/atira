@@ -7,9 +7,13 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import { Shimmer, VisuallyHidden } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import type { ComponentPropsWithRef } from 'react'
+import type { ComponentPropsWithRef, ReactNode } from 'react'
 
-import { MessageParts, type ToolRenderer } from './message-parts'
+import {
+  MessageParts,
+  type ToolActions,
+  type ToolRenderer,
+} from './message-parts'
 
 type NativeListItemProps = Omit<
   ComponentPropsWithRef<'li'>,
@@ -17,11 +21,19 @@ type NativeListItemProps = Omit<
 >
 
 export type TurnProps = NativeListItemProps & {
+  actions?: ReactNode
+  toolActions?: ToolActions
   toolRenderers?: readonly ToolRenderer[]
   turn: ChatTurn
 }
 
-export function Turn({ toolRenderers, turn, ...props }: TurnProps) {
+export function Turn({
+  actions,
+  toolActions,
+  toolRenderers,
+  turn,
+  ...props
+}: TurnProps) {
   const active =
     turn.state.status === 'running' || turn.state.status === 'retrying'
 
@@ -43,6 +55,7 @@ export function Turn({ toolRenderers, turn, ...props }: TurnProps) {
         >
           <MessageParts
             message={turn.user}
+            {...(toolActions === undefined ? {} : { toolActions })}
             {...(toolRenderers === undefined ? {} : { toolRenderers })}
           />
         </section>
@@ -57,6 +70,7 @@ export function Turn({ toolRenderers, turn, ...props }: TurnProps) {
             >
               <MessageParts
                 message={message}
+                {...(toolActions === undefined ? {} : { toolActions })}
                 {...(toolRenderers === undefined ? {} : { toolRenderers })}
               />
             </section>
@@ -64,11 +78,14 @@ export function Turn({ toolRenderers, turn, ...props }: TurnProps) {
           <TurnStatus state={turn.state} />
         </div>
 
-        {(turn.agent || turn.model) && (
+        {(turn.agent || turn.model || actions) && (
           <footer data-slot="turn-meta" {...stylex.props(styles.meta)}>
-            {turn.agent?.label}
-            {turn.agent && turn.model ? ' · ' : ''}
-            {turn.model?.label}
+            <span>
+              {turn.agent?.label}
+              {turn.agent && turn.model ? ' · ' : ''}
+              {turn.model?.label}
+            </span>
+            {actions}
           </footer>
         )}
       </article>
@@ -149,10 +166,14 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   meta: {
+    alignItems: 'center',
     color: colors.textMuted,
+    display: 'flex',
     fontFamily: type.family,
     fontSize: type.sizeCaption,
     fontVariantNumeric: 'tabular-nums',
+    gap: space.x2,
+    justifyContent: 'space-between',
     lineHeight: type.lineCompact,
   },
   status: {

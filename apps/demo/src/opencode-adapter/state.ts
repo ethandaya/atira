@@ -5,6 +5,7 @@ import type {
   Part,
   QuestionInfo,
   RevertState,
+  Session,
   SessionErrorUnknown,
   SessionStatus,
   Todo,
@@ -19,6 +20,7 @@ import type {
   QuestionRequestView,
   QuestionResponse,
   QuestionView,
+  RequestOrigin,
   TodoListView,
 } from '@pretty-amped/foundations/chat'
 
@@ -35,6 +37,7 @@ export type OpenCodeMessageRecord = Readonly<{
 }>
 
 export type OpenCodeAdapterState = Readonly<{
+  confirmedPartIds: ReadonlySet<string>
   messages: Readonly<Record<string, OpenCodeMessageRecord>>
   messageOrder: readonly string[]
   messageTombstones: ReadonlySet<string>
@@ -45,6 +48,7 @@ export type OpenCodeAdapterState = Readonly<{
   requests: readonly ChatRequest[]
   revert?: RevertState
   seenEventIds: ReadonlySet<string>
+  sessionOrigins: Readonly<Record<string, RequestOrigin>>
   sessionError?: ChatError
   sessionId: string
   sessionStatus: SessionStatus
@@ -55,6 +59,7 @@ export function createOpenCodeAdapterState(
   sessionId: string,
 ): OpenCodeAdapterState {
   return {
+    confirmedPartIds: new Set(),
     messages: {},
     messageOrder: [],
     messageTombstones: new Set(),
@@ -64,6 +69,7 @@ export function createOpenCodeAdapterState(
     pendingDeltas: {},
     requests: [],
     seenEventIds: new Set(),
+    sessionOrigins: { [sessionId]: { sessionId } },
     sessionId,
     sessionStatus: { type: 'idle' },
   }
@@ -80,6 +86,12 @@ export function reduceOpenCodeEvent(
   const next = { ...state, seenEventIds }
 
   switch (event.type) {
+    case 'session.created':
+      return withOpenCodeSessionLineage(next, [event.properties.info])
+    case 'session.updated':
+      return syncSessionInfo(next, event.properties.info)
+    case 'session.deleted':
+      return removeLineageSession(next, event.properties.info.id)
     case 'message.updated':
       return event.properties.sessionID === state.sessionId
         ? upsertMessage(next, event.properties.info, 'event')
@@ -333,7 +345,7 @@ export function reduceOpenCodeEvent(
           }
         : next
     case 'permission.asked':
-      return event.properties.sessionID === state.sessionId
+      return isLineageSession(next, event.properties.sessionID)
         ? addRequest(
             next,
             permissionRequest(next, {
@@ -346,7 +358,7 @@ export function reduceOpenCodeEvent(
           )
         : next
     case 'permission.v2.asked':
-      return event.properties.sessionID === state.sessionId
+      return isLineageSession(next, event.properties.sessionID)
         ? addRequest(
             next,
             permissionRequest(next, {
@@ -362,16 +374,17 @@ export function reduceOpenCodeEvent(
         : next
     case 'permission.replied':
     case 'permission.v2.replied':
-      return event.properties.sessionID === state.sessionId
+      return isLineageSession(next, event.properties.sessionID)
         ? resolvePermission(
             next,
             event.properties.requestID,
             event.properties.reply,
+            event.properties.sessionID,
           )
         : next
     case 'question.asked':
     case 'question.v2.asked':
-      return event.properties.sessionID === state.sessionId
+      return isLineageSession(next, event.properties.sessionID)
         ? addRequest(
             next,
             questionRequest(
@@ -384,17 +397,23 @@ export function reduceOpenCodeEvent(
         : next
     case 'question.replied':
     case 'question.v2.replied':
-      return event.properties.sessionID === state.sessionId
+      return isLineageSession(next, event.properties.sessionID)
         ? resolveQuestion(
             next,
             event.properties.requestID,
             event.properties.answers,
+            event.properties.sessionID,
           )
         : next
     case 'question.rejected':
     case 'question.v2.rejected':
-      return event.properties.sessionID === state.sessionId
-        ? resolveQuestion(next, event.properties.requestID, 'reject')
+      return isLineageSession(next, event.properties.sessionID)
+        ? resolveQuestion(
+            next,
+            event.properties.requestID,
+            'reject',
+            event.properties.sessionID,
+          )
         : next
     case 'todo.updated':
       return event.properties.sessionID === state.sessionId
@@ -403,6 +422,42 @@ export function reduceOpenCodeEvent(
     default:
       return next
   }
+}
+
+export function withOpenCodeSessionLineage(
+  state: OpenCodeAdapterState,
+  sessions: readonly Session[],
+): OpenCodeAdapterState {
+  let origins = state.sessionOrigins
+  let changed = true
+
+  while (changed) {
+    changed = false
+    for (const session of sessions) {
+      if (
+        session.id === state.sessionId ||
+        !session.parentID ||
+        !origins[session.parentID]
+      ) {
+        continue
+      }
+      const origin: RequestOrigin = {
+        ...(session.title ? { label: session.title } : {}),
+        parentSessionId: session.parentID,
+        sessionId: session.id,
+      }
+      if (
+        origins[session.id]?.label === origin.label &&
+        origins[session.id]?.parentSessionId === origin.parentSessionId
+      ) {
+        continue
+      }
+      origins = { ...origins, [session.id]: origin }
+      changed = true
+    }
+  }
+
+  return origins === state.sessionOrigins ? state : { ...state, sessionOrigins: origins }
 }
 
 export function mergeOpenCodeMessagePage(
@@ -443,7 +498,7 @@ export function addOpenCodeOptimisticMessage(
   },
 ): OpenCodeAdapterState {
   let next = upsertMessage(state, input.info, 'optimistic')
-  for (const part of input.parts) next = upsertPart(next, part)
+  for (const part of input.parts) next = upsertPart(next, part, false, false)
   const record = next.messages[input.info.id]
   if (!record) return next
 
@@ -459,20 +514,38 @@ export function addOpenCodeOptimisticMessage(
   }
 }
 
-export function failOpenCodeMessage(
+export function rollbackOpenCodeOptimisticMessage(
   state: OpenCodeAdapterState,
   messageId: string,
   error: ChatError,
 ): OpenCodeAdapterState {
   const record = state.messages[messageId]
   if (!record) return state
+  const confirmedParts = record.parts.filter((part) =>
+    state.confirmedPartIds.has(part.id),
+  )
+
+  if (record.source === 'optimistic' && confirmedParts.length === 0) {
+    const messages = { ...state.messages }
+    delete messages[messageId]
+    return {
+      ...state,
+      messages,
+      messageOrder: state.messageOrder.filter((id) => id !== messageId),
+    }
+  }
+
   return {
     ...state,
     messages: {
       ...state.messages,
       [messageId]: {
         ...record,
-        delivery: { error, retryable: error.retryable, status: 'failed' },
+        delivery:
+          record.source === 'optimistic'
+            ? { error, retryable: error.retryable, status: 'failed' }
+            : { status: 'confirmed' },
+        parts: confirmedParts,
       },
     },
   }
@@ -530,6 +603,7 @@ function upsertPart(
   state: OpenCodeAdapterState,
   part: Part,
   preserveExisting = false,
+  confirmed = true,
 ): OpenCodeAdapterState {
   if (
     state.partTombstones.has(part.id) ||
@@ -539,6 +613,9 @@ function upsertPart(
   }
 
   const pendingDeltas = { ...state.pendingDeltas }
+  const confirmedPartIds = confirmed
+    ? new Set(state.confirmedPartIds).add(part.id)
+    : state.confirmedPartIds
   const textDeltaKey = partDeltaKey(part.messageID, part.id, 'text')
   const textDelta = pendingDeltas[textDeltaKey]
   let resolvedPart = textDelta ? applyPendingDelta(part, textDelta) : part
@@ -559,6 +636,7 @@ function upsertPart(
   if (!record) {
     return {
       ...state,
+      confirmedPartIds,
       orphanParts: {
         ...state.orphanParts,
         [part.messageID]: upsertPartInList(
@@ -573,6 +651,7 @@ function upsertPart(
 
   return {
     ...state,
+    confirmedPartIds,
     messages: {
       ...state.messages,
       [part.messageID]: {
@@ -591,12 +670,15 @@ function removePart(
 ) {
   const partTombstones = new Set(state.partTombstones)
   partTombstones.add(partId)
+  const confirmedPartIds = new Set(state.confirmedPartIds)
+  confirmedPartIds.delete(partId)
   const record = state.messages[messageId]
 
-  if (!record) return { ...state, partTombstones }
+  if (!record) return { ...state, confirmedPartIds, partTombstones }
 
   return {
     ...state,
+    confirmedPartIds,
     messages: {
       ...state.messages,
       [messageId]: {
@@ -1167,7 +1249,12 @@ function addRequest(
   state: OpenCodeAdapterState,
   request: ChatRequest,
 ): OpenCodeAdapterState {
-  const existing = state.requests.findIndex((item) => item.id === request.id)
+  const existing = state.requests.findIndex(
+    (item) =>
+      item.type === request.type &&
+      item.id === request.id &&
+      item.origin.sessionId === request.origin.sessionId,
+  )
   const requests = [...state.requests]
 
   if (existing === -1) requests.push(request)
@@ -1199,7 +1286,7 @@ function permissionRequest(
       : humanize(request.action),
     id: request.id,
     order: state.nextRequestOrder,
-    origin: { sessionId: request.sessionId },
+    origin: requestOrigin(state, request.sessionId),
     ...(request.save?.length
       ? { scope: `Can be remembered for ${request.save.join(', ')}` }
       : {}),
@@ -1218,7 +1305,7 @@ function questionRequest(
   return {
     id,
     order: state.nextRequestOrder,
-    origin: { sessionId },
+    origin: requestOrigin(state, sessionId),
     questions: questions.map((question, questionIndex) =>
       mapQuestion(id, question, questionIndex),
     ),
@@ -1260,11 +1347,14 @@ function resolvePermission(
   state: OpenCodeAdapterState,
   requestId: string,
   decision: PermissionDecision,
+  sessionId: string,
 ): OpenCodeAdapterState {
   return {
     ...state,
     requests: state.requests.map((request) =>
-      request.type === 'permission' && request.id === requestId
+      request.type === 'permission' &&
+      request.id === requestId &&
+      request.origin.sessionId === sessionId
         ? { ...request, state: { decision, status: 'resolved' } }
         : request,
     ),
@@ -1275,11 +1365,18 @@ function resolveQuestion(
   state: OpenCodeAdapterState,
   requestId: string,
   answers: readonly (readonly string[])[] | 'reject',
+  sessionId: string,
 ): OpenCodeAdapterState {
   return {
     ...state,
     requests: state.requests.map((request) => {
-      if (request.type !== 'question' || request.id !== requestId) return request
+      if (
+        request.type !== 'question' ||
+        request.id !== requestId ||
+        request.origin.sessionId !== sessionId
+      ) {
+        return request
+      }
 
       const decision: QuestionDecision =
         answers === 'reject'
@@ -1359,6 +1456,41 @@ function permissionConsequence(
   if (/delete|remove|reset|destroy/i.test(action)) return 'destructive'
   if (/web|network|publish|share|external/i.test(action)) return 'external'
   return 'reversible'
+}
+
+function requestOrigin(state: OpenCodeAdapterState, sessionId: string) {
+  return state.sessionOrigins[sessionId] ?? { sessionId }
+}
+
+function isLineageSession(state: OpenCodeAdapterState, sessionId: string) {
+  return state.sessionOrigins[sessionId] !== undefined
+}
+
+function removeLineageSession(
+  state: OpenCodeAdapterState,
+  sessionId: string,
+): OpenCodeAdapterState {
+  if (sessionId === state.sessionId || !state.sessionOrigins[sessionId]) return state
+  const sessionOrigins = { ...state.sessionOrigins }
+  delete sessionOrigins[sessionId]
+  return {
+    ...state,
+    requests: state.requests.filter(
+      (request) => request.origin.sessionId !== sessionId,
+    ),
+    sessionOrigins,
+  }
+}
+
+function syncSessionInfo(
+  state: OpenCodeAdapterState,
+  session: Session,
+): OpenCodeAdapterState {
+  if (session.id !== state.sessionId) {
+    return withOpenCodeSessionLineage(state, [session])
+  }
+  if (session.revert) return { ...state, revert: session.revert }
+  return withoutRevert(state)
 }
 
 function humanize(value: string) {

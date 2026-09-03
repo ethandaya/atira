@@ -1,6 +1,7 @@
 import {
   StreamStatus,
   Turn,
+  type ToolActions,
   type ToolRenderer,
 } from '@pretty-amped/components'
 import type {
@@ -39,6 +40,8 @@ export type TimelineProps = {
   label: string
   onFollowStateChange?: (state: FollowState) => void
   onLoadPrevious: () => Promise<void>
+  renderTurnActions?: (turn: ChatTurn) => ReactNode
+  toolActions?: ToolActions
   toolRenderers?: readonly ToolRenderer[]
   turns: readonly ChatTurn[]
   virtualizeAfter?: number
@@ -56,6 +59,8 @@ export function Timeline({
   label,
   onFollowStateChange,
   onLoadPrevious,
+  renderTurnActions,
+  toolActions,
   toolRenderers,
   turns,
   virtualizeAfter = 100,
@@ -276,6 +281,10 @@ export function Timeline({
                     }
                   }}
                   onFocus={() => pinnedTurnIds.current.add(turn.id)}
+                  {...(renderTurnActions === undefined
+                    ? {}
+                    : { actions: renderTurnActions(turn) })}
+                  {...(toolActions === undefined ? {} : { toolActions })}
                   turn={turn}
                   {...(toolRenderers === undefined ? {} : { toolRenderers })}
                 />

@@ -83,7 +83,11 @@ export type {
 export { Message } from './message'
 export type { MessageActor, MessageProps } from './message'
 export { MessageParts } from './message-parts'
-export type { MessagePartsProps, ToolRenderer } from './message-parts'
+export type {
+  MessagePartsProps,
+  ToolActions,
+  ToolRenderer,
+} from './message-parts'
 export { Loader } from './loader'
 export type { LoaderProps, LoaderState } from './loader'
 export { Markdown } from './markdown'
