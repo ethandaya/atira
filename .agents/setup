@@ -25,11 +25,15 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 node_version="$(node --version)"
-node_major="${node_version#v}"
-node_major="${node_major%%.*}"
+node_semver="${node_version#v}"
+node_major="${node_semver%%.*}"
+node_remainder="${node_semver#*.}"
+node_minor="${node_remainder%%.*}"
 
-if [[ ! "$node_major" =~ ^[0-9]+$ ]] || ((node_major < 22)); then
-  printf '[setup] Node.js 22 or newer is required; found %s.\n' "$node_version" >&2
+if [[ ! "$node_major" =~ ^[0-9]+$ ]] ||
+  [[ ! "$node_minor" =~ ^[0-9]+$ ]] ||
+  ((node_major < 22 || (node_major == 22 && node_minor < 13))); then
+  printf '[setup] Node.js 22.13 or newer is required; found %s.\n' "$node_version" >&2
   exit 1
 fi
 

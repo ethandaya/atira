@@ -15,6 +15,7 @@
     "@pretty-amped/foundations": "workspace:*",
     "@pretty-amped/primitives": "workspace:*",
     "@stylexjs/stylex": "catalog:",
+    "nanocodex": "0.5.0",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
