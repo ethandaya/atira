@@ -5,7 +5,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { useId, type ComponentPropsWithRef } from 'react'
+import { useId, type ComponentPropsWithRef, type ReactNode } from 'react'
 
 export type Citation = Readonly<{
   description?: string
@@ -25,6 +25,16 @@ export type CitationListProps = NativeSectionProps & {
   headingLevel?: 2 | 3 | 4 | 5 | 6
   id: string
   title?: string
+}
+
+type NativeSupProps = Omit<
+  ComponentPropsWithRef<'sup'>,
+  'children' | 'className' | 'style' | 'title'
+>
+
+export type InlineCitationProps = NativeSupProps & {
+  citation: Citation
+  marker?: ReactNode
 }
 
 export function CitationList({
@@ -103,6 +113,51 @@ export function CitationList({
         </ol>
       )}
     </section>
+  )
+}
+
+export function InlineCitation({
+  citation,
+  marker,
+  ref,
+  ...props
+}: InlineCitationProps) {
+  const hrefState = getHrefState(citation.href)
+  const content = marker ?? citation.source ?? 'Source'
+  const label = citation.source
+    ? `Source: ${citation.title}, ${citation.source}`
+    : `Source: ${citation.title}`
+
+  return (
+    <sup
+      {...props}
+      ref={ref}
+      data-citation-id={citation.id}
+      data-link-state={hrefState.status}
+      data-slot="inline-citation"
+      {...stylex.props(styles.inlineRoot)}
+    >
+      {hrefState.status === 'valid' ? (
+        <a
+          aria-label={label}
+          href={hrefState.href}
+          rel="noreferrer noopener"
+          title={citation.title}
+          data-slot="inline-citation-link"
+          {...stylex.props(styles.inlineMarker)}
+        >
+          {content}
+        </a>
+      ) : (
+        <span
+          aria-label={`${label}; link unavailable`}
+          data-slot="inline-citation-unavailable"
+          {...stylex.props(styles.inlineMarker, styles.inlineUnavailable)}
+        >
+          {content}
+        </span>
+      )}
+    </sup>
   )
 }
 
@@ -209,5 +264,46 @@ const styles = stylex.create({
     fontSize: type.sizeSmall,
     margin: 0,
     padding: space.x4,
+  },
+  inlineRoot: {
+    fontSize: 'inherit',
+    lineHeight: 0,
+    verticalAlign: 'baseline',
+  },
+  inlineMarker: {
+    backgroundColor: {
+      default: colors.surfaceMuted,
+      ':hover': {
+        default: null,
+        '@media (hover: hover) and (pointer: fine)': colors.border,
+      },
+    },
+    borderRadius: '0.3rem',
+    color: colors.textMuted,
+    display: 'inline-flex',
+    fontFamily: type.family,
+    fontSize: '0.6875rem',
+    fontWeight: type.weightMedium,
+    lineHeight: '1.25rem',
+    marginInline: '0.125rem',
+    maxInlineSize: '12rem',
+    outlineColor: {
+      default: 'transparent',
+      ':focus-visible': colors.focus,
+    },
+    outlineOffset: '1px',
+    outlineStyle: 'solid',
+    outlineWidth: '3px',
+    overflow: 'hidden',
+    paddingInline: '0.375rem',
+    textDecoration: 'none',
+    textOverflow: 'ellipsis',
+    touchAction: 'manipulation',
+    verticalAlign: '0.08em',
+    whiteSpace: 'nowrap',
+  },
+  inlineUnavailable: {
+    cursor: 'not-allowed',
+    opacity: 0.7,
   },
 })
