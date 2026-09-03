@@ -21,7 +21,7 @@ import type {
 import { colors, space } from '@pretty-amped/foundations/tokens.stylex'
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 
 import { useChatStore } from './chat-store'
 import { Timeline } from './timeline'
@@ -69,65 +69,48 @@ export function ChatSession({
   const activeTurnId =
     snapshot.activity.status === 'idle' ? undefined : snapshot.activity.turnId
   const reverted = snapshot.revertedPrompt
-  const resolvedTurnActions =
-    renderTurnActions || showRevertActions
-      ? (turn: ChatTurn) => (
-          <>
-            {renderTurnActions?.(turn)}
-            {showRevertActions && turn.state.status !== 'queued' && (
-              <Button
-                aria-label={`Revert prompt ${turn.id}`}
-                onClick={() => run(store.revert(turn.id))}
-                size="compact"
-                variant="quiet"
-              >
-                Revert
-              </Button>
-            )}
-          </>
-        )
-      : undefined
-  const resolvedComposerActions =
-    composerActions || (history && history.length > 0) ? (
-      <>
-        {composerActions}
-        {history && history.length > 0 && (
-          <PromptHistory
-            items={history}
-            onRestore={(item) => store.updateDraft(item.draft)}
-          />
-        )}
-      </>
-    ) : undefined
-
-  return (
-    <section
-      aria-label={label}
-      data-connection-state={snapshot.connection.status}
-      data-session-id={snapshot.sessionId}
-      data-slot="chat-session"
-      {...stylex.props(styles.root)}
-    >
-      <ConnectionNotice
-        onRetry={() => run(store.reconnect())}
-        state={snapshot.connection}
-      />
-      <div data-slot="chat-session-timeline" {...stylex.props(styles.timeline)}>
-        <Timeline
-          activity={snapshot.activity}
-          {...(empty === undefined ? {} : { empty })}
-          history={snapshot.history}
-          label={`${label} transcript`}
-          onLoadPrevious={() => store.loadPrevious()}
-          {...(resolvedTurnActions === undefined
-            ? {}
-            : { renderTurnActions: resolvedTurnActions })}
-          toolActions={onOpenChild ? { onOpenChild } : {}}
-          {...(toolRenderers === undefined ? {} : { toolRenderers })}
-          turns={snapshot.turns}
-        />
-      </div>
-
+  const resolvedTurnActions = useMemo(
+    () =>
+      renderTurnActions || showRevertActions
+        ? (turn: ChatTurn) => (
+            <>
+              {renderTurnActions?.(turn)}
+              {showRevertActions && turn.state.status !== 'queued' && (
+                <Button
+                  aria-label={`Revert prompt ${turn.id}`}
+                  onClick={() => run(store.revert(turn.id))}
+                  size="compact"
+                  variant="quiet"
+                >
+                  Revert
+                </Button>
+              )}
+            </>
+          )
+        : undefined,
+    [renderTurnActions, showRevertActions, store],
+  )
+  const toolActions = useMemo(
+    () => (onOpenChild ? { onOpenChild } : {}),
+    [onOpenChild],
+  )
+  const resolvedComposerActions = useMemo(
+    () =>
+      composerActions || (history && history.length > 0) ? (
+        <>
+          {composerActions}
+          {history && history.length > 0 && (
+            <PromptHistory
+              items={history}
+              onRestore={(item) => store.updateDraft(item.draft)}
+            />
+          )}
+        </>
+      ) : undefined,
+    [composerActions, history, store],
+  )
+  const dock = useMemo(
+    () => (
       <div data-slot="chat-session-dock" {...stylex.props(styles.dock)}>
         <div {...stylex.props(styles.dockMeasure)}>
           {snapshot.submissionError && (
@@ -216,6 +199,58 @@ export function ChatSession({
           </RequestRegion>
         </div>
       </div>
+    ),
+    [
+      accept,
+      activeTurnId,
+      commands,
+      onFilesAdd,
+      onRemoveAttachment,
+      onRemoveReference,
+      onRetryAttachment,
+      references,
+      resolvedComposerActions,
+      reverted,
+      snapshot.activity,
+      snapshot.capabilities,
+      snapshot.composer,
+      snapshot.queue,
+      snapshot.requests,
+      snapshot.submissionError,
+      snapshot.todos,
+      store,
+    ],
+  )
+
+  return (
+    <section
+      aria-label={label}
+      data-connection-state={snapshot.connection.status}
+      data-session-id={snapshot.sessionId}
+      data-slot="chat-session"
+      {...stylex.props(styles.root)}
+    >
+      <ConnectionNotice
+        onRetry={() => run(store.reconnect())}
+        state={snapshot.connection}
+      />
+      <div data-slot="chat-session-timeline" {...stylex.props(styles.timeline)}>
+        <Timeline
+          activity={snapshot.activity}
+          {...(empty === undefined ? {} : { empty })}
+          history={snapshot.history}
+          label={`${label} transcript`}
+          onLoadPrevious={() => store.loadPrevious()}
+          {...(resolvedTurnActions === undefined
+            ? {}
+            : { renderTurnActions: resolvedTurnActions })}
+          toolActions={toolActions}
+          {...(toolRenderers === undefined ? {} : { toolRenderers })}
+          turns={snapshot.turns}
+        />
+      </div>
+
+      {dock}
     </section>
   )
 }
@@ -234,6 +269,7 @@ const styles = stylex.create({
     minBlockSize: 0,
   },
   timeline: {
+    gridRow: 2,
     minBlockSize: 0,
   },
   dock: {
@@ -241,6 +277,7 @@ const styles = stylex.create({
     borderBlockStartColor: colors.border,
     borderBlockStartStyle: 'solid',
     borderBlockStartWidth: '1px',
+    gridRow: 3,
     paddingBlockEnd: 'max(env(safe-area-inset-bottom), 0px)',
   },
   dockMeasure: {

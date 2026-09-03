@@ -5,12 +5,17 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { Streamdown, type Components } from 'streamdown'
+import {
+  parseMarkdownIntoBlocks,
+  Streamdown,
+  type Components,
+} from 'streamdown'
 import type {
   ComponentPropsWithoutRef,
   ComponentPropsWithRef,
   JSX,
 } from 'react'
+import { memo, useMemo, useState } from 'react'
 
 type NativeDivProps = Omit<
   ComponentPropsWithRef<'div'>,
@@ -26,6 +31,15 @@ const linkSafety = { enabled: false } as const
 const disallowedElements = ['img'] as const
 
 export function Markdown({ children, status, ...props }: MarkdownProps) {
+  const [parseIncrementally] = useState(createIncrementalMarkdownChunker)
+  const chunks = useMemo(
+    () => status === 'streaming' ? parseIncrementally(children) : [children],
+    [children, parseIncrementally, status],
+  )
+  const settledChunks =
+    status === 'streaming' ? chunks.slice(0, -1) : chunks
+  const streamingChunk = status === 'streaming' ? chunks.at(-1) : undefined
+
   return (
     <div
       {...props}
@@ -35,6 +49,32 @@ export function Markdown({ children, status, ...props }: MarkdownProps) {
       data-state={status}
       {...stylex.props(styles.root)}
     >
+      <div {...stylex.props(styles.content)}>
+        <SettledMarkdown chunks={settledChunks} />
+        {streamingChunk !== undefined && (
+          <Streamdown
+            className={stylex.props(styles.content).className ?? ''}
+            components={markdownComponents}
+            controls={false}
+            dir="auto"
+            disallowedElements={disallowedElements}
+            isAnimating={false}
+            linkSafety={linkSafety}
+            mode="streaming"
+            parseIncompleteMarkdown
+            skipHtml
+          >
+            {streamingChunk}
+          </Streamdown>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const SettledMarkdown = memo(
+  function SettledMarkdown({ chunks }: { chunks: readonly string[] }) {
+    return chunks.map((chunk, index) => (
       <Streamdown
         className={stylex.props(styles.content).className ?? ''}
         components={markdownComponents}
@@ -42,15 +82,63 @@ export function Markdown({ children, status, ...props }: MarkdownProps) {
         dir="auto"
         disallowedElements={disallowedElements}
         isAnimating={false}
+        key={index}
         linkSafety={linkSafety}
-        mode={status === 'streaming' ? 'streaming' : 'static'}
-        parseIncompleteMarkdown
+        mode="static"
+        parseIncompleteMarkdown={false}
         skipHtml
       >
-        {children}
+        {chunk}
       </Streamdown>
-    </div>
-  )
+    ))
+  },
+  (previous, next) =>
+    previous.chunks.length === next.chunks.length &&
+    previous.chunks.every((chunk, index) => chunk === next.chunks[index]),
+)
+
+function createIncrementalMarkdownChunker() {
+  let previousChunks: string[] = []
+  let previousSource = ''
+
+  return (source: string) => {
+    if (source === previousSource) return previousChunks
+
+    if (!source.startsWith(previousSource) || previousChunks.length === 0) {
+      previousChunks = chunkMarkdownBlocks(parseMarkdownIntoBlocks(source))
+      previousSource = source
+      return previousChunks
+    }
+
+    const stableChunks = previousChunks.slice(0, -1)
+    const stableLength = stableChunks.reduce(
+      (length, chunk) => length + chunk.length,
+      0,
+    )
+    previousChunks = [
+      ...stableChunks,
+      ...chunkMarkdownBlocks(
+        parseMarkdownIntoBlocks(source.slice(stableLength)),
+      ),
+    ]
+    previousSource = source
+    return previousChunks
+  }
+}
+
+function chunkMarkdownBlocks(blocks: readonly string[]) {
+  const chunks: string[] = []
+  let chunk = ''
+
+  for (const block of blocks) {
+    if (chunk && chunk.length + block.length > 1_024) {
+      chunks.push(chunk)
+      chunk = ''
+    }
+    chunk += block
+  }
+  if (chunk) chunks.push(chunk)
+  return chunks
 }
 
 type ElementProps<Tag extends keyof JSX.IntrinsicElements> =

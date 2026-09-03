@@ -4,6 +4,9 @@ import type {
   ChatStore,
   ChatTurn,
   ComposerDraft,
+  DraftAttachment,
+  DraftSegment,
+  JsonValue,
   PermissionDecision,
   PermissionRequestView,
   QuestionRequestView,
@@ -11,6 +14,8 @@ import type {
   QueuedPrompt,
   RevertedPrompt,
   SubmitIntent,
+  ToolPart,
+  ToolPresentation,
 } from '@pretty-amped/foundations/chat'
 import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
 
@@ -20,7 +25,7 @@ const capabilities: ChatCapabilities = {
     { id: 'plan', label: 'Plan' },
   ],
   busySubmission: ['queue'],
-  canAttach: false,
+  canAttach: true,
   canStop: true,
   canSubmit: true,
   canUseShell: true,
@@ -35,6 +40,7 @@ const capabilities: ChatCapabilities = {
 export class FixtureChatStore implements ChatStore {
   readonly #listeners = new Set<() => void>()
   #cancelNotification: (() => void) | undefined
+  #notificationCount = 0
   #snapshot: ChatSnapshot
 
   constructor(mode: 'workflow' | 'stress' = 'workflow') {
@@ -43,6 +49,7 @@ export class FixtureChatStore implements ChatStore {
   }
 
   getSnapshot = () => this.#snapshot
+  getNotificationCount = () => this.#notificationCount
 
   subscribe = (listener: () => void) => {
     this.#listeners.add(listener)
@@ -152,6 +159,93 @@ export class FixtureChatStore implements ChatStore {
             }
           : turn,
       ),
+    }
+    this.#commit()
+  }
+
+  addFiles(files: readonly File[], source: 'drop' | 'paste' | 'picker') {
+    const attachments: DraftAttachment[] = files.map((file) => {
+      const id = fixtureId('attachment')
+      const attachment = {
+        id,
+        kind: file.type.startsWith('image/') ? 'image' as const : 'file' as const,
+        mediaType: file.type || 'application/octet-stream',
+        name: file.name,
+        size: file.size,
+      }
+      if (file.name.endsWith('.blocked')) {
+        return {
+          attachment,
+          error: {
+            kind: 'validation',
+            message: 'This fixture file needs an explicit retry.',
+            retryable: true,
+          },
+          state: 'failed',
+        }
+      }
+      return {
+        attachment,
+        sourceId: `fixture:${source}:${id}`,
+        state: 'ready',
+      }
+    })
+    this.#snapshot = {
+      ...this.#snapshot,
+      composer: {
+        ...this.#snapshot.composer,
+        attachments: [...this.#snapshot.composer.attachments, ...attachments],
+        revision: this.#snapshot.composer.revision + 1,
+      },
+    }
+    this.#commit()
+  }
+
+  removeAttachment(item: DraftAttachment) {
+    this.#snapshot = {
+      ...this.#snapshot,
+      composer: {
+        ...this.#snapshot.composer,
+        attachments: this.#snapshot.composer.attachments.filter(
+          (candidate) => candidate.attachment.id !== item.attachment.id,
+        ),
+        revision: this.#snapshot.composer.revision + 1,
+      },
+    }
+    this.#commit()
+  }
+
+  retryAttachment(item: DraftAttachment) {
+    if (item.state !== 'failed') return
+    this.#snapshot = {
+      ...this.#snapshot,
+      composer: {
+        ...this.#snapshot.composer,
+        attachments: this.#snapshot.composer.attachments.map((candidate) =>
+          candidate.attachment.id === item.attachment.id
+            ? {
+                attachment: candidate.attachment,
+                sourceId: `fixture:retry:${candidate.attachment.id}`,
+                state: 'ready',
+              }
+            : candidate,
+        ),
+        revision: this.#snapshot.composer.revision + 1,
+      },
+    }
+    this.#commit()
+  }
+
+  removeReference(segment: Extract<DraftSegment, { type: 'reference' }>) {
+    this.#snapshot = {
+      ...this.#snapshot,
+      composer: {
+        ...this.#snapshot.composer,
+        revision: this.#snapshot.composer.revision + 1,
+        segments: this.#snapshot.composer.segments.filter(
+          (candidate) => candidate.id !== segment.id,
+        ),
+      },
     }
     this.#commit()
   }
@@ -489,6 +583,7 @@ export class FixtureChatStore implements ChatStore {
     if (this.#cancelNotification) return
     this.#cancelNotification = scheduleOnAnimationFrame(() => {
       this.#cancelNotification = undefined
+      this.#notificationCount += 1
       for (const listener of this.#listeners) listener()
     })
   }
@@ -499,7 +594,7 @@ export function createStressSnapshot(): ChatSnapshot {
     createStressTurn(index, index === 499),
   )
   return {
-    activity: { status: 'idle' },
+    activity: { status: 'busy', turnId: 'fixture-turn:499' },
     capabilities,
     composer: createDraft(),
     connection: { status: 'connected' },
@@ -512,6 +607,10 @@ export function createStressSnapshot(): ChatSnapshot {
 }
 
 function createWorkflowSnapshot(): ChatSnapshot {
+  const turns = Array.from({ length: 18 }, (_, index) =>
+    createTurn(index, `Fixture response ${index + 1}`),
+  )
+  turns[17] = createToolFixtureTurn(17)
   return {
     activity: { status: 'idle' },
     capabilities,
@@ -521,16 +620,144 @@ function createWorkflowSnapshot(): ChatSnapshot {
     queue: [],
     requests: [],
     sessionId: 'workflow-fixture',
-    turns: Array.from({ length: 18 }, (_, index) =>
-      createTurn(index, `Fixture response ${index + 1}`),
+    turns,
+  }
+}
+
+function createToolFixtureTurn(index: number): ChatTurn {
+  const turn = createTurn(index, 'The coding evidence is available below.')
+  const assistant = turn.assistant[0]
+  if (!assistant) return turn
+  const tools: ToolPart[] = [
+    completedTool(
+      'context-read',
+      'read',
+      { kind: 'context', operation: 'read' },
+      { path: 'packages/components/src/turn.tsx' },
+      'export function Turn() {}',
     ),
+    completedTool(
+      'context-grep',
+      'grep',
+      { kind: 'context', operation: 'grep' },
+      { pattern: 'data-slot' },
+      '12 matches',
+    ),
+    completedTool(
+      'shell',
+      'shell',
+      { kind: 'shell' },
+      { command: 'pnpm typecheck' },
+      'Done',
+    ),
+    completedTool(
+      'file-change',
+      'edit',
+      {
+        diagnostics: [],
+        files: [
+          {
+            additions: 1,
+            deletions: 1,
+            hunks: [
+              {
+                header: '@@ -1 +1 @@',
+                id: 'fixture-hunk',
+                lines: [
+                  {
+                    content: 'const density = "compact"',
+                    id: 'fixture-deletion',
+                    kind: 'deletion',
+                    oldLine: 1,
+                  },
+                  {
+                    content: 'const density = "comfortable"',
+                    id: 'fixture-addition',
+                    kind: 'addition',
+                    newLine: 1,
+                  },
+                ],
+              },
+            ],
+            id: 'fixture-file',
+            path: 'src/interface.ts',
+            status: 'modified',
+          },
+        ],
+        kind: 'file-change',
+        operation: 'edit',
+      },
+      { path: 'src/interface.ts' },
+      'Updated',
+    ),
+    completedTool(
+      'task',
+      'task',
+      {
+        agent: { id: 'review', label: 'Review agent' },
+        childSessionId: 'fixture-child-session',
+        kind: 'task',
+      },
+      { description: 'Review the chat surface' },
+      'No blocking issues.',
+    ),
+    completedTool(
+      'web',
+      'webfetch',
+      { kind: 'web', operation: 'fetch' },
+      { url: 'https://example.com/reference' },
+      'Reference loaded.',
+    ),
+    completedTool(
+      'skill',
+      'skill',
+      { kind: 'skill' },
+      { name: 'ui-review' },
+      'Skill loaded.',
+    ),
+    completedTool(
+      'generic',
+      'mcp_custom_tool',
+      { kind: 'generic' },
+      { query: 'component contract' },
+      { matches: 2 },
+    ),
+  ]
+  return {
+    ...turn,
+    assistant: [{ ...assistant, parts: [...assistant.parts, ...tools] }],
+  }
+}
+
+function completedTool(
+  id: string,
+  toolName: string,
+  presentation: ToolPresentation,
+  input: JsonValue,
+  output: JsonValue,
+): ToolPart {
+  return {
+    callId: `fixture:${id}:call`,
+    id: `fixture:${id}`,
+    presentation,
+    state: {
+      endedAt: Date.now(),
+      input,
+      output,
+      status: 'succeeded',
+    },
+    toolName,
+    type: 'tool',
   }
 }
 
 function createStressTurn(index: number, large: boolean): ChatTurn {
+  const paragraph = 'Complete markdown source. '.repeat(20)
   const turn = createTurn(
     index,
-    large ? `# Large response\n\n${'Complete markdown source. '.repeat(8_400)}` : `Response ${index + 1}`,
+    large
+      ? `# Large response\n\n${`${paragraph}\n\n`.repeat(419)}${paragraph}`
+      : `Response ${index + 1}`,
   )
   const assistant = turn.assistant[0]
   if (!assistant) return turn
@@ -560,7 +787,22 @@ function createStressTurn(index: number, large: boolean): ChatTurn {
         ...assistant.parts,
       ]
     : [...notices, ...assistant.parts]
-  return { ...turn, assistant: [{ ...assistant, parts }] }
+  return {
+    ...turn,
+    assistant: [
+      {
+        ...assistant,
+        parts: parts.map((part) =>
+          large && part.type === 'text'
+            ? { ...part, state: { status: 'streaming' } }
+            : part,
+        ),
+      },
+    ],
+    state: large
+      ? { startedAt: index * 10 + 1, status: 'running' }
+      : turn.state,
+  }
 }
 
 function createTurn(index: number, response: string): ChatTurn {

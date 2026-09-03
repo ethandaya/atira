@@ -66,11 +66,18 @@ export function MessageParts({
       }
 
       content.push(
-        group.length === 1 ? (
-          <ContextTool key={part.id} part={part} />
-        ) : (
-          <ContextToolGroup key={part.id} parts={group} />
-        ),
+        <div
+          data-renderer="context"
+          data-slot="tool-renderer"
+          data-tool-kind="context"
+          key={part.id}
+        >
+          {group.length === 1 ? (
+            <ContextTool part={part} />
+          ) : (
+            <ContextToolGroup parts={group} />
+          )}
+        </div>,
       )
       continue
     }

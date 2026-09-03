@@ -8,7 +8,7 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Profiler, useEffect, useState, useSyncExternalStore } from 'react'
 
 import { ComponentGallery } from './component-gallery'
 import { FixtureChatStore } from './fixture-chat-store'
@@ -20,12 +20,50 @@ import {
 
 type Theme = 'light' | 'dark'
 type View = 'playground' | 'components'
+type FixtureMetrics = {
+  commitDurations: number[]
+  getNotificationCount: () => number
+  longTasks?: number[]
+  longTaskObserver?: PerformanceObserver
+}
 
 const promptSuggestions = [
   'Explain why StyleX suits AI interfaces',
   'Audit a streaming response component',
   'Design an accessible approval flow',
 ]
+
+const fixtureCommands = [
+  {
+    description: 'Review the active interface against the component contract.',
+    id: 'audit',
+    label: 'Audit interface',
+    value: '/audit',
+  },
+  {
+    description: 'Summarize the visible session evidence.',
+    id: 'summarize',
+    label: 'Summarize session',
+    value: '/summarize',
+  },
+] as const
+
+const fixtureReferences = [
+  {
+    description: 'Demo application entry point.',
+    id: 'demo-app',
+    label: 'apps/demo/src/app.tsx',
+    referenceType: 'file' as const,
+    value: 'apps/demo/src/app.tsx',
+  },
+  {
+    description: 'Chat session composition contract.',
+    id: 'chat-session',
+    label: 'packages/blocks/src/chat-session.tsx',
+    referenceType: 'file' as const,
+    value: 'packages/blocks/src/chat-session.tsx',
+  },
+] as const
 
 export function App() {
   const fixtureMode = new URLSearchParams(window.location.search).get('fixture')
@@ -158,11 +196,19 @@ function DemoApp() {
 
 function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
   const [store] = useState(() => new FixtureChatStore(mode))
+  const [metrics] = useState<FixtureMetrics>(() => ({
+    commitDurations: [],
+    getNotificationCount: store.getNotificationCount,
+  }))
   const parameters = new URLSearchParams(window.location.search)
   const theme = parameters.get('theme') === 'dark' ? 'dark' : 'light'
   const direction = parameters.get('dir') === 'rtl' ? 'rtl' : 'ltr'
 
   useEffect(() => {
+    const browserWindow = window as Window & {
+      __prettyAmpedFixtureMetrics?: FixtureMetrics
+    }
+    browserWindow.__prettyAmpedFixtureMetrics = metrics
     const appendTurn = () => store.appendTurn()
     const requestPermission = () => store.requestPermission()
     const requestQuestion = () => store.requestQuestion()
@@ -182,8 +228,10 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
       window.removeEventListener('pretty-amped:request-permission', requestPermission)
       window.removeEventListener('pretty-amped:request-question', requestQuestion)
       window.removeEventListener('pretty-amped:burst-deltas', burstDeltas)
+      metrics.longTaskObserver?.disconnect()
+      delete browserWindow.__prettyAmpedFixtureMetrics
     }
-  }, [store])
+  }, [metrics, store])
 
   return (
     <div
@@ -196,11 +244,25 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
         themeStyles[theme],
       )}
     >
-      <ChatSession
-        label={`${mode} chat fixture`}
-        showRevertActions={mode === 'workflow'}
-        store={store}
-      />
+      <Profiler
+        id={`${mode}-chat-fixture`}
+        onRender={(_id, _phase, actualDuration) => {
+          metrics.commitDurations.push(actualDuration)
+        }}
+      >
+        <ChatSession
+          accept="image/*,.txt,.md"
+          commands={fixtureCommands}
+          label={`${mode} chat fixture`}
+          onFilesAdd={(files, source) => store.addFiles(files, source)}
+          onRemoveAttachment={(attachment) => store.removeAttachment(attachment)}
+          onRemoveReference={(reference) => store.removeReference(reference)}
+          onRetryAttachment={(attachment) => store.retryAttachment(attachment)}
+          references={fixtureReferences}
+          showRevertActions={mode === 'workflow'}
+          store={store}
+        />
+      </Profiler>
     </div>
   )
 }

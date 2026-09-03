@@ -17,6 +17,7 @@ import {
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
+  memo,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -268,22 +269,14 @@ export function Timeline({
                 />
               )}
               {visibleTurns.map((turn, index) => (
-                <Turn
-                  aria-posinset={range.start + index + 1}
-                  aria-setsize={turns.length}
+                <TimelineTurn
                   key={turn.id}
-                  onBlur={(event) => {
-                    if (
-                      !event.currentTarget.contains(event.relatedTarget) &&
-                      !event.currentTarget.querySelector('details[open]')
-                    ) {
-                      pinnedTurnIds.current.delete(turn.id)
-                    }
-                  }}
-                  onFocus={() => pinnedTurnIds.current.add(turn.id)}
+                  pinnedTurnIds={pinnedTurnIds.current}
+                  position={range.start + index + 1}
                   {...(renderTurnActions === undefined
                     ? {}
-                    : { actions: renderTurnActions(turn) })}
+                    : { renderTurnActions })}
+                  setSize={turns.length}
                   {...(toolActions === undefined ? {} : { toolActions })}
                   turn={turn}
                   {...(toolRenderers === undefined ? {} : { toolRenderers })}
@@ -310,6 +303,46 @@ export function Timeline({
     </section>
   )
 }
+
+const TimelineTurn = memo(function TimelineTurn({
+  pinnedTurnIds,
+  position,
+  renderTurnActions,
+  setSize,
+  toolActions,
+  toolRenderers,
+  turn,
+}: {
+  pinnedTurnIds: Set<string>
+  position: number
+  renderTurnActions?: (turn: ChatTurn) => ReactNode
+  setSize: number
+  toolActions?: ToolActions
+  toolRenderers?: readonly ToolRenderer[]
+  turn: ChatTurn
+}) {
+  return (
+    <Turn
+      aria-posinset={position}
+      aria-setsize={setSize}
+      onBlur={(event) => {
+        if (
+          !event.currentTarget.contains(event.relatedTarget) &&
+          !event.currentTarget.querySelector('details[open]')
+        ) {
+          pinnedTurnIds.delete(turn.id)
+        }
+      }}
+      onFocus={() => pinnedTurnIds.add(turn.id)}
+      {...(renderTurnActions === undefined
+        ? {}
+        : { actions: renderTurnActions(turn) })}
+      {...(toolActions === undefined ? {} : { toolActions })}
+      turn={turn}
+      {...(toolRenderers === undefined ? {} : { toolRenderers })}
+    />
+  )
+})
 
 export type HistoryControlProps = {
   history: HistoryState

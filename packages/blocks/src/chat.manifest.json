@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "block",
+  "version": "0.1.0",
+  "items": [
+    {
+      "id": "chat-timeline",
+      "components": ["Timeline", "HistoryControl", "JumpToLatest"],
+      "summary": "Coordinates a virtualized transcript, follow/detach behavior, historical prepend anchors, and stable turn rendering.",
+      "useWhen": ["Rendering a long controlled ChatTurn collection inside one scroll viewport"],
+      "avoidWhen": ["Rendering a short static conversation excerpt with no history or follow behavior"],
+      "anatomy": ["timeline", "timeline-viewport", "timeline-list", "timeline-spacer-start", "timeline-spacer-end", "jump-to-latest"],
+      "states": ["following", "detached", "restoring", "virtualized", "loading-previous", "failed"],
+      "actions": ["load earlier messages", "jump to latest", "toggle turn evidence"],
+      "sideEffects": ["Reads and restores scroll position", "Pins focused and disclosed turns in the render window"],
+      "accessibility": ["Transcript is a labelled region with an ordered list", "History and jump actions are keyboard reachable"],
+      "examples": ["Keep scrollTop fixed when a detached transcript receives a new turn"],
+      "nonExamples": ["Force the viewport to the bottom after any content resize"]
+    },
+    {
+      "id": "chat-session",
+      "components": ["ChatSession"],
+      "summary": "Binds one protocol-neutral ChatStore to timeline, requests, queue, recovery, and composer blocks.",
+      "useWhen": ["An application adapter implements ChatStore and needs the complete chat surface"],
+      "avoidWhen": ["Passing an SDK client, transport event, or provider type directly into UI"],
+      "anatomy": ["chat-session", "chat-session-timeline", "chat-session-dock", "request-region", "chat-composer"],
+      "states": ["connected", "reconnecting", "offline", "idle", "busy", "retrying"],
+      "actions": ["all named ChatStore actions and optional application-owned file or child-session callbacks"],
+      "sideEffects": ["Subscribes through useSyncExternalStore", "Routes named user actions to ChatStore"],
+      "accessibility": ["Provides stable session and connection metadata", "Keeps one primary interactive owner in the bottom region"],
+      "examples": ["Mount ChatSession with OpenCodeChatStore or NanocodexChatStore"],
+      "nonExamples": ["Import OpenCode SDK types into ChatSession props"]
+    }
+  ]
+}

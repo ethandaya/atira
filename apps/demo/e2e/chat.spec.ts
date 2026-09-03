@@ -6,6 +6,7 @@ const viewport = '[data-slot="timeline-viewport"]'
 test('preserves detached scroll and history anchors', async ({ page }) => {
   await page.goto('/?fixture=workflow')
   await expect(page.locator('[data-slot="turn"]')).toHaveCount(18)
+  await expectComposerInViewport(page)
 
   await page.locator(viewport).evaluate((element) => {
     element.scrollTop = element.scrollHeight / 2
@@ -96,7 +97,77 @@ test('restores composer focus, draft, and selection around requests', async ({ p
   await expect(message).toHaveValue('Draft remains intact')
 })
 
-test('bounds the stress fixture and keeps the composer responsive', async ({ page }) => {
+test('uses commands, references, and every attachment input path', async ({ page }) => {
+  await page.goto('/?fixture=workflow')
+  const message = page.getByRole('textbox', { name: 'Message' })
+
+  await page.getByRole('combobox', { name: 'Commands' }).click()
+  const commandInput = page.locator('[data-slot="filter-menu-popup"] input')
+  await commandInput.fill('audit')
+  await commandInput.press('Enter')
+  await expect(message).toHaveValue('/audit ')
+
+  await page.getByRole('combobox', { name: 'References' }).click()
+  const referenceInput = page.locator('[data-slot="filter-menu-popup"] input')
+  await referenceInput.fill('demo')
+  await referenceInput.press('Enter')
+  await expect(page.locator('[data-reference-type="file"]')).toContainText(
+    '@apps/demo/src/app.tsx',
+  )
+
+  await page.locator('input[type="file"]').setInputFiles({
+    buffer: Buffer.from('picker'),
+    mimeType: 'text/plain',
+    name: 'picker.txt',
+  })
+  await addClipboardFile(message, 'pasted.txt', 'pasted')
+  await addDroppedFile(page, 'dropped.txt', 'dropped')
+  await page.locator('input[type="file"]').setInputFiles({
+    buffer: Buffer.from('retry'),
+    mimeType: 'text/plain',
+    name: 'retry.blocked',
+  })
+
+  const attachments = page.locator('[data-slot="attachment-tray"] li')
+  await expect(attachments).toHaveCount(4)
+  await expect(attachments).toContainText([
+    'picker.txt',
+    'pasted.txt',
+    'dropped.txt',
+    'retry.blocked',
+  ])
+  const failed = attachments.filter({ hasText: 'retry.blocked' })
+  await expect(failed).toHaveAttribute('data-state', 'failed')
+  await failed.getByRole('button', { name: 'Retry' }).click()
+  await expect(failed).toHaveAttribute('data-state', 'ready')
+  await attachments.filter({ hasText: 'picker.txt' }).getByRole('button', { name: 'Remove' }).click()
+  await expect(attachments).toHaveCount(3)
+})
+
+test('selects every built-in tool renderer and the generic fallback', async ({ page }) => {
+  await page.goto('/?fixture=workflow')
+  const renderers = page.locator('[data-slot="tool-renderer"]')
+  await expect(renderers).toHaveCount(7)
+  expect(
+    await renderers.evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute('data-renderer')),
+    ),
+  ).toEqual([
+    'context',
+    'shell',
+    'file-change',
+    'task',
+    'web',
+    'skill',
+    'generic',
+  ])
+  await expect(page.locator('[data-renderer="generic"]')).toHaveAttribute(
+    'data-tool-kind',
+    'generic',
+  )
+})
+
+test('bounds the stress fixture and keeps the composer responsive', async ({ page }, testInfo) => {
   await page.goto('/?fixture=stress')
   await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute(
     'data-virtualized',
@@ -111,11 +182,66 @@ test('bounds the stress fixture and keeps the composer responsive', async ({ pag
   expect(await page.locator('body *').count()).toBeLessThan(1_000)
 
   const message = page.getByRole('textbox', { name: 'Message' })
+  const notificationCount = await page.evaluate(() => {
+    const metrics = (
+      window as Window & {
+        __prettyAmpedFixtureMetrics: FixtureMetrics
+      }
+    ).__prettyAmpedFixtureMetrics
+    metrics.commitDurations.length = 0
+    metrics.longTasks = []
+    metrics.longTaskObserver = new PerformanceObserver((list) => {
+      metrics.longTasks?.push(...list.getEntries().map((entry) => entry.duration))
+    })
+    metrics.longTaskObserver.observe({ type: 'longtask' })
+    return metrics.getNotificationCount()
+  })
   const startedAt = Date.now()
   await dispatch(page, 'pretty-amped:burst-deltas', 1_000)
+  await expect.poll(() => fixtureNotificationCount(page)).toBe(notificationCount + 1)
   await message.fill('Responsive after a delta burst')
   await expect(message).toHaveValue('Responsive after a delta burst')
   expect(Date.now() - startedAt).toBeLessThan(1_000)
+  await page.evaluate(() => {
+    const metrics = (
+      window as Window & {
+        __prettyAmpedFixtureMetrics: FixtureMetrics
+      }
+    ).__prettyAmpedFixtureMetrics
+    metrics.commitDurations.length = 0
+  })
+  for (let sample = 0; sample < 20; sample += 1) {
+    const before = await fixtureNotificationCount(page)
+    await dispatch(page, 'pretty-amped:burst-deltas', 1)
+    await expect.poll(() => fixtureNotificationCount(page)).toBe(before + 1)
+  }
+  const performance = await page.evaluate(() => {
+    const metrics = (
+      window as Window & {
+        __prettyAmpedFixtureMetrics: FixtureMetrics
+      }
+    ).__prettyAmpedFixtureMetrics
+    metrics.longTaskObserver?.disconnect()
+    return {
+      commitDurations: metrics.commitDurations,
+      longTasks: metrics.longTasks ?? [],
+    }
+  })
+  const report = {
+    browser: await page.evaluate(() => navigator.userAgent),
+    cpuThrottle: '1×',
+    fixture: 'stress-v1',
+    longTaskMaximum: Math.max(0, ...performance.longTasks),
+    reactCommitP95: percentile(performance.commitDurations, 0.95),
+    sampleCount: performance.commitDurations.length,
+  }
+  await testInfo.attach('stress-performance.json', {
+    body: Buffer.from(JSON.stringify(report, null, 2)),
+    contentType: 'application/json',
+  })
+  expect(report.sampleCount).toBeGreaterThanOrEqual(20)
+  expect(report.reactCommitP95).toBeLessThan(16)
+  expect(report.longTaskMaximum).toBeLessThan(50)
 })
 
 for (const scenario of [
@@ -147,6 +273,7 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
   }))
   expect(dimensions.scrollWidth).toBe(dimensions.clientWidth)
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
+  await expectComposerInViewport(page)
 })
 
 async function dispatch(page: Page, name: string, detail?: number) {
@@ -180,4 +307,72 @@ async function turnTop(page: Page, id: string) {
 
 async function selectionStart(locator: ReturnType<Page['getByRole']>) {
   return locator.evaluate((element) => (element as HTMLTextAreaElement).selectionStart)
+}
+
+async function addClipboardFile(
+  locator: ReturnType<Page['getByRole']>,
+  name: string,
+  contents: string,
+) {
+  await locator.evaluate(
+    (element, { contents, name }) => {
+      const transfer = new DataTransfer()
+      transfer.items.add(new File([contents], name, { type: 'text/plain' }))
+      element.dispatchEvent(
+        new ClipboardEvent('paste', {
+          bubbles: true,
+          clipboardData: transfer,
+        }),
+      )
+    },
+    { contents, name },
+  )
+}
+
+async function addDroppedFile(page: Page, name: string, contents: string) {
+  await page.locator('[data-slot="chat-composer"]').evaluate(
+    (element, { contents, name }) => {
+      const transfer = new DataTransfer()
+      transfer.items.add(new File([contents], name, { type: 'text/plain' }))
+      element.dispatchEvent(
+        new DragEvent('drop', {
+          bubbles: true,
+          dataTransfer: transfer,
+        }),
+      )
+    },
+    { contents, name },
+  )
+}
+
+type FixtureMetrics = {
+  commitDurations: number[]
+  getNotificationCount: () => number
+  longTasks?: number[]
+  longTaskObserver?: PerformanceObserver
+}
+
+async function fixtureNotificationCount(page: Page) {
+  return page.evaluate(
+    () =>
+      (
+        window as Window & {
+          __prettyAmpedFixtureMetrics: FixtureMetrics
+        }
+      ).__prettyAmpedFixtureMetrics.getNotificationCount(),
+  )
+}
+
+function percentile(values: readonly number[], quantile: number) {
+  const sorted = [...values].sort((left, right) => left - right)
+  return sorted[Math.ceil(sorted.length * quantile) - 1] ?? 0
+}
+
+async function expectComposerInViewport(page: Page) {
+  const bounds = await page.locator('[data-slot="chat-composer"]').evaluate((element) => {
+    const rectangle = element.getBoundingClientRect()
+    return { bottom: rectangle.bottom, top: rectangle.top, viewportHeight: innerHeight }
+  })
+  expect(bounds.top).toBeGreaterThanOrEqual(0)
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight)
 }
