@@ -26,6 +26,7 @@ pnpm dev
 
 - [Executive synthesis](docs/knowledge-base/README.md)
 - [OpenCode UI replacement north star and gap analysis](docs/knowledge-base/opencode-north-star.md)
+- [OpenCode chat-interface parity specification and work plan](docs/knowledge-base/opencode-chat-parity-spec.md)
 - [Library construction plan](docs/knowledge-base/library-construction.md)
 - [StyleX and React foundation](docs/knowledge-base/stylex-react.md)
 - [Design-engineering research](docs/knowledge-base/design-engineering.md)

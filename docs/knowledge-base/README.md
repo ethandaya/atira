@@ -15,6 +15,8 @@ The distinction matters. Design discourse is useful evidence, but it is not a sp
 
 As of September 3, 2026, the reference client's north star is behavioral replacement of [OpenCode's graphical web/desktop UI](opencode-north-star.md). The component library remains protocol-neutral; OpenCode-specific event reconciliation, persistence, routing, and native integration remain application concerns. The earlier generic runtime proposals are retained as research, but they no longer determine component priority.
 
+Implementation is currently narrowed to the [OpenCode chat-interface parity specification](opencode-chat-parity-spec.md): transcript, message parts, tools, composer, request docks, and the minimum adapter needed to prove them. Project navigation, files/review, interactive terminal, settings, and desktop-shell parity follow only after that surface meets its definition of done.
+
 ## Executive thesis
 
 The construction model should borrow shadcn’s layering without depending on shadcn’s schemas, CLI, or Tailwind machinery: owned primitives with accessibility behavior, components and blocks built on those primitives, and source distribution through first-party CLI and MCP tooling. The StyleX-first primitive APIs and machine-readable contracts are the product, not a styling substitution inside someone else’s registry.

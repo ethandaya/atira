@@ -4,6 +4,8 @@ Research snapshot: **September 3, 2026**
 
 Reference: [`anomalyco/opencode`](https://github.com/anomalyco/opencode), current default `dev` branch at the time of research.
 
+The active implementation scope is the actual session/chat surface. See the focused [chat-interface parity specification](opencode-chat-parity-spec.md) for its normalized model, component contracts, adapter boundary, interaction requirements, tests, and delivery plan. This document remains the broader graphical-application gap analysis.
+
 ## Decision
 
 OpenCode's graphical web/desktop client is the north star for Pretty Amped.
