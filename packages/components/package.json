@@ -12,16 +12,19 @@
   },
   "dependencies": {
     "@pretty-amped/foundations": "workspace:*",
-    "@pretty-amped/primitives": "workspace:*"
+    "@pretty-amped/primitives": "workspace:*",
+    "streamdown": "2.6.0"
   },
   "peerDependencies": {
     "@stylexjs/stylex": "catalog:",
-    "react": "catalog:"
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@stylexjs/stylex": "catalog:",
     "@types/react": "catalog:",
     "react": "catalog:",
+    "react-dom": "catalog:",
     "typescript": "catalog:"
   }
 }

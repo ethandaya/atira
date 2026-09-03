@@ -59,6 +59,7 @@ export function Reasoning({
         {...(defaultOpen === undefined ? {} : { defaultOpen })}
         {...(onOpenChange === undefined ? {} : { onOpenChange })}
         {...(open === undefined ? {} : { open })}
+        variant="plain"
         summary={(
           <span data-slot="reasoning-summary" {...stylex.props(styles.summary)}>
             {isThinking && <Spinner size="small" />}

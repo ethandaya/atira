@@ -20,6 +20,7 @@ export type DisclosureProps = NativeDivProps & {
   onOpenChange?: (open: boolean) => void
   open?: boolean
   summary: ReactNode
+  variant?: 'default' | 'plain'
 }
 
 export function Disclosure({
@@ -29,6 +30,7 @@ export function Disclosure({
   onOpenChange,
   open,
   summary,
+  variant = 'default',
   ...props
 }: DisclosureProps) {
   return (
@@ -46,7 +48,10 @@ export function Disclosure({
           <button
             {...triggerProps}
             data-slot="disclosure-trigger"
-            {...stylex.props(styles.trigger)}
+            {...stylex.props(
+              styles.trigger,
+              variant === 'plain' && styles.triggerPlain,
+            )}
           >
             <span data-slot="disclosure-summary" {...stylex.props(styles.summary)}>
               {summary}
@@ -75,7 +80,10 @@ export function Disclosure({
       />
       <Collapsible.Panel
         data-slot="disclosure-panel"
-        {...stylex.props(styles.panel)}
+        {...stylex.props(
+          styles.panel,
+          variant === 'plain' && styles.panelPlain,
+        )}
       >
         {children}
       </Collapsible.Panel>
@@ -122,6 +130,9 @@ const styles = stylex.create({
     flex: 1,
     minInlineSize: 0,
   },
+  triggerPlain: {
+    paddingInline: 0,
+  },
   indicator: {
     blockSize: '1rem',
     color: colors.textMuted,
@@ -146,5 +157,10 @@ const styles = stylex.create({
     fontSize: type.sizeSmall,
     lineHeight: type.lineBody,
     padding: space.x3,
+  },
+  panelPlain: {
+    borderBlockStartStyle: 'none',
+    paddingBlock: space.x2,
+    paddingInline: 0,
   },
 })

@@ -45,7 +45,9 @@ export function Response({ children, error, status, ...props }: ResponseProps) {
       data-state={status}
       {...stylex.props(styles.root)}
     >
-      <div data-slot="response-content">{children}</div>
+      <div data-slot="response-content" {...stylex.props(styles.content)}>
+        {children}
+      </div>
       {status === 'streaming' && (
         <VisuallyHidden role="status">Response is streaming.</VisuallyHidden>
       )}
@@ -69,6 +71,13 @@ const styles = stylex.create({
     flexDirection: 'column',
     gap: space.x2,
     inlineSize: '100%',
+  },
+  content: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x3,
+    inlineSize: '100%',
+    minInlineSize: 0,
   },
   status: {
     color: colors.textMuted,
