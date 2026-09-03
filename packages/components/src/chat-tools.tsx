@@ -14,6 +14,7 @@ import * as stylex from '@stylexjs/stylex'
 import { useState, type ReactNode } from 'react'
 
 import { CodeBlock } from './code-block'
+import { Diff, type DiffFile } from './diff'
 import { ToolActivity, type ToolActivityState } from './tool-activity'
 
 export type ChatToolProps = {
@@ -130,19 +131,88 @@ export function ShellTool({
   )
 }
 
-export function FileChangeTool(props: ChatToolProps) {
-  const input = toolInput(props.part.state)
+export function FileChangeTool({
+  defaultOpen,
+  outputCharacterLimit,
+  part,
+}: ChatToolProps) {
+  const input = toolInput(part.state)
   const path = firstString(input, ['filePath', 'path', 'filename'])
-  const operation =
-    props.part.presentation.kind === 'file-change'
-      ? props.part.presentation.operation
-      : 'edit'
+  const presentation =
+    part.presentation.kind === 'file-change' ? part.presentation : undefined
+  const operation = presentation?.operation ?? 'edit'
+  const files: readonly DiffFile[] = (presentation?.files ?? []).map(
+    (file) => ({
+      ...file,
+      defaultOpen:
+        presentation?.files.length === 1 && file.status !== 'removed',
+    }),
+  )
+  const diagnostics = presentation?.diagnostics ?? []
+  const content = firstString(input, ['content'])
+  const output = toolOutput(part.state)
+  const summary =
+    files.length > 1
+      ? `${files.length} files changed`
+      : `${capitalize(operation)}${path ? ` ${path}` : ' file'}`
 
   return (
-    <ToolShell
-      {...props}
-      summary={`${capitalize(operation)}${path ? ` ${path}` : ' file'}`}
-    />
+    <ToolActivity
+      {...(defaultOpen === undefined ? {} : { defaultOpen })}
+      id={part.id}
+      state={activityState(part.state)}
+      summary={summary}
+      tool={part.toolName}
+    >
+      <div data-slot="file-change-evidence" {...stylex.props(styles.stack)}>
+        {files.length > 0 && (
+          <Diff
+            files={files}
+            headingLevel={4}
+            id={`${part.id}:diff`}
+            title={files.length === 1 ? 'File change' : 'File changes'}
+            variant="plain"
+          />
+        )}
+        {files.length === 0 && content && path && (
+          <CodeBlock code={content} filename={path} label={`${path} contents`} />
+        )}
+        {diagnostics.length > 0 && (
+          <section
+            aria-label="File diagnostics"
+            data-slot="file-change-diagnostics"
+            {...stylex.props(styles.diagnostics)}
+          >
+            <p {...stylex.props(styles.diagnosticsTitle)}>Diagnostics</p>
+            <ul {...stylex.props(styles.diagnosticList)}>
+              {diagnostics.map((diagnostic) => (
+                <li
+                  data-severity={diagnostic.severity}
+                  data-slot="file-change-diagnostic"
+                  key={diagnostic.id}
+                  {...stylex.props(styles.diagnostic)}
+                >
+                  <span dir="ltr" {...stylex.props(styles.diagnosticLocation)}>
+                    {diagnostic.path}:{diagnostic.line}:{diagnostic.column}
+                  </span>
+                  <span>{diagnostic.message}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {files.length === 0 && !content && output !== undefined && (
+          <BoundedToolOutput
+            label="File change result"
+            value={output}
+            {...(outputCharacterLimit === undefined
+              ? {}
+              : { characterLimit: outputCharacterLimit })}
+          />
+        )}
+        <ToolTiming state={part.state} />
+      </div>
+    </ToolActivity>
   )
 }
 
@@ -161,6 +231,7 @@ export function TaskTool({
   const input = toolInput(part.state)
   const description = firstString(input, ['description', 'prompt']) ?? 'Run task'
   const childSessionId = presentation?.childSessionId
+  const blockers = presentation?.blockers ?? []
 
   return (
     <ToolActivity
@@ -176,6 +247,16 @@ export function TaskTool({
           ? {}
           : { outputCharacterLimit })}
       />
+      {blockers.length > 0 && (
+        <section aria-label="Task blockers" {...stylex.props(styles.diagnostics)}>
+          <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
+          <ul {...stylex.props(styles.diagnosticList)}>
+            {blockers.map((blocker, index) => (
+              <li key={`${part.id}:blocker:${index}`}>{blocker}</li>
+            ))}
+          </ul>
+        </section>
+      )}
       {childSessionId && onOpenChild && (
         <div {...stylex.props(styles.actions)}>
           <Button
@@ -189,6 +270,11 @@ export function TaskTool({
       )}
       {childSessionId && !onOpenChild && (
         <p {...stylex.props(styles.notice)}>Child session unavailable.</p>
+      )}
+      {!childSessionId && isTerminal(part.state) && (
+        <p data-slot="task-child-unavailable" {...stylex.props(styles.notice)}>
+          Child session unavailable.
+        </p>
       )}
     </ToolActivity>
   )
@@ -606,6 +692,35 @@ const styles = stylex.create({
     fontFamily: type.family,
     fontSize: type.sizeCaption,
     margin: 0,
+  },
+  diagnostics: {
+    color: colors.textMuted,
+    display: 'flex',
+    flexDirection: 'column',
+    fontFamily: type.family,
+    fontSize: type.sizeSmall,
+    gap: space.x2,
+  },
+  diagnosticsTitle: {
+    color: colors.danger,
+    fontWeight: type.weightMedium,
+    margin: 0,
+  },
+  diagnosticList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x1,
+    margin: 0,
+    paddingInlineStart: space.x5,
+  },
+  diagnostic: {
+    overflowWrap: 'anywhere',
+  },
+  diagnosticLocation: {
+    color: colors.danger,
+    display: 'inline',
+    fontFamily: type.familyMono,
+    marginInlineEnd: space.x2,
   },
   link: {
     borderRadius: radii.control,

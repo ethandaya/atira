@@ -692,7 +692,7 @@ function toolPresentation(tool: string): ToolPresentation {
   if (value === 'read') return { kind: 'context', operation: 'read' }
   if (value === 'bash' || value === 'shell') return { kind: 'shell' }
   if (value === 'write' || value === 'edit') {
-    return { kind: 'file-change', operation: value }
+    return { diagnostics: [], files: [], kind: 'file-change', operation: value }
   }
   return { kind: 'generic' }
 }

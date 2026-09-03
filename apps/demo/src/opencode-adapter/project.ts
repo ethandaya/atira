@@ -3,6 +3,10 @@ import type {
   AgentIdentity,
   ChatMessage,
   ChatTurn,
+  FileChangeFile,
+  FileChangeHunk,
+  FileChangeLine,
+  FileDiagnostic,
   JsonValue,
   MessagePart,
   ModelIdentity,
@@ -202,7 +206,7 @@ function mapToolPart(part: Extract<Part, { type: 'tool' }>): ToolPart {
     callId: part.callID,
     id: part.id,
     ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-    presentation: toolPresentation(part.tool),
+    presentation: toolPresentation(part.id, part.tool, part.state.input, metadata),
     state: mapToolState(part.state),
     toolName: part.tool,
     type: 'tool',
@@ -295,7 +299,12 @@ function mapToolProgress(metadata: Record<string, unknown> | undefined) {
   }
 }
 
-function toolPresentation(tool: string): ToolPresentation {
+function toolPresentation(
+  partId: string,
+  tool: string,
+  input: Record<string, unknown>,
+  metadata: Readonly<Record<string, JsonValue>>,
+): ToolPresentation {
   const value = tool.toLowerCase()
   if (value === 'read' || value.endsWith('_read')) {
     return { kind: 'context', operation: 'read' }
@@ -310,12 +319,28 @@ function toolPresentation(tool: string): ToolPresentation {
     return { kind: 'context', operation: 'grep' }
   }
   if (value === 'bash' || value === 'shell') return { kind: 'shell' }
-  if (value === 'edit') return { kind: 'file-change', operation: 'edit' }
-  if (value === 'write') return { kind: 'file-change', operation: 'write' }
-  if (value === 'patch' || value === 'apply_patch') {
-    return { kind: 'file-change', operation: 'patch' }
+  if (value === 'edit') {
+    return fileChangePresentation(partId, 'edit', input, metadata)
   }
-  if (value === 'task' || value === 'subtask') return { kind: 'task' }
+  if (value === 'write') {
+    return fileChangePresentation(partId, 'write', input, metadata)
+  }
+  if (value === 'patch' || value === 'apply_patch') {
+    return fileChangePresentation(partId, 'patch', input, metadata)
+  }
+  if (value === 'task' || value === 'subtask') {
+    const agentId =
+      typeof input.subagent_type === 'string' ? input.subagent_type : undefined
+    const childSessionId =
+      typeof metadata.sessionId === 'string' ? metadata.sessionId : undefined
+    const blockers = stringList(metadata.blockers ?? metadata.blocker)
+    return {
+      ...(agentId ? { agent: mapAgent(agentId) } : {}),
+      ...(blockers.length > 0 ? { blockers } : {}),
+      ...(childSessionId ? { childSessionId } : {}),
+      kind: 'task',
+    }
+  }
   if (value.includes('webfetch') || value === 'fetch') {
     return { kind: 'web', operation: 'fetch' }
   }
@@ -323,6 +348,271 @@ function toolPresentation(tool: string): ToolPresentation {
   if (value.includes('todo')) return { kind: 'todo' }
   if (value === 'skill') return { kind: 'skill' }
   return { kind: 'generic' }
+}
+
+function fileChangePresentation(
+  partId: string,
+  operation: 'edit' | 'write' | 'patch',
+  input: Record<string, unknown>,
+  metadata: Readonly<Record<string, JsonValue>>,
+): Extract<ToolPresentation, { kind: 'file-change' }> {
+  const inputRecord = toJsonRecord(input)
+  const inputPath = recordString(inputRecord, ['filePath', 'path', 'filename'])
+  const rawFiles = arrayRecords(metadata.files)
+  const filediff = jsonRecord(metadata.filediff)
+  const candidates = rawFiles.length > 0 ? rawFiles : filediff ? [filediff] : []
+  const files = candidates.flatMap((candidate, index) =>
+    normalizeFileChange(partId, operation, inputPath, candidate, index),
+  )
+
+  if (files.length === 0 && inputPath && operation === 'edit') {
+    const before = recordString(inputRecord, ['oldString'])
+    const after = recordString(inputRecord, ['newString'])
+    if (before !== undefined || after !== undefined) {
+      const hunks = replacementHunk(
+        before ?? '',
+        after ?? '',
+        `${partId}:file:0`,
+      )
+      files.push({
+        ...countChangedLines(hunks),
+        hunks,
+        id: `${partId}:file:0`,
+        path: inputPath,
+        status: 'modified',
+      })
+    }
+  }
+
+  return {
+    diagnostics: normalizeDiagnostics(partId, inputPath, metadata.diagnostics),
+    files,
+    kind: 'file-change',
+    operation,
+  }
+}
+
+function normalizeFileChange(
+  partId: string,
+  operation: 'edit' | 'write' | 'patch',
+  inputPath: string | undefined,
+  candidate: Readonly<Record<string, JsonValue>>,
+  index: number,
+): readonly FileChangeFile[] {
+  const movePath = recordString(candidate, ['movePath'])
+  const sourcePath =
+    recordString(candidate, ['relativePath', 'filePath', 'file']) ?? inputPath
+  const path = movePath ?? sourcePath
+  if (!path) return []
+  const id = `${partId}:file:${index}`
+  const patch = recordString(candidate, ['patch', 'diff'])
+  const before = recordString(candidate, ['before'])
+  const after = recordString(candidate, ['after'])
+  const hunks = patch
+    ? parseUnifiedDiff(patch, id)
+    : before !== undefined || after !== undefined
+      ? replacementHunk(before ?? '', after ?? '', id)
+      : []
+  const counts = countChangedLines(hunks)
+  const rawStatus = recordString(candidate, ['type', 'status'])
+
+  return [
+    {
+      additions: recordNumber(candidate, ['additions']) ?? counts.additions,
+      deletions: recordNumber(candidate, ['deletions']) ?? counts.deletions,
+      hunks,
+      id,
+      path,
+      ...(movePath && sourcePath ? { previousPath: sourcePath } : {}),
+      status: fileChangeStatus(rawStatus, operation, movePath !== undefined),
+    },
+  ]
+}
+
+function normalizeDiagnostics(
+  partId: string,
+  inputPath: string | undefined,
+  value: JsonValue | undefined,
+): readonly FileDiagnostic[] {
+  const byPath = jsonRecord(value)
+  if (!byPath) return []
+  const paths = inputPath ? [inputPath] : Object.keys(byPath)
+
+  return paths.flatMap((path) =>
+    jsonArray(byPath[path]).flatMap((item, index) => {
+      const diagnostic = jsonRecord(item)
+      const start = jsonRecord(jsonRecord(diagnostic?.range)?.start)
+      const message = recordString(diagnostic, ['message'])
+      if (!message) return []
+      return [
+        {
+          column: (recordNumber(start, ['character']) ?? 0) + 1,
+          id: `${partId}:diagnostic:${path}:${index}`,
+          line: (recordNumber(start, ['line']) ?? 0) + 1,
+          message,
+          path,
+          severity: diagnosticSeverity(recordNumber(diagnostic, ['severity'])),
+        } satisfies FileDiagnostic,
+      ]
+    }),
+  )
+}
+
+function parseUnifiedDiff(value: string, id: string): readonly FileChangeHunk[] {
+  const hunks: FileChangeHunk[] = []
+  let current:
+    | {
+        header: string
+        lines: FileChangeLine[]
+        newLine: number
+        oldLine: number
+      }
+    | undefined
+
+  for (const rawLine of value.replace(/\r\n?/g, '\n').split('\n')) {
+    const match = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(rawLine)
+    if (match) {
+      if (current) hunks.push(finishHunk(current, id, hunks.length))
+      current = {
+        header: rawLine,
+        lines: [],
+        newLine: Number(match[2]),
+        oldLine: Number(match[1]),
+      }
+      continue
+    }
+    if (!current || rawLine === '\\ No newline at end of file') continue
+    const prefix = rawLine.charAt(0)
+    const kind =
+      prefix === '+' ? 'addition' : prefix === '-' ? 'deletion' : 'context'
+    current.lines.push({
+      content:
+        prefix === '+' || prefix === '-' || prefix === ' '
+          ? rawLine.slice(1)
+          : rawLine,
+      id: `${id}:hunk:${hunks.length}:line:${current.lines.length}`,
+      kind,
+      ...(kind === 'addition' ? {} : { oldLine: current.oldLine++ }),
+      ...(kind === 'deletion' ? {} : { newLine: current.newLine++ }),
+    })
+  }
+  if (current) hunks.push(finishHunk(current, id, hunks.length))
+  return hunks
+}
+
+function finishHunk(
+  hunk: { header: string; lines: FileChangeLine[] },
+  id: string,
+  index: number,
+): FileChangeHunk {
+  return { header: hunk.header, id: `${id}:hunk:${index}`, lines: hunk.lines }
+}
+
+function replacementHunk(
+  before: string,
+  after: string,
+  id: string,
+): readonly FileChangeHunk[] {
+  return [
+    {
+      header: '@@ replacement @@',
+      id: `${id}:hunk:0`,
+      lines: [
+        ...before.split('\n').map((content, index) => ({
+          content,
+          id: `${id}:before:${index}`,
+          kind: 'deletion' as const,
+          oldLine: index + 1,
+        })),
+        ...after.split('\n').map((content, index) => ({
+          content,
+          id: `${id}:after:${index}`,
+          kind: 'addition' as const,
+          newLine: index + 1,
+        })),
+      ],
+    },
+  ]
+}
+
+function countChangedLines(hunks: readonly FileChangeHunk[]) {
+  let additions = 0
+  let deletions = 0
+  for (const hunk of hunks) {
+    for (const line of hunk.lines) {
+      if (line.kind === 'addition') additions += 1
+      if (line.kind === 'deletion') deletions += 1
+    }
+  }
+  return { additions, deletions }
+}
+
+function fileChangeStatus(
+  value: string | undefined,
+  operation: 'edit' | 'write' | 'patch',
+  moved: boolean,
+): FileChangeFile['status'] {
+  if (moved || value === 'move' || value === 'moved') return 'moved'
+  if (value === 'add' || value === 'added' || operation === 'write') return 'added'
+  if (value === 'delete' || value === 'deleted' || value === 'removed') {
+    return 'removed'
+  }
+  return 'modified'
+}
+
+function diagnosticSeverity(value: number | undefined): FileDiagnostic['severity'] {
+  if (value === 2) return 'warning'
+  if (value === 3) return 'information'
+  if (value === 4) return 'hint'
+  return 'error'
+}
+
+function jsonRecord(value: JsonValue | undefined) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Readonly<Record<string, JsonValue>>)
+    : undefined
+}
+
+function jsonArray(value: JsonValue | undefined): readonly JsonValue[] {
+  return Array.isArray(value) ? value : []
+}
+
+function arrayRecords(value: JsonValue | undefined) {
+  return jsonArray(value).flatMap((item) => {
+    const record = jsonRecord(item)
+    return record ? [record] : []
+  })
+}
+
+function recordString(
+  value: Readonly<Record<string, JsonValue>> | undefined,
+  keys: readonly string[],
+) {
+  if (!value) return undefined
+  for (const key of keys) {
+    const candidate = value[key]
+    if (typeof candidate === 'string') return candidate
+  }
+  return undefined
+}
+
+function recordNumber(
+  value: Readonly<Record<string, JsonValue>> | undefined,
+  keys: readonly string[],
+) {
+  if (!value) return undefined
+  for (const key of keys) {
+    const candidate = value[key]
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
+  }
+  return undefined
+}
+
+function stringList(value: JsonValue | undefined): readonly string[] {
+  if (typeof value === 'string' && value) return [value]
+  return jsonArray(value).flatMap((item) =>
+    typeof item === 'string' && item ? [item] : [],
+  )
 }
 
 function partState(

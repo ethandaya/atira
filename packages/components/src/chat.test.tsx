@@ -21,7 +21,7 @@ vi.mock('@stylexjs/stylex', () => ({
 }))
 
 import { ChatComposer } from './chat-composer'
-import { ShellTool } from './chat-tools'
+import { FileChangeTool, ShellTool } from './chat-tools'
 import { MessageParts } from './message-parts'
 import {
   PermissionPrompt,
@@ -388,6 +388,75 @@ describe('chat components', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Show full output' }))
     expect(container.textContent).toContain('abcdefghij')
+  })
+
+  it('renders normalized file changes, moves, counts, and diagnostics', () => {
+    const part: ToolPart = {
+      callId: 'patch-call',
+      id: 'patch-part',
+      presentation: {
+        diagnostics: [
+          {
+            column: 3,
+            id: 'diagnostic',
+            line: 2,
+            message: 'Missing return type.',
+            path: '/workspace/old.ts',
+            severity: 'error',
+          },
+        ],
+        files: [
+          {
+            additions: 1,
+            deletions: 1,
+            hunks: [
+              {
+                header: '@@ -1,2 +1,2 @@',
+                id: 'hunk',
+                lines: [
+                  {
+                    content: 'export default value',
+                    id: 'deletion',
+                    kind: 'deletion',
+                    oldLine: 2,
+                  },
+                  {
+                    content: 'export { value }',
+                    id: 'addition',
+                    kind: 'addition',
+                    newLine: 2,
+                  },
+                ],
+              },
+            ],
+            id: 'file',
+            path: '/workspace/new.ts',
+            previousPath: '/workspace/old.ts',
+            status: 'moved',
+          },
+        ],
+        kind: 'file-change',
+        operation: 'patch',
+      },
+      state: {
+        endedAt: 2,
+        input: { filePath: '/workspace/old.ts' },
+        output: 'Done',
+        status: 'succeeded',
+      },
+      toolName: 'apply_patch',
+      type: 'tool',
+    }
+    const { container } = render(<FileChangeTool defaultOpen part={part} />)
+
+    expect(container.textContent).toContain(
+      '/workspace/old.ts → /workspace/new.ts',
+    )
+    expect(container.textContent).toContain('Moved+1−1')
+    expect(container.textContent).toContain('export { value }')
+    expect(container.textContent).toContain(
+      '/workspace/old.ts:2:3Missing return type.',
+    )
   })
 
 })

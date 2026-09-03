@@ -1,3 +1,9 @@
+import type {
+  FileChangeFile,
+  FileChangeHunk,
+  FileChangeLine,
+  FileChangeStatus,
+} from '@pretty-amped/foundations/chat'
 import {
   colors,
   radii,
@@ -8,32 +14,14 @@ import { Disclosure, VisuallyHidden } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useId, type ComponentPropsWithRef } from 'react'
 
-export type DiffFileStatus = 'added' | 'removed' | 'modified'
-export type DiffLineKind = 'context' | 'addition' | 'deletion'
-
-export type DiffLine = Readonly<{
-  content: string
-  id: string
-  kind: DiffLineKind
-  newLine?: number
-  oldLine?: number
-}>
-
-export type DiffHunk = Readonly<{
-  header: string
-  id: string
-  lines: readonly DiffLine[]
-}>
-
-export type DiffFile = Readonly<{
-  additions?: number
-  defaultOpen?: boolean
-  deletions?: number
-  hunks: readonly DiffHunk[]
-  id: string
-  path: string
-  status: DiffFileStatus
-}>
+export type DiffFileStatus = FileChangeStatus
+export type DiffLineKind = FileChangeLine['kind']
+export type DiffLine = FileChangeLine
+export type DiffHunk = FileChangeHunk
+export type DiffFile = FileChangeFile &
+  Readonly<{
+    defaultOpen?: boolean
+  }>
 
 type NativeSectionProps = Omit<
   ComponentPropsWithRef<'section'>,
@@ -45,11 +33,13 @@ export type DiffProps = NativeSectionProps & {
   headingLevel?: 2 | 3 | 4 | 5 | 6
   id: string
   title?: string
+  variant?: 'default' | 'plain'
 }
 
 const fileStatusLabels: Record<DiffFileStatus, string> = {
   added: 'Added',
   modified: 'Modified',
+  moved: 'Moved',
   removed: 'Removed',
 }
 
@@ -64,6 +54,7 @@ export function Diff({
   headingLevel = 2,
   id,
   title = 'Changes',
+  variant = 'default',
   ...props
 }: DiffProps) {
   const titleId = useId()
@@ -77,9 +68,17 @@ export function Diff({
       data-diff-id={id}
       data-slot="diff"
       data-state={files.length === 0 ? 'empty' : 'populated'}
-      {...stylex.props(styles.root)}
+      data-variant={variant}
+      {...stylex.props(styles.root, variant === 'plain' && styles.rootPlain)}
     >
-      <Heading id={titleId} data-slot="diff-title" {...stylex.props(styles.title)}>
+      <Heading
+        id={titleId}
+        data-slot="diff-title"
+        {...stylex.props(
+          styles.title,
+          variant === 'plain' && styles.titlePlain,
+        )}
+      >
         {title}
       </Heading>
       {files.length === 0 ? (
@@ -128,7 +127,7 @@ function FileSummary({ file }: { file: DiffFile }) {
   return (
     <span data-slot="diff-file-summary" {...stylex.props(styles.fileSummary)}>
       <span data-slot="diff-file-path" {...stylex.props(styles.filePath)}>
-        {file.path}
+        {file.previousPath ? `${file.previousPath} → ${file.path}` : file.path}
       </span>
       <span {...stylex.props(styles.fileMetadata)}>
         <span data-slot="diff-file-status">{fileStatusLabels[file.status]}</span>
@@ -222,6 +221,11 @@ const styles = stylex.create({
     minInlineSize: 0,
     overflow: 'hidden',
   },
+  rootPlain: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    borderWidth: 0,
+  },
   title: {
     borderBlockEndColor: colors.border,
     borderBlockEndStyle: 'solid',
@@ -231,6 +235,10 @@ const styles = stylex.create({
     lineHeight: type.lineCompact,
     margin: 0,
     padding: space.x3,
+  },
+  titlePlain: {
+    fontSize: type.sizeSmall,
+    paddingInline: 0,
   },
   files: {
     listStyle: 'none',

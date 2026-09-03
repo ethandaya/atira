@@ -183,6 +183,41 @@ export type ToolProgress = Readonly<{
   total?: number
 }>
 
+export type FileChangeStatus = 'added' | 'removed' | 'modified' | 'moved'
+
+export type FileChangeLine = Readonly<{
+  content: string
+  id: string
+  kind: 'context' | 'addition' | 'deletion'
+  newLine?: number
+  oldLine?: number
+}>
+
+export type FileChangeHunk = Readonly<{
+  header: string
+  id: string
+  lines: readonly FileChangeLine[]
+}>
+
+export type FileChangeFile = Readonly<{
+  additions?: number
+  deletions?: number
+  hunks: readonly FileChangeHunk[]
+  id: string
+  path: string
+  previousPath?: string
+  status: FileChangeStatus
+}>
+
+export type FileDiagnostic = Readonly<{
+  column: number
+  id: string
+  line: number
+  message: string
+  path: string
+  severity: 'error' | 'warning' | 'information' | 'hint'
+}>
+
 export type ToolState =
   | {
       status: 'receiving-input'
@@ -223,8 +258,18 @@ export type ToolState =
 export type ToolPresentation =
   | { kind: 'context'; operation: 'read' | 'list' | 'glob' | 'grep' }
   | { kind: 'shell' }
-  | { kind: 'file-change'; operation: 'edit' | 'write' | 'patch' }
-  | { kind: 'task'; agent?: AgentIdentity; childSessionId?: string }
+  | {
+      diagnostics: readonly FileDiagnostic[]
+      files: readonly FileChangeFile[]
+      kind: 'file-change'
+      operation: 'edit' | 'write' | 'patch'
+    }
+  | {
+      agent?: AgentIdentity
+      blockers?: readonly string[]
+      childSessionId?: string
+      kind: 'task'
+    }
   | { kind: 'web'; operation: 'fetch' | 'search' }
   | { kind: 'todo' }
   | { kind: 'skill' }

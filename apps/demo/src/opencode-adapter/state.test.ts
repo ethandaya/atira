@@ -221,6 +221,104 @@ describe('OpenCode event reduction', () => {
     )
   })
 
+  it('normalizes file-change evidence and task lineage from tool metadata', () => {
+    const patchTool = {
+      ...completedToolPart,
+      callID: 'patch-call',
+      id: 'patch-tool',
+      state: {
+        input: { filePath: '/workspace/old.ts' },
+        metadata: {
+          diagnostics: {
+            '/workspace/old.ts': [
+              {
+                message: 'Missing return type.',
+                range: {
+                  end: { character: 4, line: 1 },
+                  start: { character: 2, line: 1 },
+                },
+                severity: 1,
+              },
+            ],
+          },
+          files: [
+            {
+              filePath: '/workspace/old.ts',
+              movePath: '/workspace/new.ts',
+              patch: '@@ -1,2 +1,2 @@\n const value = 1\n-export default value\n+export { value }',
+              type: 'move',
+            },
+          ],
+        },
+        output: 'Done',
+        status: 'completed' as const,
+        time: { end: 1_600, start: 1_350 },
+        title: 'Apply patch',
+      },
+      tool: 'apply_patch',
+    }
+    const taskTool = {
+      ...completedToolPart,
+      callID: 'task-call',
+      id: 'task-tool',
+      state: {
+        input: { description: 'Inspect tests', subagent_type: 'research' },
+        metadata: {
+          blockers: ['Permission required'],
+          sessionId: 'child-session',
+        },
+        output: 'Done',
+        status: 'completed' as const,
+        time: { end: 1_700, start: 1_400 },
+        title: 'Task',
+      },
+      tool: 'task',
+    }
+    const state = reduceEvents([
+      messageEvent('file-user', userMessage),
+      messageEvent('file-assistant', assistantMessage),
+      partEvent('patch-part', patchTool, 1_600),
+      partEvent('task-part', taskTool, 1_700),
+    ])
+    const parts = projectOpenCodeState(state).turns[0]?.assistant[0]?.parts
+
+    expect(parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          presentation: {
+            diagnostics: [
+              expect.objectContaining({
+                column: 3,
+                line: 2,
+                message: 'Missing return type.',
+                severity: 'error',
+              }),
+            ],
+            files: [
+              expect.objectContaining({
+                additions: 1,
+                deletions: 1,
+                path: '/workspace/new.ts',
+                previousPath: '/workspace/old.ts',
+                status: 'moved',
+              }),
+            ],
+            kind: 'file-change',
+            operation: 'patch',
+          },
+        }),
+        expect.objectContaining({
+          presentation: {
+            agent: { id: 'research', label: 'Research' },
+            blockers: ['Permission required'],
+            childSessionId: 'child-session',
+            kind: 'task',
+          },
+        }),
+      ]),
+    )
+  })
+
   it('reconciles generated tool parts with canonical message parts by call ID', () => {
     const state = reduceEvents([
       ...nativeLifecycleEvents.slice(0, 10),
