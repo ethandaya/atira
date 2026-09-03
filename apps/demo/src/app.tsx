@@ -1,16 +1,9 @@
 import {
   ChatComposer,
-  Composer,
   Loader,
-  Markdown,
-  Message,
   Outcome,
-  Reasoning,
-  Response,
   Suggestion,
   Suggestions,
-  Thread,
-  ToolActivity,
 } from '@pretty-amped/components'
 import { Timeline } from '@pretty-amped/blocks'
 import type {
@@ -712,97 +705,6 @@ function chatError(message?: string) {
   }
 }
 
-function AssistantResponse({ message }: { message: AssistantMessage }) {
-  const reasoning = message.reasoning ? (
-    <Reasoning
-      state={
-        message.status === 'streaming'
-          ? { status: 'thinking' }
-          : { status: 'complete' }
-      }
-    >
-      {message.reasoning}
-    </Reasoning>
-  ) : null
-
-  const content = (
-    <>
-      {message.tools.map((tool) => (
-        <ToolActivity
-          id={tool.id}
-          key={tool.id}
-          state={
-            tool.status === 'failed'
-              ? {
-                  error: tool.error ?? 'The tool could not complete.',
-                  status: 'failed',
-                }
-              : { status: tool.status }
-          }
-          summary={tool.summary}
-          tool={tool.tool}
-        >
-          {tool.input || tool.output ? (
-            <dl {...stylex.props(styles.toolDetails)}>
-              {tool.input && (
-                <div {...stylex.props(styles.toolDetail)}>
-                  <dt {...stylex.props(styles.toolDetailLabel)}>Input</dt>
-                  <dd {...stylex.props(styles.toolDetailValue)}>{tool.input}</dd>
-                </div>
-              )}
-              {tool.output && (
-                <div {...stylex.props(styles.toolDetail)}>
-                  <dt {...stylex.props(styles.toolDetailLabel)}>Result</dt>
-                  <dd {...stylex.props(styles.toolDetailValue)}>{tool.output}</dd>
-                </div>
-              )}
-            </dl>
-          ) : null}
-        </ToolActivity>
-      ))}
-      {reasoning}
-      {message.text ? (
-        <Markdown
-          status={message.status === 'streaming' ? 'streaming' : 'complete'}
-        >
-          {message.text}
-        </Markdown>
-      ) : message.status === 'streaming' && !message.reasoning ? (
-        <Loader label="Thinking" state={{ status: 'streaming' }} />
-      ) : null}
-    </>
-  )
-
-  const meta =
-    message.status === 'complete' && message.durationMs !== undefined
-      ? [
-          formatDuration(message.durationMs),
-          message.usage ? `${message.usage.totalTokens.toLocaleString()} tokens` : '',
-        ]
-          .filter(Boolean)
-          .join(' · ')
-      : undefined
-
-  return (
-    <Message actor="assistant" {...(meta === undefined ? {} : { meta })}>
-      {message.status === 'failed' ? (
-        <Response
-          error={message.error ?? 'The response could not be completed.'}
-          status="failed"
-        >
-          {content}
-        </Response>
-      ) : message.status === 'interrupted' ? (
-        <Response status="interrupted">{content}</Response>
-      ) : message.status === 'complete' ? (
-        <Response status="complete">{content}</Response>
-      ) : (
-        <Response status="streaming">{content}</Response>
-      )}
-    </Message>
-  )
-}
-
 async function readEvents(
   response: globalThis.Response,
   onEvent: (event: StreamEvent) => void,
@@ -954,11 +856,6 @@ function settleRunningTools(
   )
 }
 
-function formatDuration(durationMs: number) {
-  const seconds = durationMs / 1_000
-  return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)}s`
-}
-
 const styles = stylex.create({
   app: {
     backgroundColor: colors.canvas,
@@ -1074,30 +971,6 @@ const styles = stylex.create({
     lineHeight: type.lineBody,
     margin: 0,
     maxInlineSize: '58ch',
-  },
-  toolDetails: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x2,
-    margin: 0,
-  },
-  toolDetail: {
-    display: 'grid',
-    gap: space.x2,
-    gridTemplateColumns: '3.5rem minmax(0, 1fr)',
-  },
-  toolDetailLabel: {
-    color: colors.textMuted,
-    fontSize: type.sizeCaption,
-    fontWeight: type.weightMedium,
-    margin: 0,
-  },
-  toolDetailValue: {
-    color: colors.text,
-    fontFamily: type.familyMono,
-    fontSize: type.sizeCaption,
-    margin: 0,
-    overflowWrap: 'anywhere',
   },
   composerDock: {
     backgroundColor: colors.canvas,

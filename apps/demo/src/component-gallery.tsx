@@ -5,6 +5,7 @@ import {
   ActivitySummary,
   Artifact,
   CitationList,
+  ChatComposer,
   CodeBlock,
   Composer,
   Diff,
@@ -13,16 +14,32 @@ import {
   Markdown,
   Message,
   Outcome,
+  PermissionPrompt,
   PermissionRequest,
   Plan,
   Reasoning,
   Response,
+  QuestionRequest,
+  QueueList,
+  RevertDock,
   Suggestion,
   Suggestions,
   Thread,
+  TodoDock,
   ToolActivity,
+  Turn,
   type PermissionRequestState,
 } from '@pretty-amped/components'
+import type {
+  ChatCapabilities,
+  ChatTurn,
+  ComposerDraft,
+  PermissionRequestView,
+  QuestionRequestView,
+  QueuedPrompt,
+  RevertedPrompt,
+  TodoListView,
+} from '@pretty-amped/foundations/chat'
 import {
   colors,
   radii,
@@ -64,6 +81,8 @@ export function ComponentGallery() {
   )
   const [permissionState, setPermissionState] =
     useState<PermissionRequestState>({ status: 'pending' })
+  const [chatDraft, setChatDraft] = useState<ComposerDraft>(galleryDraft)
+  const [chatResult, setChatResult] = useState('No chat action selected.')
 
   function submitComposer(value: string) {
     setComposerResult(`Submitted: ${value}`)
@@ -585,6 +604,107 @@ export function ComponentGallery() {
           </div>
         </section>
 
+        <section aria-labelledby="chat-heading" {...stylex.props(styles.group)}>
+          <GroupHeading
+            id="chat-heading"
+            title="Chat system"
+            description="Protocol-neutral turn rendering, requests, session state, and structured input."
+          />
+
+          <div {...stylex.props(styles.grid)}>
+            <ComponentSample
+              title="Turn and message parts"
+              description="One semantic turn with grouped context, specialized tools, reasoning, and Markdown."
+              wide
+            >
+              <ol {...stylex.props(styles.turnPreview)}>
+                <Turn turn={galleryTurn} />
+              </ol>
+            </ComponentSample>
+
+            <ComponentSample
+              title="PermissionPrompt"
+              description="Exact once, always, and reject decisions with visible consequences."
+              wide
+            >
+              <PermissionPrompt
+                onDecision={(decision) =>
+                  setChatResult(`Permission decision: ${decision}`)
+                }
+                request={galleryPermission}
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="QuestionRequest"
+              description="Stable question and option IDs across choice and freeform answers."
+              wide
+            >
+              <QuestionRequest
+                onAnswer={(response) =>
+                  setChatResult(`Submitted ${response.answers.length} answers.`)
+                }
+                onReject={() => setChatResult('Question dismissed.')}
+                request={galleryQuestion}
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="TodoDock and RevertDock"
+              description="Canonical session tasks and a recoverable reverted prompt."
+              wide
+            >
+              <div {...stylex.props(styles.stack)}>
+                <TodoDock defaultOpen todos={galleryTodos} />
+                <RevertDock
+                  onDismiss={() => setChatResult('Reverted prompt dismissed.')}
+                  onRestore={(reverted) => {
+                    setChatDraft(reverted.draft)
+                    setChatResult('Reverted prompt restored to the composer.')
+                  }}
+                  reverted={galleryRevert}
+                />
+              </div>
+            </ComponentSample>
+
+            <ComponentSample
+              title="QueueList"
+              description="Queued and failed follow-ups remain editable and removable."
+              wide
+            >
+              <QueueList
+                items={galleryQueue}
+                onEdit={(item) => {
+                  setChatDraft(item.draft)
+                  setChatResult('Queued prompt restored for editing.')
+                }}
+                onRemove={() => setChatResult('Queued prompt removed.')}
+                onRetry={() => setChatResult('Queued prompt retry requested.')}
+              />
+            </ComponentSample>
+
+            <ComponentSample
+              title="ChatComposer"
+              description="Controlled structured draft with busy submission and shell capabilities."
+              wide
+            >
+              <ChatComposer
+                activity={{ status: 'busy', turnId: galleryTurn.id }}
+                capabilities={galleryCapabilities}
+                draft={chatDraft}
+                onDraftChange={setChatDraft}
+                onStop={() => setChatResult('Stop requested.')}
+                onSubmit={(_draft, intent) =>
+                  setChatResult(`Composer intent: ${intent}`)
+                }
+              />
+              <p role="status" {...stylex.props(styles.sampleStatus)}>
+                {chatResult}
+              </p>
+            </ComponentSample>
+          </div>
+        </section>
+
         <section aria-labelledby="output-heading" {...stylex.props(styles.group)}>
           <GroupHeading
             id="output-heading"
@@ -768,6 +888,218 @@ export function ComponentGallery() {
     </main>
   )
 }
+
+const galleryDraft: ComposerDraft = {
+  agent: { id: 'build', label: 'Build' },
+  attachments: [],
+  mode: 'prompt',
+  model: { label: 'Claude Sonnet', modelId: 'sonnet', providerId: 'anthropic' },
+  revision: 0,
+  segments: [{ id: 'gallery-draft-text', text: 'Continue the interface audit.', type: 'text' }],
+  selection: {
+    anchor: { offset: 29, segmentId: 'gallery-draft-text' },
+    focus: { offset: 29, segmentId: 'gallery-draft-text' },
+  },
+}
+
+const galleryCapabilities: ChatCapabilities = {
+  agents: [{ id: 'build', label: 'Build' }],
+  busySubmission: ['queue'],
+  canAttach: true,
+  canStop: true,
+  canSubmit: true,
+  canUseShell: true,
+  models: [
+    { label: 'Claude Sonnet', modelId: 'sonnet', providerId: 'anthropic' },
+  ],
+  permissionDecisions: ['once', 'always', 'reject'],
+  referenceTypes: ['file', 'range', 'resource', 'agent'],
+  variants: [],
+}
+
+const galleryTurn: ChatTurn = {
+  agent: { id: 'build', label: 'Build' },
+  assistant: [
+    {
+      createdAt: 1_100,
+      delivery: { status: 'confirmed' },
+      id: 'gallery-chat-assistant',
+      parts: [
+        {
+          endedAt: 1_180,
+          id: 'gallery-chat-reasoning',
+          startedAt: 1_120,
+          state: { status: 'complete' },
+          text: 'I checked the component boundary before changing the interface.',
+          type: 'reasoning',
+        },
+        {
+          callId: 'gallery-read-call',
+          id: 'gallery-read-tool',
+          presentation: { kind: 'context', operation: 'read' },
+          state: {
+            endedAt: 1_220,
+            input: { filePath: 'packages/components/src/turn.tsx' },
+            output: 'Turn component source',
+            status: 'succeeded',
+          },
+          toolName: 'read',
+          type: 'tool',
+        },
+        {
+          callId: 'gallery-grep-call',
+          id: 'gallery-grep-tool',
+          presentation: { kind: 'context', operation: 'grep' },
+          state: {
+            endedAt: 1_240,
+            input: { query: 'data-slot="turn"' },
+            output: '1 match',
+            status: 'succeeded',
+          },
+          toolName: 'grep',
+          type: 'tool',
+        },
+        {
+          callId: 'gallery-shell-call',
+          id: 'gallery-shell-tool',
+          presentation: { kind: 'shell' },
+          state: {
+            endedAt: 1_320,
+            input: { command: 'pnpm typecheck' },
+            output: 'All packages passed.',
+            status: 'succeeded',
+          },
+          toolName: 'shell',
+          type: 'tool',
+        },
+        {
+          callId: 'gallery-custom-call',
+          id: 'gallery-custom-tool',
+          presentation: { kind: 'generic' },
+          state: {
+            endedAt: 1_340,
+            error: {
+              kind: 'tool',
+              message: 'The optional preview was unavailable.',
+              retryable: true,
+            },
+            input: { target: 'preview' },
+            status: 'failed',
+          },
+          toolName: 'custom_preview',
+          type: 'tool',
+        },
+        {
+          id: 'gallery-chat-text',
+          markdown:
+            'The chat layer now keeps **runtime state outside presentation** and renders unknown tools without dropping evidence.',
+          state: { status: 'complete' },
+          type: 'text',
+        },
+      ],
+      role: 'assistant',
+      turnId: 'gallery-chat-turn',
+    },
+  ],
+  id: 'gallery-chat-turn',
+  model: { label: 'Claude Sonnet', modelId: 'sonnet', providerId: 'anthropic' },
+  state: { endedAt: 1_400, startedAt: 1_100, status: 'complete' },
+  user: {
+    createdAt: 1_000,
+    delivery: { status: 'confirmed' },
+    id: 'gallery-chat-user',
+    parts: [
+      {
+        id: 'gallery-chat-user-text',
+        markdown: 'Audit the chat component boundary and verify the build.',
+        state: { status: 'complete' },
+        type: 'text',
+      },
+    ],
+    role: 'user',
+    turnId: 'gallery-chat-turn',
+  },
+}
+
+const galleryPermission: PermissionRequestView = {
+  consequence: 'external',
+  effect: 'Fetch https://example.com/design-system',
+  id: 'gallery-chat-permission',
+  order: 0,
+  origin: { label: 'Main session', sessionId: 'gallery-session' },
+  scope: 'This can be remembered for this project.',
+  state: { status: 'pending' },
+  title: 'Use the network?',
+  type: 'permission',
+}
+
+const galleryQuestion: QuestionRequestView = {
+  id: 'gallery-chat-question',
+  order: 1,
+  origin: { label: 'Design review', sessionId: 'gallery-session' },
+  questions: [
+    {
+      allowCustom: true,
+      id: 'gallery-density',
+      label: 'Choose an interface density',
+      options: [
+        { description: 'More room between turns.', id: 'calm', label: 'Calm' },
+        { description: 'More context on screen.', id: 'compact', label: 'Compact' },
+      ],
+      required: true,
+      type: 'single-choice',
+    },
+    {
+      id: 'gallery-notes',
+      label: 'Anything else to preserve?',
+      multiline: true,
+      required: false,
+      type: 'text',
+    },
+  ],
+  state: { status: 'pending' },
+  type: 'question',
+}
+
+const galleryTodos: TodoListView = {
+  id: 'gallery-chat-todos',
+  items: [
+    { id: 'contracts', state: 'complete', title: 'Define contracts' },
+    { id: 'events', state: 'in-progress', title: 'Reconcile event stream' },
+    { id: 'review', state: 'pending', title: 'Review mobile layout' },
+  ],
+  state: 'active',
+}
+
+const galleryRevert: RevertedPrompt = {
+  draft: galleryDraft,
+  id: 'gallery-reverted-prompt',
+  turnId: galleryTurn.id,
+}
+
+const galleryQueue: readonly QueuedPrompt[] = [
+  { draft: galleryDraft, id: 'gallery-queued', state: 'queued' },
+  {
+    draft: {
+      ...galleryDraft,
+      revision: 1,
+      segments: [
+        { id: 'gallery-retry-text', text: 'Retry the visual check.', type: 'text' },
+      ],
+      selection: {
+        anchor: { offset: 23, segmentId: 'gallery-retry-text' },
+        focus: { offset: 23, segmentId: 'gallery-retry-text' },
+      },
+    },
+    error: {
+      kind: 'connection',
+      message: 'The runtime disconnected.',
+      retryable: true,
+    },
+    id: 'gallery-queue-failed',
+    state: 'failed',
+  },
+]
 
 type GroupHeadingProps = {
   description: string
@@ -998,6 +1330,11 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     gap: space.x3,
+  },
+  turnPreview: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
   },
   code: {
     fontFamily: type.familyMono,

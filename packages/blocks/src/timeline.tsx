@@ -29,32 +29,66 @@ export type FollowState =
 export type TimelineProps = {
   activity: SessionActivity
   empty?: ReactNode
+  estimatedTurnGap?: number
+  estimatedTurnHeight?: number
   history: HistoryState
   label: string
   onFollowStateChange?: (state: FollowState) => void
   onLoadPrevious: () => Promise<void>
   toolRenderers?: readonly ToolRenderer[]
   turns: readonly ChatTurn[]
+  virtualizeAfter?: number
 }
 
 type ScrollAnchor = { id: string; offset: number }
+type WindowRange = { end: number; start: number }
 
 export function Timeline({
   activity,
   empty = 'No messages yet.',
+  estimatedTurnGap = 32,
+  estimatedTurnHeight = 320,
   history,
   label,
   onFollowStateChange,
   onLoadPrevious,
   toolRenderers,
   turns,
+  virtualizeAfter = 100,
 }: TimelineProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const pendingAnchor = useRef<ScrollAnchor | undefined>(undefined)
   const previousVersion = useRef('')
+  const previousTurnCount = useRef(turns.length)
+  const measuredHeights = useRef(new Map<string, number>())
+  const pinnedTurnIds = useRef(new Set<string>())
   const initialized = useRef(false)
   const [follow, setFollow] = useState<FollowState>({ status: 'following' })
+  const [measurementVersion, setMeasurementVersion] = useState(0)
+  const [windowRange, setWindowRange] = useState<WindowRange>({
+    end: 0,
+    start: 0,
+  })
   const version = useMemo(() => timelineVersion(turns), [turns])
+  const virtualized = turns.length > virtualizeAfter
+  const range = normalizedRange(windowRange, turns.length, virtualized)
+  const topSpacer = spacerHeight(
+    turns,
+    0,
+    range.start,
+    measuredHeights.current,
+    estimatedTurnGap,
+    estimatedTurnHeight,
+  )
+  const bottomSpacer = spacerHeight(
+    turns,
+    range.end,
+    turns.length,
+    measuredHeights.current,
+    estimatedTurnGap,
+    estimatedTurnHeight,
+  )
+  const visibleTurns = turns.slice(range.start, range.end)
 
   function changeFollow(next: FollowState) {
     setFollow(next)
@@ -64,6 +98,32 @@ export function Timeline({
   useLayoutEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) return
+
+    const previousTopSpacer = topSpacer
+    let measured = false
+    for (const element of viewport.querySelectorAll<HTMLElement>('[data-turn-id]')) {
+      const id = element.dataset.turnId
+      if (!id) continue
+      const height = element.getBoundingClientRect().height
+      if (height > 0 && measuredHeights.current.get(id) !== height) {
+        measuredHeights.current.set(id, height)
+        measured = true
+      }
+    }
+    if (measured) {
+      const nextTopSpacer = spacerHeight(
+        turns,
+        0,
+        range.start,
+        measuredHeights.current,
+        estimatedTurnGap,
+        estimatedTurnHeight,
+      )
+      if (follow.status !== 'following' && nextTopSpacer !== previousTopSpacer) {
+        viewport.scrollTop += nextTopSpacer - previousTopSpacer
+      }
+      setMeasurementVersion((current) => current + 1)
+    }
 
     if (pendingAnchor.current) {
       const anchor = pendingAnchor.current
@@ -79,25 +139,57 @@ export function Timeline({
     if (follow.status === 'following') {
       viewport.scrollTop = viewport.scrollHeight
     }
-  }, [version])
+    updateVirtualWindow(viewport)
+  }, [measurementVersion, range.end, range.start, version])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => updateVirtualWindow(viewport))
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [turns.length, virtualized])
 
   useEffect(() => {
     if (!initialized.current) {
       initialized.current = true
       previousVersion.current = version
+      previousTurnCount.current = turns.length
       return
     }
     if (version === previousVersion.current) return
     previousVersion.current = version
 
     if (follow.status === 'detached') {
+      const addedTurns = Math.max(0, turns.length - previousTurnCount.current)
       const next = {
-        pendingCount: Math.max(1, turns.length - visibleTurnCount(viewportRef.current)),
+        pendingCount:
+          addedTurns > 0
+            ? follow.pendingCount + addedTurns
+            : Math.max(1, follow.pendingCount),
         status: 'detached' as const,
       }
       changeFollow(next)
     }
+    previousTurnCount.current = turns.length
   }, [follow, turns.length, version])
+
+  function updateVirtualWindow(viewport: HTMLElement) {
+    if (!virtualized) return
+    pinOpenOrFocusedTurns(viewport, pinnedTurnIds.current)
+    const next = calculateWindowRange({
+      estimatedTurnHeight,
+      estimatedTurnGap,
+      heights: measuredHeights.current,
+      pinnedTurnIds: pinnedTurnIds.current,
+      scrollTop: viewport.scrollTop,
+      turns,
+      viewportHeight: viewport.clientHeight,
+    })
+    setWindowRange((current) =>
+      current.start === next.start && current.end === next.end ? current : next,
+    )
+  }
 
   async function loadPrevious() {
     const viewport = viewportRef.current
@@ -127,6 +219,7 @@ export function Timeline({
     } else if (!atBottom && follow.status === 'following') {
       changeFollow({ pendingCount: 0, status: 'detached' })
     }
+    updateVirtualWindow(viewport)
   }
 
   function jumpToLatest() {
@@ -141,6 +234,7 @@ export function Timeline({
       aria-label={label}
       data-follow-state={follow.status}
       data-slot="timeline"
+      data-virtualized={virtualized || undefined}
       {...stylex.props(styles.root)}
     >
       <div
@@ -152,18 +246,43 @@ export function Timeline({
         <div {...stylex.props(styles.measure)}>
           <HistoryControl history={history} onLoadPrevious={loadPrevious} />
           {turns.length === 0 ? (
-            <p data-slot="timeline-empty" {...stylex.props(styles.empty)}>
+            <div data-slot="timeline-empty" {...stylex.props(styles.empty)}>
               {empty}
-            </p>
+            </div>
           ) : (
             <ol data-slot="timeline-list" {...stylex.props(styles.list)}>
-              {turns.map((turn) => (
+              {topSpacer > 0 && (
+                <li
+                  aria-hidden="true"
+                  data-slot="timeline-spacer-start"
+                  style={{ blockSize: topSpacer }}
+                />
+              )}
+              {visibleTurns.map((turn, index) => (
                 <Turn
+                  aria-posinset={range.start + index + 1}
+                  aria-setsize={turns.length}
                   key={turn.id}
+                  onBlur={(event) => {
+                    if (
+                      !event.currentTarget.contains(event.relatedTarget) &&
+                      !event.currentTarget.querySelector('details[open]')
+                    ) {
+                      pinnedTurnIds.current.delete(turn.id)
+                    }
+                  }}
+                  onFocus={() => pinnedTurnIds.current.add(turn.id)}
                   turn={turn}
                   {...(toolRenderers === undefined ? {} : { toolRenderers })}
                 />
               ))}
+              {bottomSpacer > 0 && (
+                <li
+                  aria-hidden="true"
+                  data-slot="timeline-spacer-end"
+                  style={{ blockSize: bottomSpacer }}
+                />
+              )}
             </ol>
           )}
         </div>
@@ -258,12 +377,89 @@ function firstVisibleTurn(viewport: HTMLElement): ScrollAnchor | undefined {
   return undefined
 }
 
-function visibleTurnCount(viewport: HTMLElement | null) {
-  if (!viewport) return 0
-  const bottom = viewport.getBoundingClientRect().bottom
-  return [...viewport.querySelectorAll<HTMLElement>('[data-turn-id]')].filter(
-    (turn) => turn.getBoundingClientRect().top < bottom,
-  ).length
+function normalizedRange(
+  range: WindowRange,
+  turnCount: number,
+  virtualized: boolean,
+) {
+  if (!virtualized) return { end: turnCount, start: 0 }
+  if (range.end > range.start && range.end <= turnCount) return range
+  return { end: turnCount, start: Math.max(0, turnCount - 24) }
+}
+
+function rangeHeight(
+  turns: readonly ChatTurn[],
+  start: number,
+  end: number,
+  heights: ReadonlyMap<string, number>,
+  estimate: number,
+) {
+  let height = 0
+  for (let index = start; index < end; index += 1) {
+    const turn = turns[index]
+    if (turn) height += heights.get(turn.id) ?? estimate
+  }
+  return height
+}
+
+function spacerHeight(
+  turns: readonly ChatTurn[],
+  start: number,
+  end: number,
+  heights: ReadonlyMap<string, number>,
+  gap: number,
+  estimate: number,
+) {
+  const count = Math.max(0, end - start)
+  return rangeHeight(turns, start, end, heights, estimate) + Math.max(0, count - 1) * gap
+}
+
+function calculateWindowRange(input: {
+  estimatedTurnGap: number
+  estimatedTurnHeight: number
+  heights: ReadonlyMap<string, number>
+  pinnedTurnIds: ReadonlySet<string>
+  scrollTop: number
+  turns: readonly ChatTurn[]
+  viewportHeight: number
+}): WindowRange {
+  const overscan = Math.max(800, input.viewportHeight)
+  const minimum = Math.max(0, input.scrollTop - overscan)
+  const maximum = input.scrollTop + input.viewportHeight + overscan
+  let offset = 0
+  let start = 0
+  let end = input.turns.length
+
+  for (let index = 0; index < input.turns.length; index += 1) {
+    const turn = input.turns[index]
+    if (!turn) continue
+    const next = offset + (input.heights.get(turn.id) ?? input.estimatedTurnHeight)
+    if (next < minimum) start = index + 1
+    if (offset <= maximum) end = index + 1
+    offset = next + input.estimatedTurnGap
+  }
+
+  for (const id of input.pinnedTurnIds) {
+    const index = input.turns.findIndex((turn) => turn.id === id)
+    if (index !== -1) {
+      start = Math.min(start, index)
+      end = Math.max(end, index + 1)
+    }
+  }
+
+  return { end: Math.max(start + 1, end), start }
+}
+
+function pinOpenOrFocusedTurns(viewport: HTMLElement, pinned: Set<string>) {
+  for (const turn of viewport.querySelectorAll<HTMLElement>('[data-turn-id]')) {
+    const id = turn.dataset.turnId
+    if (!id) continue
+    if (turn.contains(document.activeElement) || turn.querySelector('details[open]')) {
+      pinned.add(id)
+    } else {
+      pinned.delete(id)
+    }
+  }
 }
 
 function activityAnnouncement(activity: SessionActivity) {
