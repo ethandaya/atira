@@ -143,6 +143,10 @@ const styles = stylex.create({
   },
   tool: {
     color: colors.textMuted,
+    display: {
+      default: 'none',
+      '@media (min-width: 40rem)': 'inline',
+    },
     fontFamily: type.familyMono,
     fontSize: type.sizeCaption,
     fontWeight: type.weightRegular,
