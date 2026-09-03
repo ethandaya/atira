@@ -17,6 +17,7 @@ import {
   PermissionPrompt,
   PermissionRequest,
   Plan,
+  PromptHistory,
   Reasoning,
   Response,
   QuestionRequest,
@@ -689,14 +690,71 @@ export function ComponentGallery() {
               wide
             >
               <ChatComposer
+                accept="image/*,.txt,.md"
+                actions={
+                  <PromptHistory
+                    items={galleryPromptHistory}
+                    onRestore={(item) => {
+                      setChatDraft({
+                        ...item.draft,
+                        revision: chatDraft.revision + 1,
+                      })
+                      setChatResult('Historical prompt restored.')
+                    }}
+                  />
+                }
                 activity={{ status: 'busy', turnId: galleryTurn.id }}
                 capabilities={galleryCapabilities}
+                commands={galleryCommands}
                 draft={chatDraft}
                 onDraftChange={setChatDraft}
+                onFilesAdd={(files, source) => {
+                  setChatDraft((current) => ({
+                    ...current,
+                    attachments: [
+                      ...current.attachments,
+                      ...files.map((file) => ({
+                        attachment: {
+                          id: crypto.randomUUID(),
+                          kind: file.type.startsWith('image/')
+                            ? ('image' as const)
+                            : ('file' as const),
+                          mediaType: file.type,
+                          name: file.name,
+                          size: file.size,
+                        },
+                        sourceId: file.name,
+                        state: 'ready' as const,
+                      })),
+                    ],
+                    revision: current.revision + 1,
+                  }))
+                  setChatResult(`${files.length} attachment added by ${source}.`)
+                }}
+                onRemoveAttachment={(attachment) =>
+                  setChatDraft((current) => ({
+                    ...current,
+                    attachments: current.attachments.filter(
+                      (item) =>
+                        item.attachment.id !== attachment.attachment.id,
+                    ),
+                    revision: current.revision + 1,
+                  }))
+                }
+                onRemoveReference={(reference) =>
+                  setChatDraft((current) => ({
+                    ...current,
+                    revision: current.revision + 1,
+                    segments: current.segments.filter(
+                      (segment) => segment.id !== reference.id,
+                    ),
+                  }))
+                }
                 onStop={() => setChatResult('Stop requested.')}
                 onSubmit={(_draft, intent) =>
                   setChatResult(`Composer intent: ${intent}`)
                 }
+                references={galleryReferences}
               />
               <p role="status" {...stylex.props(styles.sampleStatus)}>
                 {chatResult}
@@ -903,7 +961,10 @@ const galleryDraft: ComposerDraft = {
 }
 
 const galleryCapabilities: ChatCapabilities = {
-  agents: [{ id: 'build', label: 'Build' }],
+  agents: [
+    { id: 'build', label: 'Build' },
+    { id: 'plan', label: 'Plan' },
+  ],
   busySubmission: ['queue'],
   canAttach: true,
   canStop: true,
@@ -911,11 +972,55 @@ const galleryCapabilities: ChatCapabilities = {
   canUseShell: true,
   models: [
     { label: 'Claude Sonnet', modelId: 'sonnet', providerId: 'anthropic' },
+    { label: 'GPT-5.6', modelId: 'gpt-5.6', providerId: 'openai' },
   ],
   permissionDecisions: ['once', 'always', 'reject'],
   referenceTypes: ['file', 'range', 'resource', 'agent'],
-  variants: [],
+  variants: [
+    { id: 'balanced', label: 'Balanced' },
+    { id: 'fast', label: 'Fast' },
+  ],
 }
+
+const galleryCommands = [
+  {
+    description: 'Condense earlier context before continuing.',
+    id: 'compact',
+    label: 'Compact context',
+    value: '/compact',
+  },
+  {
+    description: 'Start a design-focused review.',
+    id: 'review',
+    label: 'Review interface',
+    value: '/review',
+  },
+] as const
+
+const galleryReferences = [
+  {
+    description: 'Turn and message presentation.',
+    id: 'turn-source',
+    label: 'turn.tsx',
+    referenceType: 'file',
+    value: 'packages/components/src/turn.tsx',
+  },
+  {
+    description: 'Canonical chat contracts.',
+    id: 'chat-contracts',
+    label: 'chat.ts',
+    referenceType: 'file',
+    value: 'packages/foundations/src/chat.ts',
+  },
+] as const
+
+const galleryPromptHistory = [
+  {
+    draft: galleryDraft,
+    id: 'history-audit',
+    label: 'Continue the interface audit',
+  },
+] as const
 
 const galleryTurn: ChatTurn = {
   agent: { id: 'build', label: 'Build' },

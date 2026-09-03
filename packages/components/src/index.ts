@@ -25,11 +25,22 @@ export type {
   CitationListProps,
   InlineCitationProps,
 } from './citation-list'
-export { AttachmentTray, ChatComposer, QueueList } from './chat-composer'
+export {
+  AttachmentTray,
+  ChatComposer,
+  PromptHistory,
+  QueueList,
+  ReferenceTray,
+} from './chat-composer'
 export type {
   AttachmentTrayProps,
   ChatComposerProps,
+  ComposerCommand,
+  ComposerReference,
+  PromptHistoryItem,
+  PromptHistoryProps,
   QueueListProps,
+  ReferenceTrayProps,
 } from './chat-composer'
 export {
   ContextTool,

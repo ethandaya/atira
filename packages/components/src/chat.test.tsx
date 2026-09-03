@@ -22,7 +22,7 @@ vi.mock('@stylexjs/stylex', () => ({
 
 import { ChatComposer } from './chat-composer'
 import { MessageParts } from './message-parts'
-import { PermissionPrompt, QuestionRequest } from './requests'
+import { PermissionPrompt, QuestionRequest, RequestRegion } from './requests'
 
 afterEach(cleanup)
 
@@ -122,6 +122,106 @@ describe('chat components', () => {
 
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  it('keeps structured references outside the native editor value', () => {
+    const referencedDraft: ComposerDraft = {
+      ...draft,
+      segments: [
+        { id: 'text', text: 'Review this file', type: 'text' },
+        {
+          id: 'reference',
+          label: 'chat.ts',
+          referenceType: 'file',
+          type: 'reference',
+          value: '/workspace/chat.ts',
+        },
+      ],
+    }
+    render(
+      <ChatComposer
+        activity={{ status: 'idle' }}
+        capabilities={capabilities}
+        draft={referencedDraft}
+        onDraftChange={() => undefined}
+        onStop={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    )
+
+    expect(
+      (screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement)
+        .value,
+    ).toBe('Review this file')
+    expect(screen.getByRole('list', { name: 'References' }).textContent).toContain(
+      '@chat.ts',
+    )
+  })
+
+  it('accepts attachments from paste and drop without swallowing text input', () => {
+    const onFilesAdd = vi.fn()
+    const { container } = render(
+      <ChatComposer
+        activity={{ status: 'idle' }}
+        capabilities={capabilities}
+        draft={draft}
+        onDraftChange={() => undefined}
+        onFilesAdd={onFilesAdd}
+        onStop={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    )
+    const input = screen.getByRole('textbox', { name: 'Message' })
+    const pasted = new File(['paste'], 'paste.png', { type: 'image/png' })
+    const dropped = new File(['drop'], 'drop.txt', { type: 'text/plain' })
+
+    fireEvent.paste(input, { clipboardData: { files: [pasted] } })
+    fireEvent.drop(container.querySelector('form')!, {
+      dataTransfer: { files: [dropped], types: ['Files'] },
+    })
+
+    expect(onFilesAdd).toHaveBeenNthCalledWith(1, [pasted], 'paste')
+    expect(onFilesAdd).toHaveBeenNthCalledWith(2, [dropped], 'drop')
+  })
+
+  it('restores composer focus after a request when the draft is unchanged', () => {
+    const request: PermissionRequestView = {
+      consequence: 'external',
+      effect: 'Fetch https://example.com',
+      id: 'permission',
+      order: 0,
+      origin: { sessionId: 'session' },
+      state: { status: 'pending' },
+      title: 'Use the network?',
+      type: 'permission',
+    }
+    const region = (requests: readonly PermissionRequestView[]) => (
+      <RequestRegion
+        draftRevision={1}
+        onPermissionDecision={() => undefined}
+        onQuestionAnswer={() => undefined}
+        onQuestionReject={() => undefined}
+        requests={requests}
+      >
+        <form data-slot="chat-composer">
+          <textarea aria-label="Message" />
+        </form>
+      </RequestRegion>
+    )
+    const { rerender } = render(region([]))
+    const input = screen.getByRole('textbox', { name: 'Message' })
+    input.focus()
+
+    rerender(region([request]))
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { name: 'Use the network?' }),
+    )
+
+    rerender(region([]))
+    expect(document.activeElement).toBe(
+      screen.getByRole('textbox', { name: 'Message' }),
+    )
+  })
+
 })
 
 const capabilities: ChatCapabilities = {

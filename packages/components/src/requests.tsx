@@ -25,8 +25,8 @@ import {
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
-  useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -415,6 +415,7 @@ export function RevertDock({ onDismiss, onRestore, reverted }: RevertDockProps) 
 
 export type RequestRegionProps = {
   children: ReactNode
+  draftRevision?: number
   onPermissionDecision: (request: PermissionRequestView, decision: PermissionDecision) => void
   onQuestionAnswer: (request: QuestionRequestView, response: QuestionResponse) => void
   onQuestionReject: (request: QuestionRequestView) => void
@@ -426,6 +427,7 @@ export type RequestRegionProps = {
 
 export function RequestRegion({
   children,
+  draftRevision,
   onPermissionDecision,
   onQuestionAnswer,
   onQuestionReject,
@@ -437,21 +439,75 @@ export function RequestRegion({
   const active = selectActiveRequest(requests)
   const regionRef = useRef<HTMLDivElement>(null)
   const previousRequest = useRef<string | undefined>(undefined)
+  const capturedRevision = useRef<number | undefined>(undefined)
+  const restoreComposerFocus = useRef(false)
+  const focusOwner = useRef<'composer' | 'request' | undefined>(undefined)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const region = regionRef.current
+    const previous = previousRequest.current
+
     if (active && active.id !== previousRequest.current) {
-      const focusedComposer = document.activeElement?.closest('[data-slot="chat-composer"]')
-      if (focusedComposer) {
-        regionRef.current
+      const focusedComposer = document.activeElement?.closest(
+        '[data-slot="chat-composer"]',
+      )
+      const focusedRequest = document.activeElement?.closest(
+        '[data-slot="permission-prompt"], [data-slot="question-request"]',
+      )
+      if (!previous && (focusedComposer || focusOwner.current === 'composer')) {
+        capturedRevision.current = draftRevision
+        restoreComposerFocus.current = true
+      }
+      if (
+        focusedComposer ||
+        focusedRequest ||
+        focusOwner.current === 'composer' ||
+        focusOwner.current === 'request'
+      ) {
+        region
           ?.querySelector<HTMLElement>('[data-request-heading]')
           ?.focus({ preventScroll: true })
       }
     }
+
+    if (!active && previous) {
+      const revisionUnchanged =
+        capturedRevision.current === undefined ||
+        draftRevision === capturedRevision.current
+      if (
+        restoreComposerFocus.current &&
+        focusOwner.current === 'request' &&
+        revisionUnchanged
+      ) {
+        region
+          ?.querySelector<HTMLTextAreaElement>(
+            '[data-slot="chat-composer"] textarea',
+          )
+          ?.focus({ preventScroll: true })
+      }
+      restoreComposerFocus.current = false
+      capturedRevision.current = undefined
+    }
+
     previousRequest.current = active?.id
-  }, [active])
+  }, [active, draftRevision])
 
   return (
-    <div ref={regionRef} data-slot="request-region" {...stylex.props(styles.region)}>
+    <div
+      ref={regionRef}
+      data-slot="request-region"
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          focusOwner.current = undefined
+        }
+      }}
+      onFocusCapture={(event) => {
+        focusOwner.current = event.target.closest('[data-slot="chat-composer"]')
+          ? 'composer'
+          : 'request'
+      }}
+      {...stylex.props(styles.region)}
+    >
       {todos && <TodoDock todos={todos} />}
       {active?.type === 'permission' ? (
         <PermissionPrompt
