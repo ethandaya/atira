@@ -50,7 +50,11 @@ export function Suggestion({
   ...props
 }: SuggestionProps) {
   return (
-    <span data-slot="suggestion" data-suggestion-value={value}>
+    <span
+      data-slot="suggestion"
+      data-suggestion-value={value}
+      {...stylex.props(styles.item)}
+    >
       <Button
         {...props}
         onClick={() => onSelect(value)}
@@ -73,5 +77,9 @@ const styles = stylex.create({
     overscrollBehaviorInline: 'contain',
     paddingBlock: space.x1,
     scrollbarWidth: 'none',
+  },
+  item: {
+    display: 'inline-flex',
+    flexShrink: 0,
   },
 })

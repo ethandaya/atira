@@ -1,4 +1,6 @@
 import {
+  Action,
+  Actions,
   ActivityList,
   ActivitySummary,
   Artifact,
@@ -6,11 +8,16 @@ import {
   CodeBlock,
   Composer,
   Diff,
+  InlineCitation,
+  Loader,
   Message,
   Outcome,
   PermissionRequest,
   Plan,
+  Reasoning,
   Response,
+  Suggestion,
+  Suggestions,
   Thread,
   ToolActivity,
   type PermissionRequestState,
@@ -28,6 +35,8 @@ import {
   Disclosure,
   IconButton,
   Progress,
+  Shimmer,
+  Spinner,
   Status,
   TextField,
   VisuallyHidden,
@@ -46,6 +55,12 @@ export function ComponentGallery() {
   const [dialogResult, setDialogResult] = useState('Dialog has not been opened.')
   const [activityListOpen, setActivityListOpen] = useState(false)
   const [artifactResult, setArtifactResult] = useState('No artifact opened.')
+  const [actionResult, setActionResult] = useState(
+    'No message action selected.',
+  )
+  const [suggestionResult, setSuggestionResult] = useState(
+    'No suggestion selected.',
+  )
   const [permissionState, setPermissionState] =
     useState<PermissionRequestState>({ status: 'pending' })
 
@@ -213,6 +228,26 @@ export function ComponentGallery() {
             </ComponentSample>
 
             <ComponentSample
+              title="Spinner"
+              description="A radial activity mark that becomes static under reduced motion."
+            >
+              <div {...stylex.props(styles.controls)}>
+                <Spinner aria-label="Small loading indicator" size="small" />
+                <Spinner aria-label="Regular loading indicator" />
+                <Spinner aria-label="Large loading indicator" size="large" />
+              </div>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Shimmer"
+              description="Text-level streaming feedback with a readable static fallback."
+            >
+              <p {...stylex.props(styles.note)}>
+                <Shimmer>Preparing the response…</Shimmer>
+              </p>
+            </ComponentSample>
+
+            <ComponentSample
               title="VisuallyHidden"
               description="Adds screen-reader copy without changing visual layout."
             >
@@ -260,6 +295,104 @@ export function ComponentGallery() {
                   Runtime state remains outside the component layer.
                 </Message>
               </Thread>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Loader"
+              description="Named pending, streaming, and complete states—not motion alone."
+            >
+              <div {...stylex.props(styles.stack)}>
+                <Loader state={{ status: 'pending' }} />
+                <Loader
+                  label="Writing component styles"
+                  state={{ status: 'streaming' }}
+                />
+                <Loader state={{ status: 'complete' }} />
+              </div>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Reasoning"
+              description="Controlled disclosure for active and completed reasoning."
+            >
+              <div {...stylex.props(styles.stack)}>
+                <Reasoning state={{ status: 'thinking' }}>
+                  Comparing the requested behavior with the existing component
+                  contracts.
+                </Reasoning>
+                <Reasoning
+                  defaultOpen
+                  state={{ duration: '8 seconds', status: 'complete' }}
+                >
+                  The loading layer belongs below protocol adapters and above
+                  visual primitives.
+                </Reasoning>
+              </div>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Actions"
+              description="A labelled toolbar of compact, named message actions."
+            >
+              <Actions>
+                <Action
+                  label="Copy response"
+                  onClick={() => setActionResult('Response copied.')}
+                >
+                  <CopyIcon />
+                </Action>
+                <Action
+                  label="Regenerate response"
+                  onClick={() => setActionResult('Regenerate requested.')}
+                >
+                  <RetryIcon />
+                </Action>
+              </Actions>
+              <p role="status" {...stylex.props(styles.sampleStatus)}>
+                {actionResult}
+              </p>
+            </ComponentSample>
+
+            <ComponentSample
+              title="Suggestions"
+              description="Horizontally scrollable prompts with a semantic select event."
+              wide
+            >
+              <Suggestions>
+                {[
+                  'Make it more concise',
+                  'Show the component API',
+                  'Explain the accessibility behavior',
+                ].map((suggestion) => (
+                  <Suggestion
+                    key={suggestion}
+                    onSelect={(value) =>
+                      setSuggestionResult(`Selected: ${value}`)
+                    }
+                    value={suggestion}
+                  />
+                ))}
+              </Suggestions>
+              <p role="status" {...stylex.props(styles.sampleStatus)}>
+                {suggestionResult}
+              </p>
+            </ComponentSample>
+
+            <ComponentSample
+              title="InlineCitation"
+              description="Compact in-flow provenance with explicit link availability."
+            >
+              <p {...stylex.props(styles.note)}>
+                StyleX provides static, typed styles with runtime theme variables
+                <InlineCitation
+                  citation={{
+                    href: 'https://linear.app/now/styling-linear-for-the-future-stylex',
+                    id: 'gallery-inline-linear',
+                    source: 'Linear',
+                    title: 'Styling Linear for the future',
+                  }}
+                />.
+              </p>
             </ComponentSample>
 
             <ComponentSample
@@ -678,6 +811,50 @@ function MinusIcon() {
   )
 }
 
+function CopyIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="1em"
+      height="1em"
+      fill="none"
+      focusable="false"
+    >
+      <rect
+        x="7"
+        y="7"
+        width="9"
+        height="9"
+        rx="1.5"
+        stroke="currentColor"
+      />
+      <path
+        d="M13 7V5.5A1.5 1.5 0 0 0 11.5 4h-7A1.5 1.5 0 0 0 3 5.5v7A1.5 1.5 0 0 0 4.5 14H7"
+        stroke="currentColor"
+      />
+    </svg>
+  )
+}
+
+function RetryIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="1em"
+      height="1em"
+      fill="none"
+      focusable="false"
+    >
+      <path
+        d="M15.25 7.25V3.5m0 0H11.5m3.75 0-2.1 2.1a6 6 0 1 0 1.45 6.15"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 const styles = stylex.create({
   root: {
     flex: 1,
@@ -688,9 +865,9 @@ const styles = stylex.create({
   content: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x8,
+    gap: '3rem',
     marginInline: 'auto',
-    maxInlineSize: '60rem',
+    maxInlineSize: '68rem',
     paddingBlock: space.x8,
     paddingInline: {
       default: space.x4,
@@ -700,7 +877,7 @@ const styles = stylex.create({
   group: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x4,
+    gap: space.x6,
   },
   groupHeading: {
     display: 'flex',
@@ -723,24 +900,23 @@ const styles = stylex.create({
   grid: {
     alignItems: 'start',
     display: 'grid',
-    gap: space.x4,
+    columnGap: space.x6,
     gridTemplateColumns: {
       default: 'minmax(0, 1fr)',
       '@media (min-width: 56rem)': 'repeat(2, minmax(0, 1fr))',
     },
+    rowGap: space.x8,
   },
   sample: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: '1px',
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x4,
+    gap: space.x3,
     minInlineSize: 0,
-    padding: space.x4,
+    paddingBlockStart: space.x4,
   },
   sampleWide: {
     '@media (min-width: 56rem)': {

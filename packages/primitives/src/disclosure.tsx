@@ -1,6 +1,7 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import {
   colors,
+  motion,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -41,29 +42,37 @@ export function Disclosure({
       {...stylex.props(styles.root)}
     >
       <Collapsible.Trigger
-        data-slot="disclosure-trigger"
-        {...stylex.props(styles.trigger)}
-      >
-        <span data-slot="disclosure-summary" {...stylex.props(styles.summary)}>
-          {summary}
-        </span>
-        <svg
-          aria-hidden="true"
-          focusable="false"
-          viewBox="0 0 16 16"
-          data-slot="disclosure-indicator"
-          {...stylex.props(styles.indicator)}
-        >
-          <path
-            d="m5.75 3.5 4.5 4.5-4.5 4.5"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="1.5"
-          />
-        </svg>
-      </Collapsible.Trigger>
+        render={(triggerProps, state) => (
+          <button
+            {...triggerProps}
+            data-slot="disclosure-trigger"
+            {...stylex.props(styles.trigger)}
+          >
+            <span data-slot="disclosure-summary" {...stylex.props(styles.summary)}>
+              {summary}
+            </span>
+            <svg
+              aria-hidden="true"
+              focusable="false"
+              viewBox="0 0 16 16"
+              data-slot="disclosure-indicator"
+              {...stylex.props(
+                styles.indicator,
+                state.open && styles.indicatorOpen,
+              )}
+            >
+              <path
+                d="m5.75 3.5 4.5 4.5-4.5 4.5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+              />
+            </svg>
+          </button>
+        )}
+      />
       <Collapsible.Panel
         data-slot="disclosure-panel"
         {...stylex.props(styles.panel)}
@@ -118,6 +127,15 @@ const styles = stylex.create({
     color: colors.textMuted,
     flexShrink: 0,
     inlineSize: '1rem',
+    transitionDuration: {
+      default: motion.durationFast,
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionProperty: 'transform',
+    transitionTimingFunction: motion.easingStandard,
+  },
+  indicatorOpen: {
+    transform: 'rotate(90deg)',
   },
   panel: {
     borderBlockStartColor: colors.border,

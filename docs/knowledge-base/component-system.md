@@ -169,6 +169,72 @@ Use Base UI React primitives internally. Do not wrap a generic menu, combobox, g
 
 The first vertical slice needs only `Thread`, `Message`, `Composer`, `ToolActivity`, `PermissionRequest`, and `Outcome`, plus disclosed evidence inside `ToolActivity`. The rest should follow real use.
 
+## External AI-component parity tracker
+
+The broader target is the [shadcn.io AI catalog](https://www.shadcn.io/ai), which currently lists 50 components and substantially overlaps the official [Vercel AI Elements registry](https://elements.ai-sdk.dev/elements). Names do not have to match when this library already owns a clearer protocol-neutral equivalent, but responsibilities must not be silently counted twice.
+
+Status meanings:
+
+- **Shipped** — the named component exists as a public export.
+- **Covered** — the responsibility is intentionally handled by a differently named public component.
+- **Planned** — relevant to text, coding, or agent interfaces and still missing.
+- **Deferred** — specialized graph, sandbox, or media UI that should follow the core interaction layer.
+
+| # | Reference component | Pretty Amped status | Current or intended owner |
+| ---: | --- | --- | --- |
+| 1 | Actions | Shipped | `Actions` + `Action` |
+| 2 | Agent | Planned | Agent configuration summary |
+| 3 | Artifact | Shipped | `Artifact` |
+| 4 | Attachments | Planned | Composer attachment list and picker trigger |
+| 5 | Audio Player | Deferred | Media package/component |
+| 6 | Branch | Planned | Message version navigation |
+| 7 | Canvas | Deferred | Artifact workbench |
+| 8 | Chain of Thought | Planned | Structured reasoning-step list; distinct from prose `Reasoning` |
+| 9 | Checkpoint | Planned | Conversation rewind boundary |
+| 10 | Code Block | Shipped | `CodeBlock` |
+| 11 | Commit | Planned | Git commit summary |
+| 12 | Confirmation | Covered | `PermissionRequest` |
+| 13 | Connection | Planned | Runtime connection status |
+| 14 | Context | Planned | Context-window usage |
+| 15 | Controls | Planned | Model generation controls |
+| 16 | Conversation | Covered | `Thread` |
+| 17 | Edge | Deferred | Graph/workflow primitive |
+| 18 | Environment Variables | Deferred | Sandbox settings |
+| 19 | File Tree | Planned | Coding-agent workspace tree |
+| 20 | Image | Deferred | Generated-image viewer; `Artifact` only references images |
+| 21 | Inline Citation | Shipped | `InlineCitation` |
+| 22 | Loader | Shipped | Stateful `Loader`; visual `Spinner` is a supplemental primitive |
+| 23 | Message | Shipped | `Message` |
+| 24 | Mic Selector | Deferred | Voice input settings |
+| 25 | Model Selector | Planned | Model picker |
+| 26 | Node | Deferred | Graph/workflow primitive |
+| 27 | Open in Chat | Planned | Resource-to-thread action |
+| 28 | Package Info | Planned | Package metadata summary |
+| 29 | Panel | Planned | Resizable workbench panel |
+| 30 | Persona | Planned | Actor identity summary |
+| 31 | Plan | Shipped | `Plan` |
+| 32 | Prompt Input | Covered | `Composer` |
+| 33 | Queue | Planned | Pending prompts and work items |
+| 34 | Reasoning | Shipped | `Reasoning` |
+| 35 | Sandbox | Deferred | Code-execution workbench |
+| 36 | Schema Display | Planned | Structured schema viewer |
+| 37 | Shimmer | Shipped | `Shimmer` primitive |
+| 38 | Snippet | Planned | Accept/reject code suggestion |
+| 39 | Sources | Covered | `CitationList` |
+| 40 | Speech Input | Deferred | Voice capture |
+| 41 | Stack Trace | Planned | Parsed error frames |
+| 42 | Suggestion | Shipped | `Suggestions` + `Suggestion` |
+| 43 | Task | Covered | `ActivitySummary` + `ActivityList` |
+| 44 | Terminal | Planned | Structured stdout/stderr display |
+| 45 | Test Results | Planned | Test suite and failure details |
+| 46 | Tool | Covered | `ToolActivity` |
+| 47 | Toolbar | Planned | Artifact/canvas action bar; not the same contract as message `Actions` |
+| 48 | Transcription | Deferred | Timestamped voice transcript |
+| 49 | Voice Selector | Deferred | Speech output settings |
+| 50 | Web Preview | Planned | Safe portal/site preview |
+
+The next parity phase should stay coherent rather than follow alphabetical order: attachments and message branching; connection, context, queue, and model selection; then coding evidence (`FileTree`, `Terminal`, `StackTrace`, `TestResults`, `Commit`, and `Snippet`). Graph, sandbox, and voice/media components remain deferred until their required primitives and security boundaries are defined.
+
 ## API rules
 
 1. **Controlled by default for product state.** Public components receive state and callbacks. Timers, fake completion, model lists, and demo transitions live in examples.

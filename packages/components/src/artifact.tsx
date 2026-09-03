@@ -231,7 +231,7 @@ const styles = stylex.create({
   },
   actions: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
     borderBlockStartColor: colors.border,
     borderBlockStartStyle: 'solid',
     borderBlockStartWidth: '1px',

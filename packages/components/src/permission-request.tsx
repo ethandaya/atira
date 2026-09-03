@@ -255,7 +255,7 @@ const styles = stylex.create({
       default: 'stretch',
       '@media (min-width: 40rem)': 'center',
     },
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
     borderBlockStartColor: colors.border,
     borderBlockStartStyle: 'solid',
     borderBlockStartWidth: '1px',

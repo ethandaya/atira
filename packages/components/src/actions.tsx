@@ -42,6 +42,7 @@ export type ActionProps = Omit<IconButtonProps, 'aria-label'> & {
 
 export function Action({
   children,
+  iconSize = 'small',
   label,
   title = label,
   variant = 'quiet',
@@ -52,7 +53,7 @@ export function Action({
       <IconButton
         {...props}
         aria-label={label}
-        iconSize="small"
+        iconSize={iconSize}
         title={title}
         variant={variant}
       >

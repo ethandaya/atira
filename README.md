@@ -36,7 +36,10 @@ pnpm dev
 
 ## Status
 
-The first slice includes light/dark themes, a Base UI-backed `Button`, and a
-controlled `PermissionRequest`. Registry, CLI, MCP, blocks, and runtime adapters
-remain future tasks. Statements marked **Proposal** or **Hypothesis** in the
-knowledge base are starting positions to validate, not settled project decisions.
+The workspace includes themed StyleX foundations, owned Base UI-backed
+primitives, conversation and agent-state components, structured coding output,
+and a component gallery. The [50-component parity tracker](docs/knowledge-base/component-system.md#external-ai-component-parity-tracker)
+records shipped equivalents and the remaining component work. Registry, CLI,
+MCP, blocks, and runtime adapters remain future tasks. Statements marked
+**Proposal** or **Hypothesis** in the knowledge base are starting positions to
+validate, not settled project decisions.

@@ -93,19 +93,12 @@ const styles = stylex.create({
     fontWeight: type.weightMedium,
   },
   status: {
-    borderColor: colors.border,
-    borderRadius: '999px',
-    borderStyle: 'solid',
-    borderWidth: '1px',
     color: colors.textMuted,
     fontSize: type.sizeCaption,
+    fontWeight: type.weightMedium,
     lineHeight: type.lineCompact,
-    paddingBlock: '0.125rem',
-    paddingInline: space.x2,
   },
   failed: {
-    backgroundColor: colors.dangerSurface,
-    borderColor: colors.danger,
     color: colors.danger,
   },
   detail: {

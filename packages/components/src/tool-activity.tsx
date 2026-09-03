@@ -108,7 +108,7 @@ export function ToolActivity({
 
 const styles = stylex.create({
   root: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radii.surface,
     borderStyle: 'solid',
@@ -154,20 +154,14 @@ const styles = stylex.create({
     lineHeight: type.lineCompact,
   },
   state: {
-    borderColor: colors.border,
-    borderRadius: '999px',
-    borderStyle: 'solid',
-    borderWidth: '1px',
     color: colors.textMuted,
     flexShrink: 0,
     fontSize: type.sizeCaption,
-    fontWeight: type.weightRegular,
+    fontWeight: type.weightMedium,
     lineHeight: type.lineCompact,
-    paddingBlock: '0.125rem',
-    paddingInline: space.x2,
   },
   evidence: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radii.control,
     color: colors.textMuted,
     overflow: 'auto',

@@ -326,7 +326,7 @@ const styles = stylex.create({
     },
   },
   headerInnerWide: {
-    maxInlineSize: '60rem',
+    maxInlineSize: '68rem',
   },
   identity: {
     alignItems: 'baseline',

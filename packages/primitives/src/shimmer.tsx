@@ -53,8 +53,16 @@ const styles = stylex.create({
       '@media (prefers-reduced-motion: no-preference)': shimmer,
     },
     animationTimingFunction: 'linear',
-    backgroundClip: 'text',
-    backgroundImage: `linear-gradient(100deg, ${colors.textMuted} 20%, ${colors.text} 48%, ${colors.textMuted} 76%)`,
+    backgroundClip: {
+      default: 'text',
+      '@media (forced-colors: active)': 'border-box',
+      '@media (prefers-reduced-motion: reduce)': 'border-box',
+    },
+    backgroundImage: {
+      default: `linear-gradient(100deg, ${colors.textMuted} 20%, ${colors.text} 48%, ${colors.textMuted} 76%)`,
+      '@media (forced-colors: active)': 'none',
+      '@media (prefers-reduced-motion: reduce)': 'none',
+    },
     backgroundPositionX: '100%',
     backgroundSize: '200% 100%',
     color: {
