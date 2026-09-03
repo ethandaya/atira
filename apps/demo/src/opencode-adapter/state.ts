@@ -1,14 +1,18 @@
 import type {
   Event,
+  LlmToolContent,
   Message,
   Part,
   QuestionInfo,
+  RevertState,
+  SessionErrorUnknown,
   SessionStatus,
   Todo,
 } from '@opencode-ai/sdk/v2'
 import type {
   ChatError,
   ChatRequest,
+  MessageDelivery,
   PermissionDecision,
   QuestionAnswer,
   QuestionDecision,
@@ -24,9 +28,10 @@ export type OpenCodeMessagePageItem = Readonly<{
 }>
 
 export type OpenCodeMessageRecord = Readonly<{
+  delivery: MessageDelivery
   info: Message
   parts: readonly Part[]
-  source: 'event' | 'page'
+  source: 'event' | 'optimistic' | 'page'
 }>
 
 export type OpenCodeAdapterState = Readonly<{
@@ -38,6 +43,7 @@ export type OpenCodeAdapterState = Readonly<{
   partTombstones: ReadonlySet<string>
   pendingDeltas: Readonly<Record<string, string>>
   requests: readonly ChatRequest[]
+  revert?: RevertState
   seenEventIds: ReadonlySet<string>
   sessionError?: ChatError
   sessionId: string
@@ -129,6 +135,182 @@ export function reduceOpenCodeEvent(
             event.properties.callID,
             event.properties.delta,
           )
+        : next
+    case 'session.next.text.started':
+      return event.properties.sessionID === state.sessionId
+        ? upsertPart(next, {
+            id: event.properties.textID,
+            messageID: event.properties.assistantMessageID,
+            sessionID: event.properties.sessionID,
+            text: '',
+            time: { start: event.properties.timestamp },
+            type: 'text',
+          })
+        : next
+    case 'session.next.text.ended':
+      return event.properties.sessionID === state.sessionId
+        ? finishTextPart(next, {
+            id: event.properties.textID,
+            messageId: event.properties.assistantMessageID,
+            sessionId: event.properties.sessionID,
+            text: event.properties.text,
+            timestamp: event.properties.timestamp,
+            type: 'text',
+          })
+        : next
+    case 'session.next.reasoning.started':
+      return event.properties.sessionID === state.sessionId
+        ? upsertPart(next, {
+            id: event.properties.reasoningID,
+            messageID: event.properties.assistantMessageID,
+            sessionID: event.properties.sessionID,
+            text: '',
+            time: { start: event.properties.timestamp },
+            type: 'reasoning',
+          })
+        : next
+    case 'session.next.reasoning.ended':
+      return event.properties.sessionID === state.sessionId
+        ? finishTextPart(next, {
+            id: event.properties.reasoningID,
+            messageId: event.properties.assistantMessageID,
+            sessionId: event.properties.sessionID,
+            text: event.properties.text,
+            timestamp: event.properties.timestamp,
+            type: 'reasoning',
+          })
+        : next
+    case 'session.next.tool.input.started':
+      return event.properties.sessionID === state.sessionId
+        ? upsertPart(
+            next,
+            pendingToolPart({
+              callId: event.properties.callID,
+              messageId: event.properties.assistantMessageID,
+              sessionId: event.properties.sessionID,
+              tool: event.properties.name,
+            }),
+          )
+        : next
+    case 'session.next.tool.input.ended':
+      return event.properties.sessionID === state.sessionId
+        ? finishToolInput(next, {
+            callId: event.properties.callID,
+            messageId: event.properties.assistantMessageID,
+            sessionId: event.properties.sessionID,
+            text: event.properties.text,
+          })
+        : next
+    case 'session.next.tool.called':
+      return event.properties.sessionID === state.sessionId
+        ? startTool(next, {
+            callId: event.properties.callID,
+            input: event.properties.input,
+            messageId: event.properties.assistantMessageID,
+            sessionId: event.properties.sessionID,
+            timestamp: event.properties.timestamp,
+            tool: event.properties.tool,
+          })
+        : next
+    case 'session.next.tool.progress':
+      return event.properties.sessionID === state.sessionId
+        ? progressTool(next, {
+            callId: event.properties.callID,
+            content: event.properties.content,
+            messageId: event.properties.assistantMessageID,
+            structured: event.properties.structured,
+            timestamp: event.properties.timestamp,
+          })
+        : next
+    case 'session.next.tool.success':
+      return event.properties.sessionID === state.sessionId
+        ? succeedTool(next, {
+            callId: event.properties.callID,
+            content: event.properties.content,
+            messageId: event.properties.assistantMessageID,
+            result: event.properties.result,
+            structured: event.properties.structured,
+            timestamp: event.properties.timestamp,
+          })
+        : next
+    case 'session.next.tool.failed':
+      return event.properties.sessionID === state.sessionId
+        ? failTool(next, {
+            callId: event.properties.callID,
+            error: event.properties.error,
+            messageId: event.properties.assistantMessageID,
+            timestamp: event.properties.timestamp,
+          })
+        : next
+    case 'session.next.shell.started':
+      return event.properties.sessionID === state.sessionId
+        ? startTool(next, {
+            callId: event.properties.callID,
+            input: { command: event.properties.command },
+            messageId: event.properties.messageID,
+            sessionId: event.properties.sessionID,
+            timestamp: event.properties.timestamp,
+            tool: 'shell',
+          })
+        : next
+    case 'session.next.shell.ended':
+      return event.properties.sessionID === state.sessionId
+        ? succeedToolByCallId(next, {
+            callId: event.properties.callID,
+            output: event.properties.output,
+            timestamp: event.properties.timestamp,
+          })
+        : next
+    case 'session.next.step.ended':
+      return event.properties.sessionID === state.sessionId
+        ? finishAssistantMessage(
+            next,
+            event.properties.assistantMessageID,
+            event.properties.timestamp,
+            event.properties.finish,
+          )
+        : next
+    case 'session.next.step.failed':
+      return event.properties.sessionID === state.sessionId
+        ? failAssistantMessage(
+            next,
+            event.properties.assistantMessageID,
+            event.properties.timestamp,
+            event.properties.error,
+          )
+        : next
+    case 'session.next.retried':
+      return event.properties.sessionID === state.sessionId
+        ? addRetry(next, event.properties)
+        : next
+    case 'session.next.compaction.started':
+      return event.properties.sessionID === state.sessionId
+        ? upsertPart(next, {
+            auto: event.properties.reason === 'auto',
+            id: compactionPartId(event.properties.messageID),
+            messageID: event.properties.messageID,
+            sessionID: event.properties.sessionID,
+            type: 'compaction',
+          })
+        : next
+    case 'session.next.compaction.ended':
+      return event.properties.sessionID === state.sessionId
+        ? upsertPart(next, {
+            auto: event.properties.reason === 'auto',
+            id: compactionPartId(event.properties.messageID),
+            messageID: event.properties.messageID,
+            sessionID: event.properties.sessionID,
+            type: 'compaction',
+          })
+        : next
+    case 'session.next.revert.staged':
+      return event.properties.sessionID === state.sessionId
+        ? { ...next, revert: event.properties.revert }
+        : next
+    case 'session.next.revert.cleared':
+    case 'session.next.revert.committed':
+      return event.properties.sessionID === state.sessionId
+        ? withoutRevert(next)
         : next
     case 'session.status':
       return event.properties.sessionID === state.sessionId
@@ -238,7 +420,7 @@ export function mergeOpenCodeMessagePage(
     }
 
     const existing = next.messages[item.info.id]
-    if (!existing) {
+    if (!existing || existing.source === 'optimistic') {
       next = upsertMessage(next, item.info, 'page')
     }
 
@@ -252,6 +434,50 @@ export function mergeOpenCodeMessagePage(
   return next
 }
 
+export function addOpenCodeOptimisticMessage(
+  state: OpenCodeAdapterState,
+  input: {
+    clientId: string
+    info: Message
+    parts: readonly Part[]
+  },
+): OpenCodeAdapterState {
+  let next = upsertMessage(state, input.info, 'optimistic')
+  for (const part of input.parts) next = upsertPart(next, part)
+  const record = next.messages[input.info.id]
+  if (!record) return next
+
+  return {
+    ...next,
+    messages: {
+      ...next.messages,
+      [input.info.id]: {
+        ...record,
+        delivery: { clientId: input.clientId, status: 'optimistic' },
+      },
+    },
+  }
+}
+
+export function failOpenCodeMessage(
+  state: OpenCodeAdapterState,
+  messageId: string,
+  error: ChatError,
+): OpenCodeAdapterState {
+  const record = state.messages[messageId]
+  if (!record) return state
+  return {
+    ...state,
+    messages: {
+      ...state.messages,
+      [messageId]: {
+        ...record,
+        delivery: { error, retryable: error.retryable, status: 'failed' },
+      },
+    },
+  }
+}
+
 function upsertMessage(
   state: OpenCodeAdapterState,
   info: Message,
@@ -262,6 +488,7 @@ function upsertMessage(
   const existing = state.messages[info.id]
   const orphanParts = state.orphanParts[info.id] ?? []
   const record: OpenCodeMessageRecord = {
+    delivery: { status: 'confirmed' },
     info: source === 'page' && existing ? existing.info : info,
     parts: mergeParts(existing?.parts ?? [], orphanParts),
     source: existing?.source === 'event' ? 'event' : source,
@@ -381,6 +608,414 @@ function removePart(
   }
 }
 
+function finishTextPart(
+  state: OpenCodeAdapterState,
+  input: {
+    id: string
+    messageId: string
+    sessionId: string
+    text: string
+    timestamp: number
+    type: 'text' | 'reasoning'
+  },
+) {
+  const existing = findPart(state, input.messageId, input.id)
+  const startedAt =
+    existing &&
+    (existing.type === 'text' || existing.type === 'reasoning')
+      ? existing.time?.start
+      : undefined
+  const time = { end: input.timestamp, start: startedAt ?? input.timestamp }
+
+  return upsertPart(
+    state,
+    input.type === 'text'
+      ? {
+          id: input.id,
+          messageID: input.messageId,
+          sessionID: input.sessionId,
+          text: input.text,
+          time,
+          type: 'text',
+        }
+      : {
+          id: input.id,
+          messageID: input.messageId,
+          sessionID: input.sessionId,
+          text: input.text,
+          time,
+          type: 'reasoning',
+        },
+  )
+}
+
+function pendingToolPart(input: {
+  callId: string
+  messageId: string
+  sessionId: string
+  tool: string
+}): Extract<Part, { type: 'tool' }> {
+  return {
+    callID: input.callId,
+    id: toolPartId(input.callId),
+    messageID: input.messageId,
+    sessionID: input.sessionId,
+    state: { input: {}, raw: '', status: 'pending' },
+    tool: input.tool,
+    type: 'tool',
+  }
+}
+
+function finishToolInput(
+  state: OpenCodeAdapterState,
+  input: {
+    callId: string
+    messageId: string
+    sessionId: string
+    text: string
+  },
+) {
+  const existing = findToolPart(state, input.messageId, input.callId)
+  return upsertPart(state, {
+    callID: input.callId,
+    id: existing?.id ?? toolPartId(input.callId),
+    messageID: input.messageId,
+    sessionID: input.sessionId,
+    state: {
+      input: parseToolInput(input.text),
+      raw: input.text,
+      status: 'pending',
+    },
+    tool: existing?.tool ?? 'tool',
+    type: 'tool',
+  })
+}
+
+function startTool(
+  state: OpenCodeAdapterState,
+  input: {
+    callId: string
+    input: Record<string, unknown>
+    messageId: string
+    sessionId: string
+    timestamp: number
+    tool: string
+  },
+) {
+  const existing = findToolPart(state, input.messageId, input.callId)
+  return upsertPart(state, {
+    callID: input.callId,
+    id: existing?.id ?? toolPartId(input.callId),
+    messageID: input.messageId,
+    sessionID: input.sessionId,
+    state: {
+      input: input.input,
+      status: 'running',
+      time: { start: input.timestamp },
+    },
+    tool: input.tool,
+    type: 'tool',
+  })
+}
+
+function progressTool(
+  state: OpenCodeAdapterState,
+  input: {
+    callId: string
+    content: readonly LlmToolContent[]
+    messageId: string
+    structured: Record<string, unknown>
+    timestamp: number
+  },
+) {
+  const existing = findToolPart(state, input.messageId, input.callId)
+  if (!existing) {
+    return startTool(state, {
+      callId: input.callId,
+      input: {},
+      messageId: input.messageId,
+      sessionId: state.sessionId,
+      timestamp: input.timestamp,
+      tool: 'tool',
+    })
+  }
+
+  const toolInput = existing.state.input
+  const startedAt =
+    existing.state.status === 'running'
+      ? existing.state.time.start
+      : input.timestamp
+  return upsertPart(state, {
+    ...existing,
+    state: {
+      input: toolInput,
+      metadata: {
+        ...input.structured,
+        ...(input.content.length > 0
+          ? { progress: toolContentOutput(input.content) }
+          : {}),
+      },
+      status: 'running',
+      time: { start: startedAt },
+    },
+  })
+}
+
+function succeedTool(
+  state: OpenCodeAdapterState,
+  input: {
+    callId: string
+    content: readonly LlmToolContent[]
+    messageId: string
+    result?: unknown
+    structured: Record<string, unknown>
+    timestamp: number
+  },
+) {
+  const existing = findToolPart(state, input.messageId, input.callId)
+  const startedAt = toolStartedAt(existing) ?? input.timestamp
+  const output = toolResult(input.result, input.structured, input.content)
+
+  return upsertPart(state, {
+    callID: input.callId,
+    id: existing?.id ?? toolPartId(input.callId),
+    messageID: input.messageId,
+    sessionID: state.sessionId,
+    state: {
+      input: existing?.state.input ?? {},
+      metadata: input.structured,
+      output,
+      status: 'completed',
+      time: { end: input.timestamp, start: startedAt },
+      title: existing?.tool ?? 'Tool',
+    },
+    tool: existing?.tool ?? 'tool',
+    type: 'tool',
+  })
+}
+
+function failTool(
+  state: OpenCodeAdapterState,
+  input: {
+    callId: string
+    error: SessionErrorUnknown
+    messageId: string
+    timestamp: number
+  },
+) {
+  const existing = findToolPart(state, input.messageId, input.callId)
+  return upsertPart(state, {
+    callID: input.callId,
+    id: existing?.id ?? toolPartId(input.callId),
+    messageID: input.messageId,
+    sessionID: state.sessionId,
+    state: {
+      error: input.error.message,
+      input: existing?.state.input ?? {},
+      status: 'error',
+      time: {
+        end: input.timestamp,
+        start: toolStartedAt(existing) ?? input.timestamp,
+      },
+    },
+    tool: existing?.tool ?? 'tool',
+    type: 'tool',
+  })
+}
+
+function succeedToolByCallId(
+  state: OpenCodeAdapterState,
+  input: { callId: string; output: string; timestamp: number },
+) {
+  const match = findToolPartByCallId(state, input.callId)
+  if (!match) return state
+  return upsertPart(state, {
+    ...match,
+    state: {
+      input: match.state.input,
+      metadata: {},
+      output: input.output,
+      status: 'completed',
+      time: {
+        end: input.timestamp,
+        start: toolStartedAt(match) ?? input.timestamp,
+      },
+      title: match.tool,
+    },
+  })
+}
+
+function finishAssistantMessage(
+  state: OpenCodeAdapterState,
+  messageId: string,
+  timestamp: number,
+  finish: string,
+) {
+  const record = state.messages[messageId]
+  if (record?.info.role !== 'assistant') return state
+  return upsertMessage(
+    state,
+    {
+      ...record.info,
+      finish,
+      time: { ...record.info.time, completed: timestamp },
+    },
+    'event',
+  )
+}
+
+function failAssistantMessage(
+  state: OpenCodeAdapterState,
+  messageId: string,
+  timestamp: number,
+  error: SessionErrorUnknown,
+) {
+  const record = state.messages[messageId]
+  if (record?.info.role !== 'assistant') return state
+  return upsertMessage(
+    state,
+    {
+      ...record.info,
+      error: { data: { message: error.message }, name: 'UnknownError' },
+      time: { ...record.info.time, completed: timestamp },
+    },
+    'event',
+  )
+}
+
+function addRetry(
+  state: OpenCodeAdapterState,
+  input: {
+    attempt: number
+    error: {
+      isRetryable: boolean
+      message: string
+      statusCode?: number
+    }
+    sessionID: string
+    timestamp: number
+  },
+) {
+  const messageId = [...state.messageOrder]
+    .reverse()
+    .find((id) => state.messages[id]?.info.role === 'assistant')
+  if (!messageId) return state
+
+  return upsertPart(state, {
+    attempt: input.attempt,
+    error: {
+      data: {
+        isRetryable: input.error.isRetryable,
+        message: input.error.message,
+        ...(input.error.statusCode === undefined
+          ? {}
+          : { statusCode: input.error.statusCode }),
+      },
+      name: 'APIError',
+    },
+    id: `${messageId}:retry:${input.attempt}`,
+    messageID: messageId,
+    sessionID: input.sessionID,
+    time: { created: input.timestamp },
+    type: 'retry',
+  })
+}
+
+function findPart(state: OpenCodeAdapterState, messageId: string, partId: string) {
+  return (
+    state.messages[messageId]?.parts.find((part) => part.id === partId) ??
+    state.orphanParts[messageId]?.find((part) => part.id === partId)
+  )
+}
+
+function findToolPart(
+  state: OpenCodeAdapterState,
+  messageId: string,
+  callId: string,
+) {
+  const part =
+    state.messages[messageId]?.parts.find(
+      (candidate) => candidate.type === 'tool' && candidate.callID === callId,
+    ) ??
+    state.orphanParts[messageId]?.find(
+      (candidate) => candidate.type === 'tool' && candidate.callID === callId,
+    )
+  return part?.type === 'tool' ? part : undefined
+}
+
+function findToolPartByCallId(state: OpenCodeAdapterState, callId: string) {
+  for (const record of Object.values(state.messages)) {
+    const part = record.parts.find(
+      (candidate) => candidate.type === 'tool' && candidate.callID === callId,
+    )
+    if (part?.type === 'tool') return part
+  }
+  for (const parts of Object.values(state.orphanParts)) {
+    const part = parts.find(
+      (candidate) => candidate.type === 'tool' && candidate.callID === callId,
+    )
+    if (part?.type === 'tool') return part
+  }
+  return undefined
+}
+
+function toolStartedAt(part: Extract<Part, { type: 'tool' }> | undefined) {
+  if (!part) return undefined
+  return part.state.status === 'running' ||
+    part.state.status === 'completed' ||
+    part.state.status === 'error'
+    ? part.state.time.start
+    : undefined
+}
+
+function parseToolInput(value: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function toolResult(
+  result: unknown,
+  structured: Record<string, unknown>,
+  content: readonly LlmToolContent[],
+) {
+  if (result !== undefined) return stringifyToolValue(result)
+  if (Object.keys(structured).length > 0) return stringifyToolValue(structured)
+  return toolContentOutput(content)
+}
+
+function toolContentOutput(content: readonly LlmToolContent[]) {
+  return content
+    .map((item) =>
+      item.type === 'text'
+        ? item.text
+        : `${item.name ?? 'File'} (${item.mime}): ${item.uri}`,
+    )
+    .join('\n')
+}
+
+function stringifyToolValue(value: unknown) {
+  return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+}
+
+function toolPartId(callId: string) {
+  return `tool:${callId}`
+}
+
+function compactionPartId(messageId: string) {
+  return `${messageId}:compaction`
+}
+
+function withoutRevert(state: OpenCodeAdapterState): OpenCodeAdapterState {
+  const { revert: _revert, ...rest } = state
+  return rest
+}
+
 function appendPartDelta(
   state: OpenCodeAdapterState,
   delta: {
@@ -477,7 +1112,13 @@ function upsertPartInList(
   part: Part,
   preserveExisting: boolean,
 ) {
-  const index = parts.findIndex((candidate) => candidate.id === part.id)
+  const index = parts.findIndex(
+    (candidate) =>
+      candidate.id === part.id ||
+      (candidate.type === 'tool' &&
+        part.type === 'tool' &&
+        candidate.callID === part.callID),
+  )
   if (index === -1) return [...parts, part]
   if (preserveExisting) return parts
 

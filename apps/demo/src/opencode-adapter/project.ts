@@ -14,7 +14,11 @@ import type {
   TurnState,
 } from '@pretty-amped/foundations/chat'
 
-import { mapOpenCodeError, type OpenCodeAdapterState } from './state'
+import {
+  mapOpenCodeError,
+  type OpenCodeAdapterState,
+  type OpenCodeMessageRecord,
+} from './state'
 
 export type OpenCodeProjection = Readonly<{
   activity: SessionActivity
@@ -38,9 +42,8 @@ export function projectOpenCodeState(
         candidate.info.parentID === record.info.id,
     )
     return mapTurn(
-      record.info,
-      record.parts,
-      replies.map((reply) => ({ info: reply.info, parts: reply.parts })),
+      record,
+      replies,
       state,
       index === users.length - 1,
     )
@@ -53,20 +56,17 @@ export function projectOpenCodeState(
 }
 
 function mapTurn(
-  user: Message,
-  userParts: readonly Part[],
-  assistantRecords: readonly Readonly<{
-    info: Message
-    parts: readonly Part[]
-  }>[],
+  userRecord: OpenCodeMessageRecord,
+  assistantRecords: readonly OpenCodeMessageRecord[],
   state: OpenCodeAdapterState,
   isLatest: boolean,
 ): ChatTurn {
+  const user = userRecord.info
   if (user.role !== 'user') throw new Error('A chat turn must start with a user message.')
 
   const assistant = assistantRecords.flatMap((record) =>
     record.info.role === 'assistant'
-      ? [mapMessage(record.info, record.parts)]
+      ? [mapMessage(record)]
       : [],
   )
   const latestAssistant = assistantRecords.at(-1)
@@ -83,19 +83,21 @@ function mapTurn(
       isLatest,
       user.time.created,
     ),
-    user: mapMessage(user, userParts),
+    user: mapMessage(userRecord),
   }
 }
 
-function mapMessage(info: Message, parts: readonly Part[]): ChatMessage {
-  const mappedParts = parts.flatMap((part) => {
+function mapMessage(record: OpenCodeMessageRecord): ChatMessage {
+  const mappedParts = record.parts.flatMap((part) => {
+    const info = record.info
     const mapped = mapPart(part, info)
     return mapped ? [mapped] : []
   })
+  const info = record.info
 
   return {
     createdAt: info.time.created,
-    delivery: { status: 'confirmed' },
+    delivery: record.delivery,
     id: info.id,
     parts: mappedParts,
     role: info.role,

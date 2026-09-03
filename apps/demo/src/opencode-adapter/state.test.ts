@@ -6,6 +6,7 @@ import {
   assistantTextPart,
   completedToolPart,
   messageEvent,
+  nativeLifecycleEvents,
   ordinaryConversationEvents,
   outOfOrderEvents,
   partEvent,
@@ -159,6 +160,84 @@ describe('OpenCode event reduction', () => {
       type: 'todo.updated',
     })
     expect(state.todos).toBeUndefined()
+  })
+
+  it('reduces native next-generation reasoning, tool, text, and step events', () => {
+    const state = reduceEvents(nativeLifecycleEvents)
+    const projection = projectOpenCodeState(state)
+    const parts = projection.turns[0]?.assistant[0]?.parts
+
+    expect(projection.turns[0]?.state).toEqual({
+      endedAt: 1_400,
+      startedAt: 1_100,
+      status: 'complete',
+      stopReason: 'stop',
+    })
+    expect(parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          state: { status: 'complete' },
+          text: 'Inspecting.',
+          type: 'reasoning',
+        }),
+        expect.objectContaining({
+          callId: 'native-call',
+          state: expect.objectContaining({
+            input: { filePath: '/workspace/app.tsx' },
+            output: 'export function App() {}',
+            status: 'succeeded',
+          }),
+          toolName: 'read',
+          type: 'tool',
+        }),
+        expect.objectContaining({
+          markdown: 'Done.',
+          state: { status: 'complete' },
+          type: 'text',
+        }),
+      ]),
+    )
+  })
+
+  it('reconciles generated tool parts with canonical message parts by call ID', () => {
+    const state = reduceEvents([
+      ...nativeLifecycleEvents.slice(0, 10),
+      partEvent(
+        'canonical-tool-part',
+        {
+          ...completedToolPart,
+          callID: 'native-call',
+          id: 'canonical-native-tool',
+        },
+        1_350,
+      ),
+    ])
+    const tools = state.messages[assistantMessage.id]?.parts.filter(
+      (part) => part.type === 'tool' && part.callID === 'native-call',
+    )
+
+    expect(tools).toHaveLength(1)
+    expect(tools?.[0]?.id).toBe('canonical-native-tool')
+  })
+
+  it('tracks native staged revert lifecycle without stale state', () => {
+    let state = reduceOpenCodeEvent(createOpenCodeAdapterState(sessionId), {
+      id: 'revert-staged',
+      properties: {
+        revert: { messageID: userMessage.id },
+        sessionID: sessionId,
+        timestamp: 2_000,
+      },
+      type: 'session.next.revert.staged',
+    })
+    expect(state.revert).toEqual({ messageID: userMessage.id })
+
+    state = reduceOpenCodeEvent(state, {
+      id: 'revert-cleared',
+      properties: { sessionID: sessionId, timestamp: 2_100 },
+      type: 'session.next.revert.cleared',
+    })
+    expect(state.revert).toBeUndefined()
   })
 })
 

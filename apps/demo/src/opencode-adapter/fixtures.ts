@@ -170,6 +170,164 @@ export const requestEvents = [
   },
 ] satisfies readonly Event[]
 
+export const nativeLifecycleEvents = [
+  messageEvent('native-user-message', userMessage),
+  partEvent('native-user-part', userTextPart, 1_010),
+  messageEvent('native-assistant-message', assistantMessage),
+  {
+    id: 'native-reasoning-started',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      reasoningID: 'native-reasoning',
+      sessionID: sessionId,
+      timestamp: 1_120,
+    },
+    type: 'session.next.reasoning.started',
+  },
+  {
+    id: 'native-reasoning-delta',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      delta: 'Inspecting.',
+      reasoningID: 'native-reasoning',
+      sessionID: sessionId,
+      timestamp: 1_130,
+    },
+    type: 'session.next.reasoning.delta',
+  },
+  {
+    id: 'native-reasoning-ended',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      reasoningID: 'native-reasoning',
+      sessionID: sessionId,
+      text: 'Inspecting.',
+      timestamp: 1_140,
+    },
+    type: 'session.next.reasoning.ended',
+  },
+  {
+    id: 'native-tool-input-started',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      callID: 'native-call',
+      name: 'read',
+      sessionID: sessionId,
+      timestamp: 1_150,
+    },
+    type: 'session.next.tool.input.started',
+  },
+  {
+    id: 'native-tool-input-delta',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      callID: 'native-call',
+      delta: '{"filePath":"/workspace/app.tsx"}',
+      sessionID: sessionId,
+      timestamp: 1_155,
+    },
+    type: 'session.next.tool.input.delta',
+  },
+  {
+    id: 'native-tool-input-ended',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      callID: 'native-call',
+      sessionID: sessionId,
+      text: '{"filePath":"/workspace/app.tsx"}',
+      timestamp: 1_160,
+    },
+    type: 'session.next.tool.input.ended',
+  },
+  {
+    id: 'native-tool-called',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      callID: 'native-call',
+      input: { filePath: '/workspace/app.tsx' },
+      provider: { executed: false },
+      sessionID: sessionId,
+      timestamp: 1_170,
+      tool: 'read',
+    },
+    type: 'session.next.tool.called',
+  },
+  {
+    id: 'native-tool-progress',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      callID: 'native-call',
+      content: [{ text: 'Reading', type: 'text' }],
+      sessionID: sessionId,
+      structured: { current: 1, total: 1 },
+      timestamp: 1_180,
+    },
+    type: 'session.next.tool.progress',
+  },
+  {
+    id: 'native-tool-success',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      callID: 'native-call',
+      content: [{ text: 'export function App() {}', type: 'text' }],
+      provider: { executed: false },
+      sessionID: sessionId,
+      structured: {},
+      timestamp: 1_300,
+    },
+    type: 'session.next.tool.success',
+  },
+  {
+    id: 'native-text-started',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      sessionID: sessionId,
+      textID: 'native-text',
+      timestamp: 1_310,
+    },
+    type: 'session.next.text.started',
+  },
+  {
+    id: 'native-text-delta',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      delta: 'Done.',
+      sessionID: sessionId,
+      textID: 'native-text',
+      timestamp: 1_320,
+    },
+    type: 'session.next.text.delta',
+  },
+  {
+    id: 'native-text-ended',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      sessionID: sessionId,
+      text: 'Done.',
+      textID: 'native-text',
+      timestamp: 1_330,
+    },
+    type: 'session.next.text.ended',
+  },
+  {
+    id: 'native-step-ended',
+    properties: {
+      assistantMessageID: assistantMessage.id,
+      cost: 0,
+      finish: 'stop',
+      sessionID: sessionId,
+      timestamp: 1_400,
+      tokens: {
+        cache: { read: 0, write: 0 },
+        input: 10,
+        output: 5,
+        reasoning: 2,
+      },
+    },
+    type: 'session.next.step.ended',
+  },
+] satisfies readonly Event[]
+
 export function messageEvent(id: string, info: Message): Event {
   return {
     id,
