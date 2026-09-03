@@ -36,8 +36,8 @@ vite = await createViteServer({
   appType: 'spa',
   root,
   server: {
-    hmr: { server },
     middlewareMode: true,
+    ws: { server },
   },
 })
 
@@ -262,7 +262,9 @@ async function getSession(id) {
   }
 
   sessions.set(id, session)
-  session.agent.catch(() => sessions.delete(id))
+  session.agent.catch(() => {
+    if (sessions.get(id) === session) sessions.delete(id)
+  })
   return session
 }
 

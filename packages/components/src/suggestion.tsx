@@ -35,7 +35,7 @@ export function Suggestions({
 
 export type SuggestionProps = Omit<
   ButtonProps,
-  'children' | 'onClick' | 'size'
+  'children' | 'onClick' | 'onSelect' | 'size'
 > & {
   children?: ReactNode
   onSelect: (value: string) => void

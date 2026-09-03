@@ -1,13 +1,13 @@
 import {
-  Activity,
   Composer,
+  Loader,
   Message,
   Outcome,
-  PermissionRequest,
+  Reasoning,
   Response,
+  Suggestion,
+  Suggestions,
   Thread,
-  ToolActivity,
-  type PermissionRequestState,
 } from '@pretty-amped/components'
 import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
 import {
@@ -22,40 +22,117 @@ import { useEffect, useRef, useState } from 'react'
 import { ComponentGallery } from './component-gallery'
 
 type Theme = 'light' | 'dark'
-type View = 'workflow' | 'components'
-type Decision = 'approve' | 'reject'
-type ComposerStatus = 'idle' | 'submitting'
-type DemoReplyState = 'idle' | 'streaming' | 'complete' | 'interrupted'
+type View = 'playground' | 'components'
 
-const requestCopy = {
-  consequence: 'reversible' as const,
-  effect:
-    'Write the first conversation and agent-state components to this local workspace. Existing source files may be updated.',
-  headingLevel: 2 as const,
-  id: 'write-component-wave',
-  title: 'Allow these component changes?',
+type RuntimeState =
+  | { status: 'loading' }
+  | { status: 'ready'; model: string; runtime: string }
+  | { status: 'unavailable'; message: string }
+
+type Usage = {
+  outputTokens: number
+  totalTokens: number
 }
+
+type UserMessage = {
+  actor: 'user'
+  id: string
+  text: string
+}
+
+type AssistantMessage = {
+  actor: 'assistant'
+  durationMs?: number
+  error?: string
+  id: string
+  reasoning: string
+  status: 'streaming' | 'complete' | 'interrupted' | 'failed'
+  text: string
+  usage?: Usage
+}
+
+type ChatMessage = UserMessage | AssistantMessage
+
+type StreamEvent =
+  | { type: 'started' }
+  | { type: 'assistant-delta'; text: string }
+  | { type: 'assistant-message'; text: string }
+  | { type: 'reasoning-delta'; text: string }
+  | {
+      type: 'completed'
+      durationMs: number
+      message: string
+      usage: Usage
+    }
+  | { type: 'cancelled' }
+  | { type: 'error'; message: string }
+
+const promptSuggestions = [
+  'Explain why StyleX suits AI interfaces',
+  'Audit a streaming response component',
+  'Design an accessible approval flow',
+]
 
 export function App() {
   const [theme, setTheme] = useState<Theme>(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   )
-  const [view, setView] = useState<View>('workflow')
-  const [requestState, setRequestState] =
-    useState<PermissionRequestState>({ status: 'pending' })
+  const [view, setView] = useState<View>('playground')
+  const [runtime, setRuntime] = useState<RuntimeState>({ status: 'loading' })
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
-  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null)
-  const [composerStatus, setComposerStatus] =
-    useState<ComposerStatus>('idle')
-  const [replyState, setReplyState] = useState<DemoReplyState>('idle')
-  const requestTimer = useRef<number | undefined>(undefined)
-  const replyTimer = useRef<number | undefined>(undefined)
+  const [busy, setBusy] = useState(false)
+  const activeController = useRef<AbortController | null>(null)
+  const activeMessageId = useRef<string | null>(null)
+  const scroller = useRef<HTMLElement | null>(null)
+  const followOutput = useRef(true)
 
   useEffect(() => {
-    return () => {
-      window.clearTimeout(requestTimer.current)
-      window.clearTimeout(replyTimer.current)
-    }
+    const controller = new AbortController()
+
+    void fetch('/api/runtime', { signal: controller.signal })
+      .then(async (response) => {
+        const body: unknown = await response.json()
+        if (!response.ok || !isRecord(body)) throw new Error()
+
+        if (
+          body.available === true &&
+          typeof body.model === 'string' &&
+          typeof body.runtime === 'string'
+        ) {
+          setRuntime({
+            model: body.model,
+            runtime: body.runtime,
+            status: 'ready',
+          })
+        } else {
+          setRuntime({
+            message: 'Add a server-side OpenAI API key to run the playground.',
+            status: 'unavailable',
+          })
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setRuntime({
+          message: 'The local model runtime could not be reached.',
+          status: 'unavailable',
+        })
+      })
+
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (!followOutput.current) return
+    const frame = window.requestAnimationFrame(() => {
+      scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [messages])
+
+  useEffect(() => {
+    return () => activeController.current?.abort()
   }, [])
 
   function toggleTheme() {
@@ -71,45 +148,177 @@ export function App() {
     })
   }
 
-  function decide(decision: Decision) {
-    setRequestState({ status: 'submitting', decision })
-
-    requestTimer.current = window.setTimeout(() => {
-      setRequestState({
-        status: 'resolved',
-        decision: decision === 'approve' ? 'approved' : 'rejected',
-      })
-    }, 500)
+  function updateAssistant(
+    id: string,
+    update: (message: AssistantMessage) => AssistantMessage,
+  ) {
+    setMessages((current) =>
+      current.map((message) =>
+        message.actor === 'assistant' && message.id === id
+          ? update(message)
+          : message,
+      ),
+    )
   }
 
-  function submitMessage(value: string) {
-    window.clearTimeout(replyTimer.current)
-    setSubmittedMessage(value)
+  async function submitMessage(value: string) {
+    const input = value.trim()
+    if (!input || busy || runtime.status !== 'ready') return
+
+    const userMessage: UserMessage = {
+      actor: 'user',
+      id: crypto.randomUUID(),
+      text: input,
+    }
+    const assistantMessage: AssistantMessage = {
+      actor: 'assistant',
+      id: crypto.randomUUID(),
+      reasoning: '',
+      status: 'streaming',
+      text: '',
+    }
+    const controller = new AbortController()
+    let terminalEvent = false
+    let projectedMessage = assistantMessage
+    let publishFrame: number | undefined
+
+    function publish(next: AssistantMessage, immediate = false) {
+      projectedMessage = next
+
+      if (immediate) {
+        if (publishFrame !== undefined) window.cancelAnimationFrame(publishFrame)
+        publishFrame = undefined
+        const snapshot = projectedMessage
+        updateAssistant(assistantMessage.id, () => snapshot)
+      } else if (publishFrame === undefined) {
+        publishFrame = window.requestAnimationFrame(() => {
+          publishFrame = undefined
+          const snapshot = projectedMessage
+          updateAssistant(assistantMessage.id, () => snapshot)
+        })
+      }
+    }
+
+    followOutput.current = true
+    activeController.current = controller
+    activeMessageId.current = assistantMessage.id
+    setMessages((current) => [...current, userMessage, assistantMessage])
     setDraft('')
-    setComposerStatus('submitting')
-    setReplyState('streaming')
+    setBusy(true)
 
-    replyTimer.current = window.setTimeout(() => {
-      setComposerStatus('idle')
-      setReplyState('complete')
-    }, 700)
+    try {
+      const response = await fetch('/api/chat', {
+        body: JSON.stringify({ input }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        signal: controller.signal,
+      })
+
+      if (!response.ok) throw new Error(await responseError(response))
+
+      await readEvents(response, (event) => {
+        if (event.type === 'assistant-delta') {
+          publish({
+            ...projectedMessage,
+            text: projectedMessage.text + event.text,
+          })
+        } else if (event.type === 'assistant-message') {
+          publish({
+            ...projectedMessage,
+            text: event.text,
+          })
+        } else if (event.type === 'reasoning-delta') {
+          publish({
+            ...projectedMessage,
+            reasoning: projectedMessage.reasoning + event.text,
+          })
+        } else if (event.type === 'completed') {
+          terminalEvent = true
+          publish(
+            {
+              ...projectedMessage,
+              durationMs: event.durationMs,
+              status: 'complete',
+              text: event.message || projectedMessage.text,
+              usage: event.usage,
+            },
+            true,
+          )
+        } else if (event.type === 'cancelled') {
+          terminalEvent = true
+          publish(
+            {
+              ...projectedMessage,
+              status: 'interrupted',
+            },
+            true,
+          )
+        } else if (event.type === 'error') {
+          terminalEvent = true
+          publish(
+            {
+              ...projectedMessage,
+              error: event.message,
+              status: 'failed',
+            },
+            true,
+          )
+        }
+      })
+
+      if (!terminalEvent) {
+        throw new Error('The response stream ended before it completed.')
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        publish(
+          {
+            ...projectedMessage,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'The response could not be completed.',
+            status: 'failed',
+          },
+          true,
+        )
+      }
+    } finally {
+      if (publishFrame !== undefined) window.cancelAnimationFrame(publishFrame)
+      if (activeController.current === controller) {
+        activeController.current = null
+        activeMessageId.current = null
+        setBusy(false)
+      }
+    }
   }
 
-  function stopReply() {
-    window.clearTimeout(replyTimer.current)
-    setComposerStatus('idle')
-    setReplyState('interrupted')
+  function stopResponse() {
+    if (!activeMessageId.current) return
+    void fetch('/api/cancel', { method: 'POST' })
   }
 
-  const activityState =
-    requestState.status === 'pending'
-      ? ({ status: 'waiting' } as const)
-      : requestState.status === 'submitting'
-        ? ({ status: 'running' } as const)
-        : requestState.status === 'resolved' &&
-            requestState.decision === 'approved'
-          ? ({ status: 'succeeded' } as const)
-          : ({ status: 'cancelled' } as const)
+  async function clearConversation() {
+    const response = await fetch('/api/session', { method: 'DELETE' })
+    if (!response.ok) return
+    setMessages([])
+    setDraft('')
+    followOutput.current = true
+  }
+
+  function trackScroll() {
+    const element = scroller.current
+    if (!element) return
+    followOutput.current =
+      element.scrollHeight - element.scrollTop - element.clientHeight < 80
+  }
+
+  const runtimeLabel =
+    runtime.status === 'ready'
+      ? `${runtime.runtime} · ${runtime.model} · text only`
+      : runtime.status === 'loading'
+        ? 'Connecting to Nanocodex…'
+        : 'Runtime unavailable'
 
   return (
     <div
@@ -129,21 +338,31 @@ export function App() {
         >
           <div {...stylex.props(styles.identity)}>
             <h1 {...stylex.props(styles.title)}>
-              {view === 'workflow' ? 'Initial component wave' : 'Components'}
+              {view === 'playground' ? 'Playground' : 'Components'}
             </h1>
             <span {...stylex.props(styles.product)}>Pretty Amped</span>
           </div>
-          <div {...stylex.props(styles.headerActions)}>
+          <nav aria-label="Demo views" {...stylex.props(styles.headerActions)}>
+            {view === 'playground' && (
+              <Button
+                disabled={messages.length === 0 || busy}
+                onClick={() => void clearConversation()}
+                size="compact"
+                variant="quiet"
+              >
+                Clear
+              </Button>
+            )}
             <Button
               onClick={() =>
                 setView((currentView) =>
-                  currentView === 'workflow' ? 'components' : 'workflow',
+                  currentView === 'playground' ? 'components' : 'playground',
                 )
               }
               size="compact"
               variant="quiet"
             >
-              {view === 'workflow' ? 'Components' : 'Workflow'}
+              {view === 'playground' ? 'Catalog' : 'Playground'}
             </Button>
             <Button
               aria-pressed={theme === 'dark'}
@@ -151,136 +370,83 @@ export function App() {
               size="compact"
               variant="quiet"
             >
-              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              {theme === 'dark' ? 'Light' : 'Dark'}
             </Button>
-          </div>
+          </nav>
         </div>
       </header>
 
-      {view === 'workflow' ? (
+      {view === 'playground' ? (
         <div {...stylex.props(styles.workspace)}>
-          <main {...stylex.props(styles.scroller)}>
+          <main
+            ref={scroller}
+            onScroll={trackScroll}
+            {...stylex.props(styles.scroller)}
+          >
             <div {...stylex.props(styles.transcript)}>
-              <Thread label="Component library implementation thread">
-              <Message actor="user">
-                Build the first AI interface components. Keep them minimal,
-                explicit, and accessible.
-              </Message>
-
-              <Message actor="assistant">
-                <Response status="complete">
-                  <p {...stylex.props(styles.responseText)}>
-                    I’m starting with the conversation and agent-state layer, then
-                    composing it into one small workflow instead of a component
-                    gallery.
-                  </p>
-
-                  <div {...stylex.props(styles.workflow)}>
-                    <ToolActivity
-                      id="reference-review"
-                      state={{ status: 'succeeded' }}
-                      summary="Compared the reference systems"
-                      tool="research"
-                    >
-                      <ul {...stylex.props(styles.evidenceList)}>
-                        <li>shadcn — source ownership and restrained controls</li>
-                        <li>AICSS — AI-specific states and compact surfaces</li>
-                        <li>
-                          Fluid Functionalism — substrate, motion, and lighter
-                          message anatomy
-                        </li>
-                      </ul>
-                    </ToolActivity>
-
-                    <Activity
-                      detail="Eight controlled React components with stable state and slot markers."
-                      id="component-boundary"
-                      label="Defined the component boundary"
-                      state={activityState}
-                    />
-
-                    {requestState.status === 'pending' ? (
-                      <PermissionRequest
-                        {...requestCopy}
-                        state={requestState}
-                        onApprove={() => decide('approve')}
-                        onReject={() => decide('reject')}
-                      />
-                    ) : (
-                      <PermissionRequest {...requestCopy} state={requestState} />
-                    )}
-
-                    {requestState.status === 'resolved' &&
-                      (requestState.decision === 'approved' ? (
-                        <Outcome
-                          headingLevel={2}
-                          id="component-wave-outcome"
-                          state={{ status: 'reviewable' }}
-                          title="Components ready for review"
-                        >
-                          The initial wave is composed and can now be evaluated as
-                          one human-and-agent workflow.
-                        </Outcome>
-                      ) : (
-                        <Outcome
-                          headingLevel={2}
-                          id="component-wave-outcome"
-                          state={{ status: 'blocked' }}
-                          title="Changes were not allowed"
-                        >
-                          The workflow stopped at the permission boundary.
-                        </Outcome>
-                      ))}
-                  </div>
-                </Response>
-              </Message>
-
-              {submittedMessage && (
-                <Message actor="user">{submittedMessage}</Message>
-              )}
-
-              {replyState !== 'idle' && (
-                <Message actor="assistant">
-                  {replyState === 'streaming' ? (
-                    <Response status="streaming">
-                      <Activity
-                        id="demo-response"
-                        label="Preparing a controlled response"
-                        state={{ status: 'running' }}
-                      />
-                    </Response>
-                  ) : replyState === 'interrupted' ? (
-                    <Response status="interrupted">
-                      The demo request was stopped before completion.
-                    </Response>
+              <Thread
+                busy={busy}
+                empty={<EmptyPlayground runtime={runtime} onSelect={submitMessage} />}
+                label="Nanocodex playground conversation"
+              >
+                {messages.map((message) =>
+                  message.actor === 'user' ? (
+                    <Message actor="user" key={message.id}>
+                      {message.text}
+                    </Message>
                   ) : (
-                    <Response status="complete">
-                      The composer emitted a named submit action; the demo fixture
-                      owns this response state. The component itself owns no timer,
-                      network request, or model runtime.
-                    </Response>
-                  )}
-                </Message>
-              )}
+                    <AssistantResponse key={message.id} message={message} />
+                  ),
+                )}
               </Thread>
             </div>
           </main>
 
           <div {...stylex.props(styles.composerDock)}>
             <div {...stylex.props(styles.composerWrap)}>
-              {composerStatus === 'submitting' ? (
+              {busy ? (
                 <Composer
-                  onStop={stopReply}
+                  actions={(
+                    <span {...stylex.props(styles.runtimeMeta)}>
+                      {runtimeLabel}
+                    </span>
+                  )}
+                  maxLength={8_000}
+                  onStop={stopResponse}
                   onSubmit={submitMessage}
                   onValueChange={setDraft}
-                  status="submitting"
+                  status="streaming"
+                  value={draft}
+                />
+              ) : runtime.status === 'ready' ? (
+                <Composer
+                  actions={(
+                    <span {...stylex.props(styles.runtimeMeta)}>
+                      {runtimeLabel}
+                    </span>
+                  )}
+                  maxLength={8_000}
+                  onSubmit={submitMessage}
+                  onValueChange={setDraft}
+                  status="idle"
                   value={draft}
                 />
               ) : (
                 <Composer
+                  actions={(
+                    <span
+                      {...stylex.props(
+                        styles.runtimeMeta,
+                        runtime.status === 'unavailable' && styles.runtimeError,
+                      )}
+                    >
+                      {runtimeLabel}
+                    </span>
+                  )}
+                  maxLength={8_000}
                   onSubmit={submitMessage}
                   onValueChange={setDraft}
-                  status="idle"
+                  status="disabled"
                   value={draft}
                 />
               )}
@@ -292,6 +458,196 @@ export function App() {
       )}
     </div>
   )
+}
+
+function EmptyPlayground({
+  onSelect,
+  runtime,
+}: {
+  onSelect: (value: string) => void
+  runtime: RuntimeState
+}) {
+  if (runtime.status === 'loading') {
+    return <Loader label="Connecting to Nanocodex" state={{ status: 'pending' }} />
+  }
+
+  if (runtime.status === 'unavailable') {
+    return (
+      <Outcome
+        id="runtime-unavailable"
+        state={{ status: 'blocked' }}
+        title="Playground unavailable"
+      >
+        {runtime.message}
+      </Outcome>
+    )
+  }
+
+  return (
+    <div {...stylex.props(styles.emptyState)}>
+      <div {...stylex.props(styles.emptyCopy)}>
+        <h2 {...stylex.props(styles.emptyTitle)}>Try the components live</h2>
+        <p {...stylex.props(styles.emptyDescription)}>
+          A retained Nanocodex conversation rendered entirely with Pretty Amped.
+          The model has no tools or workspace access.
+        </p>
+      </div>
+      <Suggestions>
+        {promptSuggestions.map((suggestion) => (
+          <Suggestion key={suggestion} onSelect={onSelect} value={suggestion} />
+        ))}
+      </Suggestions>
+    </div>
+  )
+}
+
+function AssistantResponse({ message }: { message: AssistantMessage }) {
+  const reasoning = message.reasoning ? (
+    <Reasoning
+      state={
+        message.status === 'streaming'
+          ? { status: 'thinking' }
+          : { status: 'complete' }
+      }
+    >
+      {message.reasoning}
+    </Reasoning>
+  ) : null
+
+  const content = (
+    <>
+      {reasoning}
+      {message.text ? (
+        <p {...stylex.props(styles.responseText)}>{message.text}</p>
+      ) : message.status === 'streaming' ? (
+        <Loader label="Thinking" state={{ status: 'streaming' }} />
+      ) : null}
+    </>
+  )
+
+  const meta =
+    message.status === 'complete' && message.durationMs !== undefined
+      ? [
+          formatDuration(message.durationMs),
+          message.usage ? `${message.usage.totalTokens.toLocaleString()} tokens` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : undefined
+
+  return (
+    <Message actor="assistant" {...(meta === undefined ? {} : { meta })}>
+      {message.status === 'failed' ? (
+        <Response
+          error={message.error ?? 'The response could not be completed.'}
+          status="failed"
+        >
+          {content}
+        </Response>
+      ) : message.status === 'interrupted' ? (
+        <Response status="interrupted">{content}</Response>
+      ) : message.status === 'complete' ? (
+        <Response status="complete">{content}</Response>
+      ) : (
+        <Response status="streaming">{content}</Response>
+      )}
+    </Message>
+  )
+}
+
+async function readEvents(
+  response: globalThis.Response,
+  onEvent: (event: StreamEvent) => void,
+) {
+  if (!response.body) throw new Error('The response stream is unavailable.')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const result = await reader.read()
+    buffer += decoder.decode(result.value, { stream: !result.done })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      const event = parseEvent(line)
+      if (event) onEvent(event)
+    }
+
+    if (result.done) break
+  }
+
+  const finalEvent = parseEvent(buffer)
+  if (finalEvent) onEvent(finalEvent)
+}
+
+function parseEvent(line: string): StreamEvent | null {
+  if (!line.trim()) return null
+
+  let value: unknown
+  try {
+    value = JSON.parse(line)
+  } catch {
+    return null
+  }
+
+  if (!isRecord(value) || typeof value.type !== 'string') return null
+
+  if (value.type === 'started' || value.type === 'cancelled') {
+    return { type: value.type }
+  }
+
+  if (
+    (value.type === 'assistant-delta' ||
+      value.type === 'assistant-message' ||
+      value.type === 'reasoning-delta') &&
+    typeof value.text === 'string'
+  ) {
+    return { text: value.text, type: value.type }
+  }
+
+  if (value.type === 'error' && typeof value.message === 'string') {
+    return { message: value.message, type: 'error' }
+  }
+
+  if (
+    value.type === 'completed' &&
+    typeof value.durationMs === 'number' &&
+    typeof value.message === 'string' &&
+    isRecord(value.usage) &&
+    typeof value.usage.outputTokens === 'number' &&
+    typeof value.usage.totalTokens === 'number'
+  ) {
+    return {
+      durationMs: value.durationMs,
+      message: value.message,
+      type: 'completed',
+      usage: {
+        outputTokens: value.usage.outputTokens,
+        totalTokens: value.usage.totalTokens,
+      },
+    }
+  }
+
+  return null
+}
+
+async function responseError(response: globalThis.Response) {
+  const body: unknown = await response.json().catch(() => null)
+  return isRecord(body) && typeof body.error === 'string'
+    ? body.error
+    : 'The model request failed.'
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function formatDuration(durationMs: number) {
+  const seconds = durationMs / 1_000
+  return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)}s`
 }
 
 const styles = stylex.create({
@@ -331,7 +687,6 @@ const styles = stylex.create({
   identity: {
     alignItems: 'baseline',
     display: 'flex',
-    flexWrap: 'wrap',
     gap: space.x2,
     minInlineSize: 0,
   },
@@ -343,6 +698,10 @@ const styles = stylex.create({
   },
   product: {
     color: colors.textMuted,
+    display: {
+      default: 'none',
+      '@media (min-width: 40rem)': 'inline',
+    },
     fontSize: type.sizeCaption,
     lineHeight: type.lineCompact,
   },
@@ -368,7 +727,7 @@ const styles = stylex.create({
     marginInline: 'auto',
     maxInlineSize: '46rem',
     paddingBlock: {
-      default: space.x4,
+      default: space.x6,
       '@media (min-width: 48rem)': space.x8,
     },
     paddingInline: {
@@ -376,24 +735,37 @@ const styles = stylex.create({
       '@media (min-width: 48rem)': space.x6,
     },
   },
+  emptyState: {
+    alignItems: 'flex-start',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x6,
+    marginInline: 'auto',
+    maxInlineSize: '43rem',
+    textAlign: 'start',
+  },
+  emptyCopy: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
+  },
+  emptyTitle: {
+    fontSize: type.sizeBody,
+    fontWeight: type.weightStrong,
+    lineHeight: type.lineCompact,
+    margin: 0,
+  },
+  emptyDescription: {
+    color: colors.textMuted,
+    fontSize: type.sizeBody,
+    lineHeight: type.lineBody,
+    margin: 0,
+    maxInlineSize: '58ch',
+  },
   responseText: {
     margin: 0,
     maxInlineSize: '65ch',
-  },
-  workflow: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x3,
-    inlineSize: '100%',
-    paddingBlockStart: space.x2,
-  },
-  evidenceList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x1,
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
+    whiteSpace: 'pre-wrap',
   },
   composerDock: {
     backgroundColor: colors.canvas,
@@ -405,6 +777,18 @@ const styles = stylex.create({
   composerWrap: {
     marginInline: 'auto',
     maxInlineSize: '43rem',
+  },
+  runtimeMeta: {
+    color: colors.textMuted,
+    display: 'block',
+    fontSize: type.sizeCaption,
+    lineHeight: type.lineCompact,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  runtimeError: {
+    color: colors.danger,
   },
 })
 
