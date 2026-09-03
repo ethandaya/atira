@@ -31,6 +31,7 @@ export function Markdown({ children, status, ...props }: MarkdownProps) {
       {...props}
       aria-busy={status === 'streaming' || undefined}
       data-slot="markdown"
+      data-source-length={children.length}
       data-state={status}
       {...stylex.props(styles.root)}
     >

@@ -3,6 +3,8 @@ dist/
 .vite/
 *.tsbuildinfo
 .DS_Store
+playwright-report/
+test-results/
 
 # Local Amp runtime and review artifacts
 .amp/in/artifacts/

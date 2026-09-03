@@ -78,6 +78,7 @@ export class OpenCodeChatStore implements ChatStore {
   #historyGeneration = 0
   #history: ChatSnapshot['history'] = { status: 'initial-loading' }
   #initializePromise?: Promise<void>
+  readonly #pendingLineageEvents = new Map<string, Event>()
   #queue: readonly QueuedPrompt[] = []
   #queuePaused = false
   #queueSending = false
@@ -612,7 +613,7 @@ export class OpenCodeChatStore implements ChatStore {
       this.#maybeReleaseQueue()
     } catch (error) {
       if (this.#abort.signal.aborted) return
-      const failure = mutationError(error, 'The OpenCode session is unavailable.')
+      const failure = connectionError(error, 'The OpenCode session is unavailable.')
       this.#connection = { error: failure, status: 'offline' }
       this.#history = { canRetry: true, error: failure, status: 'failed' }
       this.#commit()
@@ -624,20 +625,68 @@ export class OpenCodeChatStore implements ChatStore {
     try {
       for await (const event of stream) {
         if (this.#disposed) return
-        this.#adapter = reduceOpenCodeEvent(this.#adapter, event)
+        await this.#applyEvent(event)
         this.#connection = { status: 'connected' }
         this.#commit()
         this.#maybeReleaseQueue()
       }
+      if (this.#abort.signal.aborted || this.#disposed) return
+      this.#streamDisconnected(
+        new Error('The OpenCode event stream ended unexpectedly.'),
+      )
     } catch (error) {
       if (this.#abort.signal.aborted) return
-      this.#connection = {
-        error: mutationError(error, 'The OpenCode event stream disconnected.'),
-        status: 'offline',
-      }
-      this.#commit()
-      void this.#beginReconnect(false).catch(() => undefined)
+      this.#streamDisconnected(error)
     }
+  }
+
+  async #applyEvent(event: Event) {
+    const sessionId = lineageRequestSessionId(event)
+    if (sessionId && !this.#adapter.sessionOrigins[sessionId]) {
+      try {
+        const lineage = await loadSessionLineage(
+          this.#client,
+          this.#directory,
+          this.#sessionId,
+        )
+        this.#adapter = withOpenCodeSessionLineage(this.#adapter, lineage)
+      } catch {
+        // Keep the exact event for a later session event or reconnect hydration.
+      }
+      if (!this.#adapter.sessionOrigins[sessionId]) {
+        this.#pendingLineageEvents.set(event.id, event)
+        if (this.#pendingLineageEvents.size > 100) {
+          const oldest = this.#pendingLineageEvents.keys().next().value
+          if (oldest) this.#pendingLineageEvents.delete(oldest)
+        }
+        return
+      }
+    }
+
+    this.#adapter = reduceOpenCodeEvent(this.#adapter, event)
+    this.#flushPendingLineageEvents()
+  }
+
+  #flushPendingLineageEvents() {
+    for (const [id, event] of this.#pendingLineageEvents) {
+      const sessionId = lineageRequestSessionId(event)
+      if (!sessionId || !this.#adapter.sessionOrigins[sessionId]) continue
+      this.#adapter = reduceOpenCodeEvent(this.#adapter, event)
+      this.#pendingLineageEvents.delete(id)
+    }
+  }
+
+  #streamDisconnected(error: unknown) {
+    this.#connection = {
+      error: connectionError(error, 'The OpenCode event stream disconnected.'),
+      status: 'offline',
+    }
+    this.#commit()
+    queueMicrotask(() => {
+      if (!this.#disposed) {
+        void this.#beginReconnect(false).catch(() => undefined)
+      }
+    })
   }
 
   #beginReconnect(immediate: boolean) {
@@ -668,7 +717,7 @@ export class OpenCodeChatStore implements ChatStore {
           if (this.#abort.signal.aborted) return
           lastError = error
           this.#connection = {
-            error: mutationError(error, 'The OpenCode event stream disconnected.'),
+            error: connectionError(error, 'The OpenCode event stream disconnected.'),
             status: 'offline',
           }
           this.#commit()
@@ -970,6 +1019,18 @@ function mutationError(error: unknown, fallback: string): ChatError {
     : { ...mapped, kind: 'mutation' }
 }
 
+function connectionError(error: unknown, fallback: string): ChatError {
+  const mapped = mapOpenCodeError(error)
+  return {
+    ...mapped,
+    kind: 'connection',
+    message:
+      mapped.message === 'The OpenCode provider failed.'
+        ? fallback
+        : mapped.message,
+  }
+}
+
 function createId(prefix: string) {
   const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
   return `${prefix}:${id}`
@@ -998,6 +1059,24 @@ function requestKey(
 
 function isActionableRequest(request: ChatRequest) {
   return request.state.status === 'pending' || request.state.status === 'failed'
+}
+
+function lineageRequestSessionId(event: Event) {
+  switch (event.type) {
+    case 'permission.asked':
+    case 'permission.v2.asked':
+    case 'permission.replied':
+    case 'permission.v2.replied':
+    case 'question.asked':
+    case 'question.v2.asked':
+    case 'question.replied':
+    case 'question.v2.replied':
+    case 'question.rejected':
+    case 'question.v2.rejected':
+      return event.properties.sessionID
+    default:
+      return undefined
+  }
 }
 
 function waitForReconnect(duration: number, signal: AbortSignal) {

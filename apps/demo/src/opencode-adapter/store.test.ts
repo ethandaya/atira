@@ -294,6 +294,57 @@ describe('OpenCodeChatStore', () => {
     store.dispose()
   })
 
+  it('hydrates a newly discovered child before reducing its request', async () => {
+    const events = eventChannel()
+    const children: Session[] = []
+    const client = fakeClient({ children, eventStream: events.stream })
+    const store = createStore(client.value, scheduledFrame().schedule)
+    await store.initialize()
+
+    const child = childSession('late-child', sessionId, 'Late child')
+    children.push(child)
+    events.push({
+      id: 'late-child-permission',
+      properties: {
+        action: 'webfetch',
+        id: 'late-child-request',
+        resources: ['https://example.com'],
+        sessionID: child.id,
+      },
+      type: 'permission.v2.asked',
+    })
+
+    await vi.waitFor(() => {
+      expect(store.getSnapshot().requests).toEqual([
+        expect.objectContaining({
+          id: 'late-child-request',
+          origin: {
+            label: 'Late child',
+            parentSessionId: sessionId,
+            sessionId: child.id,
+          },
+        }),
+      ])
+    })
+    events.close()
+    store.dispose()
+  })
+
+  it('reconnects when an event stream ends normally', async () => {
+    const events = eventChannel()
+    const client = fakeClient({ eventStream: events.stream })
+    const store = createStore(client.value, scheduledFrame().schedule)
+    await store.initialize()
+
+    events.close()
+    await vi.waitFor(
+      () => expect(client.eventSubscribe).toHaveBeenCalledTimes(2),
+      { timeout: 1_000 },
+    )
+
+    store.dispose()
+  })
+
   it('releases queued work on idle, but keeps it paused after stop', async () => {
     const events = eventChannel()
     const client = fakeClient({ eventStream: events.stream, status: 'busy' })

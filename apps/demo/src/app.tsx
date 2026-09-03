@@ -11,6 +11,7 @@ import * as stylex from '@stylexjs/stylex'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { ComponentGallery } from './component-gallery'
+import { FixtureChatStore } from './fixture-chat-store'
 import {
   createDraft,
   NanocodexChatStore,
@@ -27,6 +28,14 @@ const promptSuggestions = [
 ]
 
 export function App() {
+  const fixtureMode = new URLSearchParams(window.location.search).get('fixture')
+  if (fixtureMode === 'workflow' || fixtureMode === 'stress') {
+    return <FixtureApp mode={fixtureMode} />
+  }
+  return <DemoApp />
+}
+
+function DemoApp() {
   const [theme, setTheme] = useState<Theme>(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   )
@@ -143,6 +152,55 @@ export function App() {
       ) : (
         <ComponentGallery />
       )}
+    </div>
+  )
+}
+
+function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
+  const [store] = useState(() => new FixtureChatStore(mode))
+  const parameters = new URLSearchParams(window.location.search)
+  const theme = parameters.get('theme') === 'dark' ? 'dark' : 'light'
+  const direction = parameters.get('dir') === 'rtl' ? 'rtl' : 'ltr'
+
+  useEffect(() => {
+    const appendTurn = () => store.appendTurn()
+    const requestPermission = () => store.requestPermission()
+    const requestQuestion = () => store.requestQuestion()
+    const burstDeltas = (event: Event) => {
+      const count =
+        event instanceof CustomEvent && typeof event.detail === 'number'
+          ? event.detail
+          : 1_000
+      store.burstDeltas(count)
+    }
+    window.addEventListener('pretty-amped:append-turn', appendTurn)
+    window.addEventListener('pretty-amped:request-permission', requestPermission)
+    window.addEventListener('pretty-amped:request-question', requestQuestion)
+    window.addEventListener('pretty-amped:burst-deltas', burstDeltas)
+    return () => {
+      window.removeEventListener('pretty-amped:append-turn', appendTurn)
+      window.removeEventListener('pretty-amped:request-permission', requestPermission)
+      window.removeEventListener('pretty-amped:request-question', requestQuestion)
+      window.removeEventListener('pretty-amped:burst-deltas', burstDeltas)
+    }
+  }, [store])
+
+  return (
+    <div
+      data-fixture={mode}
+      data-theme={theme}
+      dir={direction}
+      {...stylex.props(
+        theme === 'dark' ? darkTheme : lightTheme,
+        styles.app,
+        themeStyles[theme],
+      )}
+    >
+      <ChatSession
+        label={`${mode} chat fixture`}
+        showRevertActions={mode === 'workflow'}
+        store={store}
+      />
     </div>
   )
 }

@@ -8,12 +8,15 @@
   },
   "scripts": {
     "build": "pnpm --filter @pretty-amped/demo build",
-    "check": "pnpm test && pnpm typecheck && pnpm build",
+    "check": "pnpm test && pnpm typecheck && pnpm build && pnpm test:browser",
     "dev": "pnpm --filter @pretty-amped/demo dev",
     "test": "vitest run",
+    "test:browser": "playwright test",
     "typecheck": "pnpm --recursive --if-present typecheck"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
     "jsdom": "30.0.1",

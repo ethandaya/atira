@@ -134,14 +134,43 @@ export function ChatComposer({
     )
   }
 
+  function updateSelection(control: HTMLTextAreaElement) {
+    const selection = editableSelection(draft)
+    const directionMatches =
+      selection.start === selection.end ||
+      selection.direction === control.selectionDirection
+    if (
+      selection.start === control.selectionStart &&
+      selection.end === control.selectionEnd &&
+      directionMatches
+    ) {
+      return
+    }
+    onDraftChange(
+      replaceDraftText(
+        draft,
+        value,
+        control.selectionDirection === 'backward'
+          ? control.selectionEnd
+          : control.selectionStart,
+        control.selectionDirection === 'backward'
+          ? control.selectionStart
+          : control.selectionEnd,
+      ),
+    )
+  }
+
   useLayoutEffect(() => {
     const control = textareaRef.current
     if (!control) return
     const selection = editableSelection(draft)
+    const directionMatches =
+      selection.start === selection.end ||
+      control.selectionDirection === selection.direction
     if (
       control.selectionStart !== selection.start ||
       control.selectionEnd !== selection.end ||
-      control.selectionDirection !== selection.direction
+      !directionMatches
     ) {
       control.setSelectionRange(
         selection.start,
@@ -257,6 +286,8 @@ export function ChatComposer({
       aria-label="Message composer"
       data-dragging={dragging || undefined}
       data-mode={draft.mode}
+      data-selection-anchor={`${draft.selection.anchor.segmentId}:${draft.selection.anchor.offset}`}
+      data-selection-focus={`${draft.selection.focus.segmentId}:${draft.selection.focus.offset}`}
       data-slot="chat-composer"
       data-state={activity.status}
       onDragEnter={(event) => {
@@ -271,6 +302,11 @@ export function ChatComposer({
         if (event.dataTransfer.types.includes('Files')) event.preventDefault()
       }}
       onDrop={dropFiles}
+      onSelectCapture={(event) => {
+        if (event.target === textareaRef.current) {
+          updateSelection(textareaRef.current)
+        }
+      }}
       onSubmit={submit}
       {...stylex.props(
         styles.root,

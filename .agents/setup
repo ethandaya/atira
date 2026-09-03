@@ -58,4 +58,9 @@ install_started=$SECONDS
 pnpm install --frozen-lockfile --prefer-offline
 finish_step 'Workspace dependency install' "$install_started"
 
+log_step 'Installing the Playwright Chromium browser'
+browser_started=$SECONDS
+pnpm exec playwright install chromium
+finish_step 'Playwright Chromium browser install' "$browser_started"
+
 printf '[setup] Orb setup completed in %ss\n' "$((SECONDS - setup_started))"
