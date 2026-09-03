@@ -25,6 +25,7 @@ import {
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -45,12 +46,31 @@ export function PermissionPrompt({
   request,
 }: PermissionPromptProps) {
   const titleId = useId()
+  const [localSubmission, setLocalSubmission] = useState<{
+    decision: PermissionDecision
+    requestId: string
+  }>()
+  const localDecision =
+    localSubmission?.requestId === request.id
+      ? localSubmission.decision
+      : undefined
   const pending = request.state.status === 'pending'
-  const submitting = request.state.status === 'submitting'
+  const submitting =
+    request.state.status === 'submitting' || localDecision !== undefined
   const failed = request.state.status === 'failed'
-  const actionable = pending || failed
+  const actionable = (pending || failed) && localDecision === undefined
   const activeDecision =
-    'decision' in request.state ? request.state.decision : undefined
+    'decision' in request.state ? request.state.decision : localDecision
+
+  useEffect(() => {
+    if (request.state.status === 'failed') setLocalSubmission(undefined)
+  }, [request.id, request.state.status])
+
+  function decide(decision: PermissionDecision) {
+    if (!actionable) return
+    setLocalSubmission({ decision, requestId: request.id })
+    onDecision?.(decision)
+  }
 
   return (
     <section
@@ -102,7 +122,7 @@ export function PermissionPrompt({
               <Button
                 disabled={submitting}
                 focusableWhenDisabled={submitting && activeDecision === 'reject'}
-                onClick={() => onDecision?.('reject')}
+                onClick={() => decide('reject')}
                 size="compact"
                 variant="quiet"
               >
@@ -113,7 +133,7 @@ export function PermissionPrompt({
               <Button
                 disabled={submitting}
                 focusableWhenDisabled={submitting && activeDecision === 'always'}
-                onClick={() => onDecision?.('always')}
+                onClick={() => decide('always')}
                 size="compact"
                 variant="outline"
               >
@@ -126,7 +146,7 @@ export function PermissionPrompt({
               <Button
                 disabled={submitting}
                 focusableWhenDisabled={submitting && activeDecision === 'once'}
-                onClick={() => onDecision?.('once')}
+                onClick={() => decide('once')}
                 size="compact"
                 variant="primary"
               >
@@ -157,12 +177,58 @@ export function QuestionRequest({
   const [values, setValues] = useState<
     Record<string, string | readonly string[]>
   >({})
-  const submitting = request.state.status === 'submitting'
-  const actionable = request.state.status === 'pending'
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submittingRequestId, setSubmittingRequestId] = useState<string>()
+  const submittingLocally = submittingRequestId === request.id
+  const submitting =
+    request.state.status === 'submitting' || submittingLocally
+  const actionable =
+    (request.state.status === 'pending' || request.state.status === 'failed') &&
+    !submittingLocally
+
+  useEffect(() => {
+    if (request.state.status === 'failed') setSubmittingRequestId(undefined)
+  }, [request.id, request.state.status])
+
+  function updateValue(
+    key: string,
+    value: string | readonly string[],
+    errorKey = key,
+  ) {
+    setValues((current) => ({ ...current, [key]: value }))
+    if (errors[errorKey]) {
+      setErrors((current) => {
+        const next = { ...current }
+        delete next[errorKey]
+        return next
+      })
+    }
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!actionable) return
+
+    const nextErrors = validateQuestionValues(request, values)
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      const firstQuestionId = request.questions.find(
+        (question) => nextErrors[question.id],
+      )?.id
+      if (firstQuestionId) {
+        const field = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            '[data-question-id]',
+          ),
+        ).find((element) => element.dataset.questionId === firstQuestionId)
+        field
+          ?.querySelector<HTMLElement>(
+            'textarea, [role="radio"], [role="checkbox"]',
+          )
+          ?.focus()
+      }
+      return
+    }
 
     const answers: QuestionAnswer[] = request.questions.map((question) => {
       if (question.type === 'text') {
@@ -181,6 +247,7 @@ export function QuestionRequest({
         type: 'choice',
       }
     })
+    setSubmittingRequestId(request.id)
     onAnswer?.({ answers })
   }
 
@@ -211,34 +278,36 @@ export function QuestionRequest({
           {request.questions.map((question) => {
             if (question.type === 'text') {
               return (
-                <TextareaField
-                  disabled={!actionable}
-                  key={question.id}
-                  label={question.label}
-                  maxLength={question.maxLength}
-                  onValueChange={(value) =>
-                    setValues((current) => ({ ...current, [question.id]: value }))
-                  }
-                  required={question.required}
-                  rows={question.multiline ? 3 : 1}
-                  value={stringValue(values[question.id])}
-                />
+                <div data-question-id={question.id} key={question.id}>
+                  <TextareaField
+                    description={errors[question.id]}
+                    disabled={!actionable}
+                    invalid={errors[question.id] !== undefined}
+                    label={question.label}
+                    maxLength={question.maxLength}
+                    onValueChange={(value) => updateValue(question.id, value)}
+                    required={question.required}
+                    rows={question.multiline ? 3 : 1}
+                    value={stringValue(values[question.id])}
+                  />
+                </div>
               )
             }
 
             const selected = arrayValue(values[question.id])
             return (
-              <div key={question.id} {...stylex.props(styles.choiceQuestion)}>
+              <div
+                data-question-id={question.id}
+                key={question.id}
+                {...stylex.props(styles.choiceQuestion)}
+              >
                 {question.type === 'single-choice' ? (
                   <RadioGroup
                     disabled={!actionable}
                     label={question.label}
                     name={question.id}
                     onValueChange={(value) =>
-                      setValues((current) => ({
-                        ...current,
-                        [question.id]: [value],
-                      }))
+                      updateValue(question.id, [value])
                     }
                     required={question.required}
                     value={selected[0]}
@@ -263,12 +332,12 @@ export function QuestionRequest({
                         key={option.id}
                         label={option.label}
                         onCheckedChange={(checked) =>
-                          setValues((current) => ({
-                            ...current,
-                            [question.id]: checked
+                          updateValue(
+                            question.id,
+                            checked
                               ? [...selected, option.id]
                               : selected.filter((id) => id !== option.id),
-                          }))
+                          )
                         }
                         value={option.id}
                       />
@@ -280,14 +349,16 @@ export function QuestionRequest({
                     disabled={!actionable}
                     label="Other answer"
                     onValueChange={(value) =>
-                      setValues((current) => ({
-                        ...current,
-                        [customKey(question.id)]: value,
-                      }))
+                      updateValue(customKey(question.id), value, question.id)
                     }
                     rows={1}
                     value={stringValue(values[customKey(question.id)])}
                   />
+                )}
+                {errors[question.id] && (
+                  <p role="alert" {...stylex.props(styles.fieldError)}>
+                    {errors[question.id]}
+                  </p>
                 )}
               </div>
             )
@@ -309,7 +380,11 @@ export function QuestionRequest({
           <div {...stylex.props(styles.actions)}>
             <Button
               disabled={!actionable}
-              onClick={onReject}
+              onClick={() => {
+                if (!actionable) return
+                setSubmittingRequestId(request.id)
+                onReject?.()
+              }}
               size="compact"
               variant="quiet"
             >
@@ -381,11 +456,17 @@ export function TodoDock({ defaultOpen, todos }: TodoDockProps) {
 
 export type RevertDockProps = {
   onDismiss: () => void
+  onRedo?: (reverted: RevertedPrompt) => void
   onRestore: (reverted: RevertedPrompt) => void
   reverted: RevertedPrompt
 }
 
-export function RevertDock({ onDismiss, onRestore, reverted }: RevertDockProps) {
+export function RevertDock({
+  onDismiss,
+  onRedo,
+  onRestore,
+  reverted,
+}: RevertDockProps) {
   return (
     <section
       aria-label="Reverted prompt"
@@ -401,6 +482,15 @@ export function RevertDock({ onDismiss, onRestore, reverted }: RevertDockProps) 
         <Button onClick={onDismiss} size="compact" variant="quiet">
           Dismiss
         </Button>
+        {onRedo && (
+          <Button
+            onClick={() => onRedo(reverted)}
+            size="compact"
+            variant="quiet"
+          >
+            Redo
+          </Button>
+        )}
         <Button
           onClick={() => onRestore(reverted)}
           size="compact"
@@ -409,6 +499,51 @@ export function RevertDock({ onDismiss, onRestore, reverted }: RevertDockProps) 
           Edit prompt
         </Button>
       </div>
+    </section>
+  )
+}
+
+export type QuestionAnswerSummaryProps = {
+  request: QuestionRequestView
+}
+
+export function QuestionAnswerSummary({ request }: QuestionAnswerSummaryProps) {
+  if (
+    request.state.status !== 'resolved' ||
+    request.state.decision.type !== 'answer'
+  ) {
+    return null
+  }
+
+  const answers = new Map(
+    request.state.decision.response.answers.map((answer) => [
+      answer.questionId,
+      answer,
+    ]),
+  )
+
+  return (
+    <section
+      aria-label="Submitted answers"
+      data-question-request-id={request.id}
+      data-slot="question-answer-summary"
+      {...stylex.props(styles.answerSummary)}
+    >
+      <p {...stylex.props(styles.dockTitle)}>Answers submitted</p>
+      <dl {...stylex.props(styles.answerList)}>
+        {request.questions.map((question) => {
+          const answer = answers.get(question.id)
+          if (!answer) return null
+          return (
+            <div key={question.id} {...stylex.props(styles.answerItem)}>
+              <dt {...stylex.props(styles.answerLabel)}>{question.label}</dt>
+              <dd {...stylex.props(styles.answerValue)}>
+                {questionAnswerLabel(question, answer)}
+              </dd>
+            </div>
+          )
+        })}
+      </dl>
     </section>
   )
 }
@@ -511,6 +646,7 @@ export function RequestRegion({
       {todos && <TodoDock todos={todos} />}
       {active?.type === 'permission' ? (
         <PermissionPrompt
+          key={active.id}
           {...(permissionDecisions === undefined
             ? {}
             : { availableDecisions: permissionDecisions })}
@@ -583,6 +719,47 @@ function stringValue(value: string | readonly string[] | undefined) {
 
 function arrayValue(value: string | readonly string[] | undefined) {
   return Array.isArray(value) ? value : []
+}
+
+function validateQuestionValues(
+  request: QuestionRequestView,
+  values: Readonly<Record<string, string | readonly string[]>>,
+) {
+  const errors: Record<string, string> = {}
+  for (const question of request.questions) {
+    if (!question.required) continue
+    if (question.type === 'text') {
+      if (!stringValue(values[question.id]).trim()) {
+        errors[question.id] = 'Enter an answer.'
+      }
+      continue
+    }
+    const hasChoice = arrayValue(values[question.id]).length > 0
+    const hasCustom =
+      question.allowCustom &&
+      stringValue(values[customKey(question.id)]).trim().length > 0
+    if (!hasChoice && !hasCustom) {
+      errors[question.id] = 'Choose at least one answer.'
+    }
+  }
+  return errors
+}
+
+function questionAnswerLabel(
+  question: QuestionRequestView['questions'][number],
+  answer: QuestionAnswer,
+) {
+  if (question.type === 'text') {
+    return answer.type === 'text' ? answer.value : 'No answer'
+  }
+  if (answer.type !== 'choice') return 'No answer'
+
+  const labels = answer.optionIds.map(
+    (optionId) =>
+      question.options.find((option) => option.id === optionId)?.label ?? optionId,
+  )
+  if (answer.customValue) labels.push(answer.customValue)
+  return labels.join(', ') || 'No answer'
 }
 
 const styles = stylex.create({
@@ -693,6 +870,49 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     gap: space.x3,
+  },
+  answerSummary: {
+    borderBlockColor: colors.border,
+    borderBlockStyle: 'solid',
+    borderBlockWidth: '1px',
+    color: colors.text,
+    display: 'flex',
+    flexDirection: 'column',
+    fontFamily: type.family,
+    gap: space.x2,
+    inlineSize: '100%',
+    paddingBlock: space.x3,
+  },
+  answerList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
+    margin: 0,
+  },
+  answerItem: {
+    display: 'grid',
+    gap: space.x1,
+    gridTemplateColumns: {
+      default: 'minmax(0, 1fr)',
+      '@media (min-width: 40rem)': 'minmax(8rem, 0.35fr) minmax(0, 1fr)',
+    },
+  },
+  answerLabel: {
+    color: colors.textMuted,
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineBody,
+  },
+  answerValue: {
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineBody,
+    margin: 0,
+    overflowWrap: 'anywhere',
+  },
+  fieldError: {
+    color: colors.danger,
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineBody,
+    margin: 0,
   },
   fieldset: {
     borderWidth: 0,

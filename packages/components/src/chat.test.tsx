@@ -23,7 +23,13 @@ vi.mock('@stylexjs/stylex', () => ({
 import { ChatComposer } from './chat-composer'
 import { ShellTool } from './chat-tools'
 import { MessageParts } from './message-parts'
-import { PermissionPrompt, QuestionRequest, RequestRegion } from './requests'
+import {
+  PermissionPrompt,
+  QuestionAnswerSummary,
+  QuestionRequest,
+  RequestRegion,
+  RevertDock,
+} from './requests'
 
 afterEach(cleanup)
 
@@ -67,6 +73,52 @@ describe('chat components', () => {
     expect(onDecision).toHaveBeenCalledWith('always')
   })
 
+  it('locks a permission request after the first local decision', () => {
+    const onDecision = vi.fn()
+    const request = permissionRequest()
+    render(<PermissionPrompt onDecision={onDecision} request={request} />)
+    const button = screen.getByRole('button', { name: 'Allow once' })
+
+    fireEvent.click(button)
+    fireEvent.click(button)
+
+    expect(onDecision).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Allowing…' }).dataset.state).toBe(
+      'disabled',
+    )
+  })
+
+  it('unlocks a failed permission request for an explicit retry', async () => {
+    const onDecision = vi.fn()
+    const request = permissionRequest()
+    const { rerender } = render(
+      <PermissionPrompt onDecision={onDecision} request={request} />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+    rerender(
+      <PermissionPrompt
+        onDecision={onDecision}
+        request={{
+          ...request,
+          state: {
+            decision: 'once',
+            error: {
+              kind: 'mutation',
+              message: 'Network unavailable.',
+              retryable: true,
+            },
+            status: 'failed',
+          },
+        }}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+
+    expect(onDecision).toHaveBeenCalledTimes(2)
+    expect(onDecision).toHaveBeenLastCalledWith('once')
+  })
+
   it('returns stable question and option IDs', async () => {
     const onAnswer = vi.fn()
     const request: QuestionRequestView = {
@@ -99,6 +151,94 @@ describe('chat components', () => {
         { optionIds: ['stylex'], questionId: 'framework', type: 'choice' },
       ],
     })
+  })
+
+  it('validates required choices before publishing an answer', async () => {
+    const onAnswer = vi.fn()
+    render(
+      <QuestionRequest
+        onAnswer={onAnswer}
+        request={questionRequest()}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Submit answer' }))
+
+    expect(onAnswer).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toBe(
+      'Choose at least one answer.',
+    )
+    expect(document.activeElement).toBe(
+      screen.getByRole('checkbox', { name: 'StyleX' }),
+    )
+  })
+
+  it('locks a question request after the first valid answer', async () => {
+    const onAnswer = vi.fn()
+    render(
+      <QuestionRequest
+        onAnswer={onAnswer}
+        request={questionRequest()}
+      />,
+    )
+    await userEvent.click(screen.getByRole('checkbox', { name: 'StyleX' }))
+    const submit = screen.getByRole('button', { name: 'Submit answer' })
+
+    fireEvent.click(submit)
+    fireEvent.click(submit)
+
+    expect(onAnswer).toHaveBeenCalledOnce()
+    expect(
+      screen.getByRole('button', { name: 'Submitting…' }).dataset.state,
+    ).toBe('disabled')
+  })
+
+  it('renders immutable answer labels from structured option IDs', () => {
+    const request = questionRequest()
+    render(
+      <QuestionAnswerSummary
+        request={{
+          ...request,
+          state: {
+            decision: {
+              response: {
+                answers: [
+                  {
+                    optionIds: ['stylex'],
+                    questionId: 'framework',
+                    type: 'choice',
+                  },
+                ],
+              },
+              type: 'answer',
+            },
+            status: 'resolved',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Choose frameworks')).not.toBeNull()
+    expect(screen.getByText('StyleX')).not.toBeNull()
+  })
+
+  it('keeps redo distinct from editing a reverted prompt', async () => {
+    const onRedo = vi.fn()
+    const onRestore = vi.fn()
+    const reverted = { draft, id: 'revert', turnId: 'turn' }
+    render(
+      <RevertDock
+        onDismiss={() => undefined}
+        onRedo={onRedo}
+        onRestore={onRestore}
+        reverted={reverted}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Redo' }))
+
+    expect(onRedo).toHaveBeenCalledWith(reverted)
+    expect(onRestore).not.toHaveBeenCalled()
   })
 
   it('does not submit a composing keyboard event', () => {
@@ -292,5 +432,41 @@ function toolPart(
     },
     toolName,
     type: 'tool',
+  }
+}
+
+function permissionRequest(): PermissionRequestView {
+  return {
+    consequence: 'external',
+    effect: 'Fetch https://example.com',
+    id: 'permission',
+    order: 0,
+    origin: { sessionId: 'session' },
+    state: { status: 'pending' },
+    title: 'Use the network?',
+    type: 'permission',
+  }
+}
+
+function questionRequest(): QuestionRequestView {
+  return {
+    id: 'question-request',
+    order: 0,
+    origin: { sessionId: 'session' },
+    questions: [
+      {
+        allowCustom: false,
+        id: 'framework',
+        label: 'Choose frameworks',
+        options: [
+          { id: 'stylex', label: 'StyleX' },
+          { id: 'base-ui', label: 'Base UI' },
+        ],
+        required: true,
+        type: 'multiple-choice',
+      },
+    ],
+    state: { status: 'pending' },
+    type: 'question',
   }
 }

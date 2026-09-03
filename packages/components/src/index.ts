@@ -109,6 +109,7 @@ export { Reasoning } from './reasoning'
 export type { ReasoningProps, ReasoningState } from './reasoning'
 export {
   PermissionPrompt,
+  QuestionAnswerSummary,
   QuestionRequest,
   RequestRegion,
   RevertDock,
@@ -116,6 +117,7 @@ export {
 } from './requests'
 export type {
   PermissionPromptProps,
+  QuestionAnswerSummaryProps,
   QuestionRequestProps,
   RequestRegionProps,
   RevertDockProps,
