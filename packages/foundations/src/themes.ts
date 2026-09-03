@@ -17,6 +17,10 @@ export const lightTheme = stylex.createTheme(colors, {
   danger: 'oklch(0.52 0.22 27.325)',
   dangerSurface: 'oklch(0.52 0.22 27.325 / 0.1)',
   dangerSurfaceHover: 'oklch(0.52 0.22 27.325 / 0.15)',
+  success: 'oklch(0.43 0.11 145)',
+  successSurface: 'oklch(0.43 0.11 145 / 0.1)',
+  warning: 'oklch(0.5 0.12 75)',
+  warningSurface: 'oklch(0.5 0.12 75 / 0.1)',
   focus: 'oklch(0.708 0 0 / 0.5)',
 })
 
@@ -35,5 +39,9 @@ export const darkTheme = stylex.createTheme(colors, {
   danger: 'oklch(0.704 0.191 22.216)',
   dangerSurface: 'oklch(0.704 0.191 22.216 / 0.2)',
   dangerSurfaceHover: 'oklch(0.704 0.191 22.216 / 0.3)',
+  success: 'oklch(0.75 0.12 145)',
+  successSurface: 'oklch(0.75 0.12 145 / 0.16)',
+  warning: 'oklch(0.78 0.12 75)',
+  warningSurface: 'oklch(0.78 0.12 75 / 0.16)',
   focus: 'oklch(0.556 0 0 / 0.5)',
 })

@@ -9,8 +9,10 @@ import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
 export type ToolActivityState =
+  | { status: 'receiving-input' }
   | { status: 'queued' }
   | { status: 'running' }
+  | { status: 'awaiting-permission' }
   | { status: 'awaiting-approval' }
   | { status: 'succeeded' }
   | { status: 'failed'; error: string }
@@ -32,9 +34,11 @@ export type ToolActivityProps = NativeDivProps & {
 
 const stateLabels: Record<ToolActivityState['status'], string> = {
   'awaiting-approval': 'Needs approval',
+  'awaiting-permission': 'Needs permission',
   cancelled: 'Cancelled',
   failed: 'Failed',
   queued: 'Queued',
+  'receiving-input': 'Preparing',
   running: 'Running',
   succeeded: 'Complete',
 }
@@ -99,7 +103,7 @@ export function ToolActivity({
         <div {...stylex.props(styles.staticHeader)}>{header}</div>
       )}
       {state.status === 'failed' && (
-        <p role="status" {...stylex.props(styles.error)}>
+        <p role="alert" {...stylex.props(styles.error)}>
           {state.error}
         </p>
       )}
@@ -160,14 +164,12 @@ const styles = stylex.create({
     lineHeight: type.lineCompact,
   },
   evidence: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
-    borderRadius: radii.control,
-    borderStyle: 'solid',
-    borderWidth: '1px',
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
     color: colors.textMuted,
     overflow: 'auto',
-    padding: space.x3,
+    paddingBlock: space.x3,
   },
   error: {
     color: colors.danger,

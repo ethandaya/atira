@@ -25,6 +25,27 @@ export type {
   CitationListProps,
   InlineCitationProps,
 } from './citation-list'
+export { AttachmentTray, ChatComposer, QueueList } from './chat-composer'
+export type {
+  AttachmentTrayProps,
+  ChatComposerProps,
+  QueueListProps,
+} from './chat-composer'
+export {
+  ContextTool,
+  ContextToolGroup,
+  FileChangeTool,
+  GenericTool,
+  ShellTool,
+  SkillTool,
+  TaskTool,
+  WebTool,
+} from './chat-tools'
+export type {
+  ChatToolProps,
+  ContextToolGroupProps,
+  TaskToolProps,
+} from './chat-tools'
 export { CodeBlock } from './code-block'
 export type { CodeBlockProps } from './code-block'
 export { Composer } from './composer'
@@ -40,6 +61,8 @@ export type {
 } from './diff'
 export { Message } from './message'
 export type { MessageActor, MessageProps } from './message'
+export { MessageParts } from './message-parts'
+export type { MessagePartsProps, ToolRenderer } from './message-parts'
 export { Loader } from './loader'
 export type { LoaderProps, LoaderState } from './loader'
 export { Markdown } from './markdown'
@@ -63,6 +86,20 @@ export { Response } from './response'
 export type { ResponseProps } from './response'
 export { Reasoning } from './reasoning'
 export type { ReasoningProps, ReasoningState } from './reasoning'
+export {
+  PermissionPrompt,
+  QuestionRequest,
+  RequestRegion,
+  RevertDock,
+  TodoDock,
+} from './requests'
+export type {
+  PermissionPromptProps,
+  QuestionRequestProps,
+  RequestRegionProps,
+  RevertDockProps,
+  TodoDockProps,
+} from './requests'
 export { Suggestion, Suggestions } from './suggestion'
 export type { SuggestionProps, SuggestionsProps } from './suggestion'
 export { Thread } from './thread'
@@ -72,3 +109,5 @@ export type {
   ToolActivityProps,
   ToolActivityState,
 } from './tool-activity'
+export { Turn, TurnStatus } from './turn'
+export type { TurnProps } from './turn'

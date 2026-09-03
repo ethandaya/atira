@@ -12,6 +12,7 @@
     "@fontsource-variable/geist": "catalog:",
     "@fontsource-variable/geist-mono": "catalog:",
     "@opencode-ai/sdk": "1.18.27",
+    "@pretty-amped/blocks": "workspace:*",
     "@pretty-amped/components": "workspace:*",
     "@pretty-amped/foundations": "workspace:*",
     "@pretty-amped/primitives": "workspace:*",

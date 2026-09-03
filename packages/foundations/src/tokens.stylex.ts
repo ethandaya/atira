@@ -15,6 +15,10 @@ export const colors = stylex.defineVars({
   danger: 'oklch(0.52 0.22 27.325)',
   dangerSurface: 'oklch(0.52 0.22 27.325 / 0.1)',
   dangerSurfaceHover: 'oklch(0.52 0.22 27.325 / 0.15)',
+  success: 'oklch(0.43 0.11 145)',
+  successSurface: 'oklch(0.43 0.11 145 / 0.1)',
+  warning: 'oklch(0.5 0.12 75)',
+  warningSurface: 'oklch(0.5 0.12 75 / 0.1)',
   focus: 'oklch(0.708 0 0 / 0.5)',
 })
 

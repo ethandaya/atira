@@ -1,4 +1,5 @@
 import {
+  ChatComposer,
   Composer,
   Loader,
   Markdown,
@@ -11,6 +12,17 @@ import {
   Thread,
   ToolActivity,
 } from '@pretty-amped/components'
+import { Timeline } from '@pretty-amped/blocks'
+import type {
+  ChatTurn,
+  ComposerDraft,
+  JsonValue,
+  MessagePart,
+  ToolState,
+  ToolPresentation,
+  TurnState,
+} from '@pretty-amped/foundations/chat'
+import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
 import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
 import {
   colors,
@@ -38,6 +50,7 @@ type Usage = {
 
 type UserMessage = {
   actor: 'user'
+  createdAt: number
   id: string
   text: string
 }
@@ -54,6 +67,7 @@ type ToolRun = {
 
 type AssistantMessage = {
   actor: 'assistant'
+  createdAt: number
   durationMs?: number
   error?: string
   id: string
@@ -109,12 +123,10 @@ export function App() {
   const [view, setView] = useState<View>('playground')
   const [runtime, setRuntime] = useState<RuntimeState>({ status: 'loading' })
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState<ComposerDraft>(createEmptyDraft)
   const [busy, setBusy] = useState(false)
   const activeController = useRef<AbortController | null>(null)
   const activeMessageId = useRef<string | null>(null)
-  const scroller = useRef<HTMLElement | null>(null)
-  const followOutput = useRef(true)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -153,14 +165,6 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    if (!followOutput.current) return
-    const frame = window.requestAnimationFrame(() => {
-      scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [messages])
-
-  useEffect(() => {
     return () => activeController.current?.abort()
   }, [])
 
@@ -196,11 +200,13 @@ export function App() {
 
     const userMessage: UserMessage = {
       actor: 'user',
+      createdAt: Date.now(),
       id: crypto.randomUUID(),
       text: input,
     }
     const assistantMessage: AssistantMessage = {
       actor: 'assistant',
+      createdAt: Date.now(),
       id: crypto.randomUUID(),
       reasoning: '',
       status: 'streaming',
@@ -229,11 +235,10 @@ export function App() {
       }
     }
 
-    followOutput.current = true
     activeController.current = controller
     activeMessageId.current = assistantMessage.id
     setMessages((current) => [...current, userMessage, assistantMessage])
-    setDraft('')
+    setDraft(createEmptyDraft())
     setBusy(true)
 
     try {
@@ -366,15 +371,7 @@ export function App() {
     const response = await fetch('/api/session', { method: 'DELETE' })
     if (!response.ok) return
     setMessages([])
-    setDraft('')
-    followOutput.current = true
-  }
-
-  function trackScroll() {
-    const element = scroller.current
-    if (!element) return
-    followOutput.current =
-      element.scrollHeight - element.scrollTop - element.clientHeight < 80
+    setDraft(createEmptyDraft())
   }
 
   const runtimeLabel =
@@ -383,6 +380,10 @@ export function App() {
       : runtime.status === 'loading'
         ? 'Connecting to Nanocodex…'
         : 'Runtime unavailable'
+  const projectedTurns = projectMessages(messages)
+  const activity = busy && projectedTurns.length > 0
+    ? { status: 'busy' as const, turnId: projectedTurns.at(-1)?.id ?? '' }
+    : { status: 'idle' as const }
 
   return (
     <div
@@ -442,78 +443,50 @@ export function App() {
 
       {view === 'playground' ? (
         <div {...stylex.props(styles.workspace)}>
-          <main
-            ref={scroller}
-            onScroll={trackScroll}
-            {...stylex.props(styles.scroller)}
-          >
-            <div {...stylex.props(styles.transcript)}>
-              <Thread
-                busy={busy}
-                empty={<EmptyPlayground runtime={runtime} onSelect={submitMessage} />}
-                label="Nanocodex playground conversation"
-              >
-                {messages.map((message) =>
-                  message.actor === 'user' ? (
-                    <Message actor="user" key={message.id}>
-                      {message.text}
-                    </Message>
-                  ) : (
-                    <AssistantResponse key={message.id} message={message} />
-                  ),
-                )}
-              </Thread>
-            </div>
+          <main {...stylex.props(styles.timeline)}>
+            <Timeline
+              activity={activity}
+              empty={<EmptyPlayground runtime={runtime} onSelect={submitMessage} />}
+              history={{ status: 'complete' }}
+              label="Nanocodex playground conversation"
+              onLoadPrevious={() => Promise.resolve()}
+              turns={projectedTurns}
+            />
           </main>
 
           <div {...stylex.props(styles.composerDock)}>
             <div {...stylex.props(styles.composerWrap)}>
-              {busy ? (
-                <Composer
-                  actions={(
-                    <span {...stylex.props(styles.runtimeMeta)}>
-                      {runtimeLabel}
-                    </span>
-                  )}
-                  maxLength={8_000}
-                  onStop={stopResponse}
-                  onSubmit={submitMessage}
-                  onValueChange={setDraft}
-                  status="streaming"
-                  value={draft}
-                />
-              ) : runtime.status === 'ready' ? (
-                <Composer
-                  actions={(
-                    <span {...stylex.props(styles.runtimeMeta)}>
-                      {runtimeLabel}
-                    </span>
-                  )}
-                  maxLength={8_000}
-                  onSubmit={submitMessage}
-                  onValueChange={setDraft}
-                  status="idle"
-                  value={draft}
-                />
-              ) : (
-                <Composer
-                  actions={(
-                    <span
-                      {...stylex.props(
-                        styles.runtimeMeta,
-                        runtime.status === 'unavailable' && styles.runtimeError,
-                      )}
-                    >
-                      {runtimeLabel}
-                    </span>
-                  )}
-                  maxLength={8_000}
-                  onSubmit={submitMessage}
-                  onValueChange={setDraft}
-                  status="disabled"
-                  value={draft}
-                />
-              )}
+              <ChatComposer
+                actions={(
+                  <span
+                    {...stylex.props(
+                      styles.runtimeMeta,
+                      runtime.status === 'unavailable' && styles.runtimeError,
+                    )}
+                  >
+                    {runtimeLabel}
+                  </span>
+                )}
+                activity={activity}
+                capabilities={{
+                  agents: [],
+                  busySubmission: [],
+                  canAttach: false,
+                  canStop: busy,
+                  canSubmit: runtime.status === 'ready' && !busy,
+                  canUseShell: false,
+                  models: [],
+                  permissionDecisions: [],
+                  referenceTypes: [],
+                  variants: [],
+                }}
+                draft={draft}
+                onDraftChange={setDraft}
+                onStop={stopResponse}
+                onSubmit={(nextDraft) =>
+                  void submitMessage(composerDraftText(nextDraft))
+                }
+              />
             </div>
           </div>
         </div>
@@ -564,6 +537,179 @@ function EmptyPlayground({
       </Suggestions>
     </div>
   )
+}
+
+function createEmptyDraft(): ComposerDraft {
+  return {
+    attachments: [],
+    mode: 'prompt',
+    revision: 0,
+    segments: [{ id: 'draft-text', text: '', type: 'text' }],
+    selection: {
+      anchor: { offset: 0, segmentId: 'draft-text' },
+      focus: { offset: 0, segmentId: 'draft-text' },
+    },
+  }
+}
+
+function projectMessages(messages: readonly ChatMessage[]): ChatTurn[] {
+  const turns: ChatTurn[] = []
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const user = messages[index]
+    if (user?.actor !== 'user') continue
+
+    const assistants: AssistantMessage[] = []
+    while (messages[index + 1]?.actor === 'assistant') {
+      const assistant = messages[index + 1]
+      if (assistant?.actor === 'assistant') assistants.push(assistant)
+      index += 1
+    }
+
+    const latest = assistants.at(-1)
+    turns.push({
+      assistant: assistants.map((assistant) => ({
+        createdAt: assistant.createdAt,
+        delivery: { status: 'confirmed' },
+        id: assistant.id,
+        parts: projectAssistantParts(assistant),
+        role: 'assistant',
+        turnId: user.id,
+      })),
+      id: user.id,
+      state: projectTurnState(latest, user.createdAt),
+      user: {
+        createdAt: user.createdAt,
+        delivery: { status: 'confirmed' },
+        id: user.id,
+        parts: [
+          {
+            id: `${user.id}:text`,
+            markdown: user.text,
+            state: { status: 'complete' },
+            type: 'text',
+          },
+        ],
+        role: 'user',
+        turnId: user.id,
+      },
+    })
+  }
+
+  return turns
+}
+
+function projectAssistantParts(message: AssistantMessage) {
+  const state =
+    message.status === 'streaming'
+      ? ({ status: 'streaming' } as const)
+      : message.status === 'interrupted'
+        ? ({ status: 'interrupted' } as const)
+        : message.status === 'failed'
+          ? ({
+              error: chatError(message.error),
+              status: 'failed',
+            } as const)
+          : ({ status: 'complete' } as const)
+  const parts: MessagePart[] = []
+
+  for (const tool of message.tools) {
+    parts.push({
+      callId: tool.id,
+      id: tool.id,
+      presentation: toolPresentation(tool.tool),
+      state: projectToolState(tool, message.createdAt),
+      toolName: tool.tool,
+      type: 'tool',
+    })
+  }
+  if (message.reasoning) {
+    parts.push({
+      id: `${message.id}:reasoning`,
+      startedAt: message.createdAt,
+      state,
+      text: message.reasoning,
+      type: 'reasoning',
+    })
+  }
+  if (message.text) {
+    parts.push({
+      id: `${message.id}:text`,
+      markdown: message.text,
+      state,
+      type: 'text',
+    })
+  }
+  return parts
+}
+
+function projectTurnState(
+  message: AssistantMessage | undefined,
+  userCreatedAt: number,
+): TurnState {
+  if (!message) return { status: 'queued' }
+  if (message.status === 'streaming') {
+    return { startedAt: message.createdAt, status: 'running' }
+  }
+
+  const endedAt = message.createdAt + (message.durationMs ?? 0)
+  if (message.status === 'interrupted') {
+    return { endedAt, startedAt: message.createdAt, status: 'interrupted' }
+  }
+  if (message.status === 'failed') {
+    return {
+      endedAt,
+      error: chatError(message.error),
+      startedAt: message.createdAt,
+      status: 'failed',
+    }
+  }
+  return {
+    endedAt,
+    startedAt: message.createdAt || userCreatedAt,
+    status: 'complete',
+  }
+}
+
+function projectToolState(tool: ToolRun, startedAt: number): ToolState {
+  const input: JsonValue = tool.input ?? {}
+  if (tool.status === 'running') return { input, startedAt, status: 'running' }
+  if (tool.status === 'failed') {
+    return {
+      endedAt: startedAt,
+      error: chatError(tool.error),
+      input,
+      status: 'failed',
+    }
+  }
+  if (tool.status === 'cancelled') {
+    return { endedAt: startedAt, input, status: 'cancelled' }
+  }
+  return {
+    endedAt: startedAt,
+    input,
+    ...(tool.output === undefined ? {} : { output: tool.output }),
+    status: 'succeeded',
+  }
+}
+
+function toolPresentation(tool: string): ToolPresentation {
+  const value = tool.toLowerCase()
+  if (value.includes('search')) return { kind: 'context', operation: 'grep' }
+  if (value === 'read') return { kind: 'context', operation: 'read' }
+  if (value === 'bash' || value === 'shell') return { kind: 'shell' }
+  if (value === 'write' || value === 'edit') {
+    return { kind: 'file-change', operation: value }
+  }
+  return { kind: 'generic' }
+}
+
+function chatError(message?: string) {
+  return {
+    kind: 'provider' as const,
+    message: message ?? 'The response could not be completed.',
+    retryable: false,
+  }
 }
 
 function AssistantResponse({ message }: { message: AssistantMessage }) {
@@ -878,6 +1024,10 @@ const styles = stylex.create({
     display: 'flex',
     flex: 1,
     flexDirection: 'column',
+    minBlockSize: 0,
+  },
+  timeline: {
+    flex: 1,
     minBlockSize: 0,
   },
   scroller: {

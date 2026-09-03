@@ -1,5 +1,11 @@
 export { Button } from './button'
 export type { ButtonProps } from './button'
+export { CheckboxField, RadioGroup, RadioOption } from './choice'
+export type {
+  CheckboxFieldProps,
+  RadioGroupProps,
+  RadioOptionProps,
+} from './choice'
 export { Dialog } from './dialog'
 export type { DialogProps } from './dialog'
 export { Disclosure } from './disclosure'
