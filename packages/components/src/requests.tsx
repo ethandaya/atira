@@ -646,22 +646,31 @@ export function RequestRegion({
       {...stylex.props(styles.region)}
     >
       {todos && <TodoDock todos={todos} />}
-      {active?.type === 'permission' ? (
-        <PermissionPrompt
-          key={active.id}
-          {...(permissionDecisions === undefined
-            ? {}
-            : { availableDecisions: permissionDecisions })}
-          onDecision={(decision) => onPermissionDecision(active, decision)}
-          request={active}
-        />
-      ) : active?.type === 'question' ? (
-        <QuestionRequest
-          key={active.id}
-          onAnswer={(response) => onQuestionAnswer(active, response)}
-          onReject={() => onQuestionReject(active)}
-          request={active}
-        />
+      {active ? (
+        <div data-slot="request-stage" {...stylex.props(styles.requestStage)}>
+          <div aria-hidden="true" inert {...stylex.props(styles.reservedComposer)}>
+            {children}
+          </div>
+          <div data-slot="active-request-layer" {...stylex.props(styles.requestLayer)}>
+            {active.type === 'permission' ? (
+              <PermissionPrompt
+                key={active.id}
+                {...(permissionDecisions === undefined
+                  ? {}
+                  : { availableDecisions: permissionDecisions })}
+                onDecision={(decision) => onPermissionDecision(active, decision)}
+                request={active}
+              />
+            ) : (
+              <QuestionRequest
+                key={active.id}
+                onAnswer={(response) => onQuestionAnswer(active, response)}
+                onReject={() => onQuestionReject(active)}
+                request={active}
+              />
+            )}
+          </div>
+        </div>
       ) : reverted ? (
         reverted
       ) : (
@@ -770,6 +779,24 @@ const styles = stylex.create({
     flexDirection: 'column',
     gap: space.x2,
     inlineSize: '100%',
+  },
+  requestStage: {
+    inlineSize: '100%',
+    position: 'relative',
+  },
+  reservedComposer: {
+    pointerEvents: 'none',
+    userSelect: 'none',
+    visibility: 'hidden',
+  },
+  requestLayer: {
+    insetBlockEnd: 0,
+    insetInline: 0,
+    maxBlockSize: 'min(70dvh, 32rem)',
+    overflowY: 'auto',
+    overscrollBehaviorY: 'contain',
+    position: 'absolute',
+    zIndex: 1,
   },
   request: {
     backgroundColor: colors.surfaceMuted,

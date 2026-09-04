@@ -180,6 +180,7 @@ test('removes nonessential lifecycle motion when reduced motion is requested', a
 })
 
 test('restores composer focus, draft, and selection around requests', async ({ page }) => {
+  await page.setViewportSize({ height: 720, width: 320 })
   await page.goto('/?fixture=workflow')
   const message = page.getByRole('textbox', { name: 'Message' })
   await message.fill('Draft remains intact')
@@ -189,17 +190,27 @@ test('restores composer focus, draft, and selection around requests', async ({ p
     await message.press('ArrowRight')
     await expect.poll(() => selectionStart(message)).toBe(offset + 1)
   }
+  await settleLayout(page)
+  const timelineBounds = await elementBounds(page.locator(viewport))
 
   await dispatch(page, 'pretty-amped:request-permission')
   const permission = page.locator('[data-slot="permission-prompt"]')
   await expect(permission).toHaveAttribute('data-origin-session-id', 'fixture-child')
   await expect(page.getByRole('heading', { name: 'Allow preview publishing?' })).toBeFocused()
+  await settleLayout(page)
+  const permissionTimelineBounds = await elementBounds(page.locator(viewport))
+  expect(Math.abs(permissionTimelineBounds.top - timelineBounds.top)).toBeLessThanOrEqual(1)
+  expect(Math.abs(permissionTimelineBounds.height - timelineBounds.height)).toBeLessThanOrEqual(1)
   await page.getByRole('button', { name: 'Allow once' }).click()
   await expect(message).toBeFocused()
   await expect(message).toHaveValue('Draft remains intact')
   await expect.poll(() => selectionStart(message)).toBe(6)
 
   await dispatch(page, 'pretty-amped:request-question')
+  await settleLayout(page)
+  const questionTimelineBounds = await elementBounds(page.locator(viewport))
+  expect(Math.abs(questionTimelineBounds.top - timelineBounds.top)).toBeLessThanOrEqual(1)
+  expect(Math.abs(questionTimelineBounds.height - timelineBounds.height)).toBeLessThanOrEqual(1)
   await page.getByRole('radio', { name: 'Compact' }).click()
   await page.getByRole('textbox', { name: 'Review notes' }).fill('Keep the exact IDs.')
   await page.getByRole('button', { name: 'Submit answer' }).click()
