@@ -168,7 +168,7 @@ const styles = stylex.create({
     outlineWidth: 0,
     resize: 'none',
     paddingBlock: space.x2,
-    paddingInline: space.x4,
+    paddingInline: space.x3,
   },
   invalid: {
     borderColor: colors.danger,

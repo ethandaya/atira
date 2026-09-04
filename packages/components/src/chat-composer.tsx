@@ -127,16 +127,12 @@ export function ChatComposer({
   const [dragging, setDragging] = useState(false)
   const value = editableDraftText(draft)
   const intent = submitIntent(activity, capabilities)
-  const hasModelControls =
-    capabilities.agents.length > 0 ||
-    capabilities.models.length > 0 ||
-    capabilities.variants.length > 0
   const canSubmit =
     intent !== undefined &&
     (value.trim().length > 0 || draft.attachments.some((item) => item.state === 'ready'))
   const showStop =
     activity.status !== 'idle' && capabilities.canStop && !canSubmit
-  const mobileActions = [
+  const composerMenuItems = [
     ...(commands.length > 0 && draft.mode === 'prompt'
       ? [{
           icon: <Command aria-hidden="true" size={15} strokeWidth={1.75} />,
@@ -415,6 +411,18 @@ export function ChatComposer({
           ? {}
           : { onRetry: onRetryAttachment })}
       />
+      {capabilities.canAttach && onFilesAdd && (
+        <input
+          ref={fileInputRef}
+          accept={accept}
+          aria-hidden="true"
+          multiple
+          onChange={pickFiles}
+          tabIndex={-1}
+          type="file"
+          {...stylex.props(styles.fileInput)}
+        />
+      )}
       <TextareaField
         autoComplete="off"
         label={draft.mode === 'shell' ? 'Shell command' : 'Message'}
@@ -441,32 +449,16 @@ export function ChatComposer({
 
       <div data-slot="chat-composer-toolbar" {...stylex.props(styles.toolbar)}>
         <div data-slot="chat-composer-context-actions" {...stylex.props(styles.leading)}>
-          {capabilities.canAttach && onFilesAdd && (
-            <>
-              <input
-                ref={fileInputRef}
-                accept={accept}
-                aria-hidden="true"
-                multiple
-                onChange={pickFiles}
-                tabIndex={-1}
-                type="file"
-                {...stylex.props(styles.fileInput)}
-              />
-              <span {...stylex.props(styles.desktopOnly)}>
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  size="compact"
-                  variant="quiet"
-                >
-                  <Paperclip aria-hidden="true" size={14} strokeWidth={1.75} />
-                  Attach
-                </Button>
-              </span>
-            </>
+          {composerMenuItems.length > 0 && (
+            <ActionMenu
+              items={composerMenuItems}
+              label="Composer actions"
+              side="top"
+              trigger={<Plus aria-hidden="true" size={18} strokeWidth={1.75} />}
+            />
           )}
-          {commands.length > 0 && draft.mode === 'prompt' && (
-            <span {...stylex.props(styles.desktopOnly)}>
+          <span aria-hidden="true" {...stylex.props(styles.menuHosts)}>
+            {commands.length > 0 && draft.mode === 'prompt' && (
               <FilterMenu
                 inputValue={activeMenu?.kind === 'command' ? activeMenu.query : ''}
                 items={commands}
@@ -484,10 +476,8 @@ export function ChatComposer({
                 placeholder="Filter commands…"
                 triggerLabel="/"
               />
-            </span>
-          )}
-          {references.length > 0 && capabilities.referenceTypes.length > 0 && (
-            <span {...stylex.props(styles.desktopOnly)}>
+            )}
+            {references.length > 0 && capabilities.referenceTypes.length > 0 && (
               <FilterMenu
                 inputValue={activeMenu?.kind === 'reference' ? activeMenu.query : ''}
                 items={references.filter((reference) =>
@@ -507,106 +497,32 @@ export function ChatComposer({
                 placeholder="Filter references…"
                 triggerLabel="@"
               />
-            </span>
-          )}
-          {capabilities.canUseShell && (
-            <span {...stylex.props(styles.desktopOnly)}>
-              <Button
-                aria-pressed={draft.mode === 'shell'}
-                onClick={() => setMode(draft.mode === 'shell' ? 'prompt' : 'shell')}
-                size="compact"
-                variant="quiet"
-              >
-                <Terminal aria-hidden="true" size={14} strokeWidth={1.75} />
-                {draft.mode === 'shell' ? 'Prompt' : 'Shell'}
-              </Button>
-            </span>
-          )}
-          {mobileActions.length > 0 && (
-            <span {...stylex.props(styles.mobileOnly)}>
-              <ActionMenu
-                items={mobileActions}
-                label="Composer actions"
-                side="top"
-                trigger={<Plus aria-hidden="true" size={18} strokeWidth={1.75} />}
-              />
-            </span>
-          )}
-          {hasModelControls && (
-            <div data-slot="chat-composer-selectors" {...stylex.props(styles.selectors)}>
-              {capabilities.agents.length > 0 && (
-                <span {...stylex.props(styles.desktopOnly)}>
-                  <SelectPicker
-                    label="Agent"
-                    onValueChange={(id) => {
-                      const agent = capabilities.agents.find((item) => item.id === id)
-                      if (agent) {
-                        onDraftChange({
-                          ...draft,
-                          agent,
-                          revision: draft.revision + 1,
-                        })
-                      }
-                    }}
-                    options={capabilities.agents.map((agent) => ({
-                      label: agent.label,
-                      value: agent.id,
-                    }))}
-                    placeholder="Agent"
-                    {...(draft.agent === undefined ? {} : { value: draft.agent.id })}
-                  />
-                </span>
-              )}
-              {capabilities.models.length > 0 && (
-                <SelectPicker
-                  label="Model"
-                  onValueChange={(id) => {
-                    const model = capabilities.models.find(
-                      (item) => modelOptionValue(item) === id,
-                    )
-                    if (model) {
-                      onDraftChange({
-                        ...draft,
-                        model,
-                        revision: draft.revision + 1,
-                      })
-                    }
-                  }}
-                  options={capabilities.models.map((model) => ({
-                    label: model.label,
-                    value: modelOptionValue(model),
-                  }))}
-                  placeholder="Model"
-                  {...(draft.model === undefined
-                    ? {}
-                    : { value: modelOptionValue(draft.model) })}
-                />
-              )}
-              {capabilities.variants.length > 0 && (
-                <span {...stylex.props(styles.desktopOnly)}>
-                  <SelectPicker
-                    label="Variant"
-                    onValueChange={(variant) =>
-                      onDraftChange({
-                        ...draft,
-                        revision: draft.revision + 1,
-                        variant,
-                      })
-                    }
-                    options={capabilities.variants.map((variant) => ({
-                      ...(variant.unavailableReason === undefined
-                        ? {}
-                        : { description: variant.unavailableReason }),
-                      disabled: variant.unavailableReason !== undefined,
-                      label: variant.label,
-                      value: variant.id,
-                    }))}
-                    placeholder="Variant"
-                    {...(draft.variant === undefined ? {} : { value: draft.variant })}
-                  />
-                </span>
-              )}
-            </div>
+            )}
+          </span>
+          {capabilities.models.length > 0 && (
+            <SelectPicker
+              label="Model"
+              onValueChange={(id) => {
+                const model = capabilities.models.find(
+                  (item) => modelOptionValue(item) === id,
+                )
+                if (model) {
+                  onDraftChange({
+                    ...draft,
+                    model,
+                    revision: draft.revision + 1,
+                  })
+                }
+              }}
+              options={capabilities.models.map((model) => ({
+                label: model.label,
+                value: modelOptionValue(model),
+              }))}
+              placeholder="Model"
+              {...(draft.model === undefined
+                ? {}
+                : { value: modelOptionValue(draft.model) })}
+            />
           )}
           {actions}
         </div>
@@ -965,8 +881,8 @@ function replaceDraftText(
 const styles = stylex.create({
   root: {
     backgroundColor: colors.surfaceRaised,
-    borderColor: colors.border,
-    borderRadius: '0.75rem',
+    borderColor: 'transparent',
+    borderRadius: radii.surface,
     borderStyle: 'solid',
     borderWidth: '1px',
     boxShadow: shadows.raised,
@@ -1003,7 +919,7 @@ const styles = stylex.create({
       '@media (hover: none)': '3.25rem',
     },
     paddingBlock: space.x1,
-    paddingInline: space.x4,
+    paddingInline: space.x2,
   },
   leading: {
     alignItems: 'center',
@@ -1016,6 +932,7 @@ const styles = stylex.create({
     },
     overscrollBehaviorInline: 'contain',
     scrollbarWidth: 'none',
+    position: 'relative',
   },
   trailing: {
     alignItems: 'center',
@@ -1024,25 +941,13 @@ const styles = stylex.create({
     justifyContent: 'flex-end',
     minInlineSize: 0,
   },
-  selectors: {
-    alignItems: 'center',
-    display: 'flex',
-    flex: '0 0 auto',
-    gap: space.x1,
-    inlineSize: 'max-content',
-    minInlineSize: 0,
-  },
-  desktopOnly: {
-    display: {
-      default: 'none',
-      '@media (min-width: 40rem)': 'inline-flex',
-    },
-  },
-  mobileOnly: {
-    display: {
-      default: 'inline-flex',
-      '@media (min-width: 40rem)': 'none',
-    },
+  menuHosts: {
+    blockSize: 0,
+    insetBlockEnd: '100%',
+    insetInlineStart: 0,
+    pointerEvents: 'none',
+    position: 'absolute',
+    visibility: 'hidden',
   },
   selection: {
     color: colors.textMuted,

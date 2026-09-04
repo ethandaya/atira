@@ -176,7 +176,7 @@ const styles = stylex.create({
   popup: {
     backgroundColor: colors.surfaceRaised,
     borderColor: colors.borderStrong,
-    borderRadius: radii.surface,
+    borderRadius: radii.popover,
     borderStyle: 'solid',
     borderWidth: '1px',
     boxShadow: shadows.overlay,

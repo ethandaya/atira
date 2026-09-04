@@ -222,13 +222,20 @@ test('uses commands, references, and every attachment input path', async ({ page
   await page.goto('/?fixture=workflow')
   const message = page.getByRole('textbox', { name: 'Message' })
 
-  await page.getByRole('combobox', { name: 'Commands' }).click()
+  await expect(page.getByRole('combobox', { name: 'Model' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Attach' })).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Agent' })).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Variant' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Composer actions' }).click()
+  await page.getByRole('menuitem', { name: 'Commands' }).click()
   const commandInput = page.locator('[data-slot="filter-menu-popup"] input')
   await commandInput.fill('audit')
   await commandInput.press('Enter')
   await expect(message).toHaveValue('/audit ')
 
-  await page.getByRole('combobox', { name: 'References' }).click()
+  await page.getByRole('button', { name: 'Composer actions' }).click()
+  await page.getByRole('menuitem', { name: 'References' }).click()
   const referenceInput = page.locator('[data-slot="filter-menu-popup"] input')
   await referenceInput.fill('demo')
   await referenceInput.press('Enter')
