@@ -3,6 +3,53 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+test('presents an accessible ChatGPT device sign-in flow', async ({ page }) => {
+  await page.route('**/api/runtime', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      json: { available: true, model: 'test-model', runtime: 'Anthropic' },
+    })
+  })
+  await page.route('**/api/auth/chatgpt**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    await route.fulfill({
+      contentType: 'application/json',
+      json: path.endsWith('/start')
+        ? {
+            expiresAt: Date.now() + 900_000,
+            pollAfterMs: 60_000,
+            state: 'pending',
+            userCode: 'ABCD-EFGH',
+            verificationUrl: 'https://auth.openai.com/codex/device',
+          }
+        : { state: 'signed_out' },
+    })
+  })
+
+  await page.goto('/')
+  const trigger = page.getByRole('button', { name: 'Sign in', exact: true })
+  await trigger.click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.getByRole('button', { name: 'Sign in with ChatGPT' }).click()
+  await expect(page.getByText('ABCD-EFGH')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Continue to OpenAI' })).toHaveAttribute(
+    'href',
+    'https://auth.openai.com/codex/device',
+  )
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText(
+    'Waiting for authorization',
+  )
+
+  const results = await new AxeBuilder({ page })
+    .include('[data-slot="dialog-content"]')
+    .analyze()
+  expect(results.violations).toEqual([])
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Finish sign in' })).toBeFocused()
+})
+
 test('preserves detached scroll and history anchors', async ({ page }) => {
   await page.goto('/?fixture=workflow')
   await expect(page.locator('[data-slot="turn"]')).toHaveCount(18)

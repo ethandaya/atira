@@ -6,7 +6,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button } from '@pretty-amped/primitives'
+import { Button, Dialog } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Profiler, useEffect, useState, useSyncExternalStore } from 'react'
 
@@ -20,6 +20,19 @@ import {
 
 type Theme = 'light' | 'dark'
 type View = 'playground' | 'components'
+type ChatGptAuthState =
+  | { state: 'loading' }
+  | { state: 'signed_out' }
+  | { state: 'expired' }
+  | { state: 'authenticated'; expiresAt?: number }
+  | {
+      expiresAt: number
+      pollAfterMs: number
+      state: 'pending'
+      userCode: string
+      verificationUrl: string
+    }
+  | { message: string; state: 'error' }
 type FixtureMetrics = {
   commitDurations: number[]
   getNotificationCount: () => number
@@ -110,6 +123,12 @@ function DemoApp() {
       : runtime.status === 'loading'
         ? 'Connecting to runtime…'
         : 'Runtime unavailable'
+
+  async function refreshRuntime() {
+    await store.clear()
+    await store.initialize()
+  }
+
   return (
     <div
       data-theme={theme}
@@ -133,6 +152,12 @@ function DemoApp() {
             </span>
           </div>
           <nav aria-label="Demo views" {...stylex.props(styles.headerActions)}>
+            {runtime.status !== 'loading' && (
+              <ChatGptConnection
+                disabled={snapshot.activity.status !== 'idle'}
+                onConnectionChange={refreshRuntime}
+              />
+            )}
             {view === 'playground' && snapshot.turns.length > 0 && (
               <Button
                 disabled={snapshot.activity.status !== 'idle'}
@@ -189,6 +214,224 @@ function DemoApp() {
       )}
     </div>
   )
+}
+
+function ChatGptConnection({
+  disabled,
+  onConnectionChange,
+}: {
+  disabled: boolean
+  onConnectionChange: () => Promise<void>
+}) {
+  const [auth, setAuth] = useState<ChatGptAuthState>({ state: 'loading' })
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void authRequest('/api/auth/chatgpt').then(
+      (state) => active && setAuth(state),
+      () => active && setAuth({
+        message: 'ChatGPT sign-in could not be reached.',
+        state: 'error',
+      }),
+    )
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (auth.state !== 'pending') return
+    let active = true
+    const timer = window.setTimeout(() => {
+      void authRequest('/api/auth/chatgpt/poll', 'POST').then(
+        async (state) => {
+          if (!active) return
+          setAuth(state)
+          if (state.state === 'authenticated') await onConnectionChange()
+        },
+        () => active && setAuth({
+          message: 'ChatGPT sign-in could not be completed.',
+          state: 'error',
+        }),
+      )
+    }, Math.max(250, auth.pollAfterMs))
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [auth, onConnectionChange])
+
+  async function startLogin() {
+    if (busy || disabled) return
+    setBusy(true)
+    setCopied(false)
+    try {
+      const state = await authRequest('/api/auth/chatgpt/start', 'POST')
+      setAuth(state)
+      if (state.state === 'authenticated') await onConnectionChange()
+    } catch {
+      setAuth({
+        message: 'ChatGPT sign-in could not be started.',
+        state: 'error',
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function logout() {
+    if (busy || disabled) return
+    setBusy(true)
+    try {
+      const state = await authRequest('/api/auth/chatgpt/logout', 'POST')
+      setAuth(state)
+      await onConnectionChange()
+    } catch {
+      setAuth({
+        message: 'ChatGPT could not be disconnected.',
+        state: 'error',
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyCode(code: string) {
+    await navigator.clipboard.writeText(code)
+    setCopied(true)
+  }
+
+  const trigger = auth.state === 'authenticated'
+    ? 'ChatGPT'
+    : auth.state === 'pending'
+      ? 'Finish sign in'
+      : 'Sign in'
+  const action = auth.state === 'authenticated'
+    ? (
+        <Button
+          disabled={busy || disabled}
+          onClick={() => void logout()}
+          size="compact"
+          variant="outline"
+        >
+          {busy ? 'Disconnecting…' : 'Disconnect'}
+        </Button>
+      )
+    : auth.state === 'signed_out' || auth.state === 'expired' || auth.state === 'error'
+      ? (
+          <Button
+            disabled={busy || disabled}
+            onClick={() => void startLogin()}
+            size="compact"
+            variant="primary"
+          >
+            {busy ? 'Starting…' : auth.state === 'error' ? 'Try again' : 'Sign in with ChatGPT'}
+          </Button>
+        )
+      : undefined
+
+  return (
+    <Dialog
+      actions={action}
+      description="Use OpenAI’s device flow. Subscription credentials stay encrypted on this server and are never exposed to the browser."
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setCopied(false)
+      }}
+      open={open}
+      title="Connect ChatGPT"
+      trigger={trigger}
+    >
+      <div {...stylex.props(styles.authBody)}>
+        {auth.state === 'loading' && (
+          <p role="status" {...stylex.props(styles.authText)}>
+            Checking connection…
+          </p>
+        )}
+
+        {(auth.state === 'signed_out' || auth.state === 'expired') && (
+          <p {...stylex.props(styles.authText)}>
+            {auth.state === 'expired'
+              ? 'The sign-in code expired. Start again to get a new code.'
+              : 'Sign in with the ChatGPT account whose subscription you want to use.'}
+          </p>
+        )}
+
+        {auth.state === 'pending' && (
+          <>
+            <p {...stylex.props(styles.authText)}>
+              Open the OpenAI verification page, then enter this one-time code.
+            </p>
+            <div {...stylex.props(styles.authCodeRow)}>
+              <code {...stylex.props(styles.authCode)}>{auth.userCode}</code>
+              <Button
+                onClick={() => void copyCode(auth.userCode)}
+                size="compact"
+                variant="outline"
+              >
+                {copied ? 'Copied' : 'Copy code'}
+              </Button>
+            </div>
+            <a
+              href={auth.verificationUrl}
+              rel="noreferrer"
+              target="_blank"
+              {...stylex.props(styles.authLink)}
+            >
+              Continue to OpenAI
+            </a>
+            <p aria-live="polite" role="status" {...stylex.props(styles.authStatus)}>
+              {copied ? 'Code copied. Waiting for authorization…' : 'Waiting for authorization…'}
+            </p>
+          </>
+        )}
+
+        {auth.state === 'authenticated' && (
+          <p role="status" {...stylex.props(styles.authText)}>
+            Connected. New conversations use your ChatGPT subscription.
+          </p>
+        )}
+
+        {auth.state === 'error' && (
+          <p role="alert" {...stylex.props(styles.authError)}>{auth.message}</p>
+        )}
+      </div>
+    </Dialog>
+  )
+}
+
+async function authRequest(
+  path: string,
+  method: 'GET' | 'POST' = 'GET',
+): Promise<ChatGptAuthState> {
+  const response = await fetch(path, {
+    ...(method === 'POST'
+      ? { body: '{}', headers: { 'Content-Type': 'application/json' } }
+      : {}),
+    method,
+  })
+  const body: unknown = await response.json()
+  if (!response.ok || !isAuthState(body)) throw new Error()
+  return body
+}
+
+function isAuthState(value: unknown): value is ChatGptAuthState {
+  if (typeof value !== 'object' || value === null || !('state' in value)) return false
+  if (
+    value.state === 'signed_out' ||
+    value.state === 'expired' ||
+    value.state === 'authenticated'
+  ) {
+    return true
+  }
+  return value.state === 'pending' &&
+    'expiresAt' in value && typeof value.expiresAt === 'number' &&
+    'pollAfterMs' in value && typeof value.pollAfterMs === 'number' &&
+    'userCode' in value && typeof value.userCode === 'string' &&
+    'verificationUrl' in value && typeof value.verificationUrl === 'string'
 }
 
 function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
@@ -344,7 +587,10 @@ const styles = stylex.create({
   },
   identity: {
     alignItems: 'baseline',
-    display: 'flex',
+    display: {
+      default: 'none',
+      '@media (min-width: 36rem)': 'flex',
+    },
     gap: space.x2,
     minInlineSize: 0,
   },
@@ -415,6 +661,59 @@ const styles = stylex.create({
   },
   runtimeError: {
     color: colors.danger,
+  },
+  authBody: {
+    alignItems: 'flex-start',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x4,
+  },
+  authText: {
+    color: colors.text,
+    lineHeight: type.lineBody,
+    margin: 0,
+  },
+  authCodeRow: {
+    alignItems: 'center',
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: space.x3,
+  },
+  authCode: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    borderRadius: '0.375rem',
+    borderStyle: 'solid',
+    borderWidth: '1px',
+    color: colors.text,
+    fontFamily: type.familyMono,
+    fontSize: type.sizeInput,
+    fontWeight: type.weightStrong,
+    letterSpacing: '0.08em',
+    paddingBlock: space.x2,
+    paddingInline: space.x3,
+  },
+  authLink: {
+    color: colors.text,
+    fontWeight: type.weightMedium,
+    outlineColor: { default: 'transparent', ':focus-visible': colors.focus },
+    outlineOffset: '3px',
+    outlineStyle: 'solid',
+    outlineWidth: '3px',
+    textDecorationLine: 'underline',
+    textDecorationThickness: '1px',
+    textUnderlineOffset: '3px',
+  },
+  authStatus: {
+    color: colors.textMuted,
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineBody,
+    margin: 0,
+  },
+  authError: {
+    color: colors.danger,
+    lineHeight: type.lineBody,
+    margin: 0,
   },
 })
 
