@@ -104,7 +104,7 @@ export function ComponentGallery() {
         <section aria-labelledby="primitives-heading" {...stylex.props(styles.group)}>
           <GroupHeading
             id="primitives-heading"
-            title="Primitives"
+            title="Foundations and primitives"
             description="Owned React primitives with Base UI behavior and StyleX styling."
           />
 
@@ -465,7 +465,7 @@ export function ComponentGallery() {
         <section aria-labelledby="agent-heading" {...stylex.props(styles.group)}>
           <GroupHeading
             id="agent-heading"
-            title="Agent state"
+            title="Agent workflows"
             description="Legible progress, tool evidence, permission, and outcomes."
           />
 
@@ -626,7 +626,7 @@ export function ComponentGallery() {
         <section aria-labelledby="chat-heading" {...stylex.props(styles.group)}>
           <GroupHeading
             id="chat-heading"
-            title="Chat system"
+            title="Full compositions"
             description="Protocol-neutral turn rendering, requests, session state, and structured input."
           />
 
@@ -1337,9 +1337,9 @@ const styles = stylex.create({
     gap: space.x1,
   },
   groupTitle: {
-    fontSize: type.sizeTitle,
+    fontSize: type.sizeHeading,
     fontWeight: type.weightStrong,
-    lineHeight: type.lineCompact,
+    lineHeight: type.lineHeading,
     margin: 0,
   },
   groupDescription: {

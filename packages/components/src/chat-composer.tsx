@@ -12,10 +12,12 @@ import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
 import {
   colors,
   radii,
+  shadows,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import {
+  ActionMenu,
   Button,
   FilterMenu,
   IconButton,
@@ -25,6 +27,7 @@ import {
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
+  MoreHorizontal,
   Paperclip,
   SendHorizontal,
   Square,
@@ -129,6 +132,24 @@ export function ChatComposer({
     (value.trim().length > 0 || draft.attachments.some((item) => item.state === 'ready'))
   const showStop =
     activity.status !== 'idle' && capabilities.canStop && !canSubmit
+  const mobileActions = [
+    ...(capabilities.canAttach && onFilesAdd
+      ? [{
+          icon: <Paperclip aria-hidden="true" size={15} strokeWidth={1.75} />,
+          id: 'attach',
+          label: 'Attach files',
+          onSelect: () => fileInputRef.current?.click(),
+        }]
+      : []),
+    ...(capabilities.canUseShell
+      ? [{
+          icon: <Terminal aria-hidden="true" size={15} strokeWidth={1.75} />,
+          id: 'shell',
+          label: draft.mode === 'shell' ? 'Use prompt mode' : 'Use shell mode',
+          onSelect: () => setMode(draft.mode === 'shell' ? 'prompt' : 'shell'),
+        }]
+      : []),
+  ]
 
   function updateText(next: string) {
     const control = textareaRef.current
@@ -381,14 +402,16 @@ export function ChatComposer({
                 type="file"
                 {...stylex.props(styles.fileInput)}
               />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                size="compact"
-                variant="quiet"
-              >
-                <Paperclip aria-hidden="true" size={14} strokeWidth={1.75} />
-                Attach
-              </Button>
+              <span {...stylex.props(styles.desktopOnly)}>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  size="compact"
+                  variant="quiet"
+                >
+                  <Paperclip aria-hidden="true" size={14} strokeWidth={1.75} />
+                  Attach
+                </Button>
+              </span>
             </>
           )}
           {commands.length > 0 && draft.mode === 'prompt' && (
@@ -432,26 +455,29 @@ export function ChatComposer({
             />
           )}
           {capabilities.canUseShell && (
-            <Button
-              aria-pressed={draft.mode === 'shell'}
-              onClick={() => setMode(draft.mode === 'shell' ? 'prompt' : 'shell')}
-              size="compact"
-              variant="quiet"
-            >
-              <Terminal aria-hidden="true" size={14} strokeWidth={1.75} />
-              {draft.mode === 'shell' ? 'Prompt' : 'Shell'}
-            </Button>
+            <span {...stylex.props(styles.desktopOnly)}>
+              <Button
+                aria-pressed={draft.mode === 'shell'}
+                onClick={() => setMode(draft.mode === 'shell' ? 'prompt' : 'shell')}
+                size="compact"
+                variant="quiet"
+              >
+                <Terminal aria-hidden="true" size={14} strokeWidth={1.75} />
+                {draft.mode === 'shell' ? 'Prompt' : 'Shell'}
+              </Button>
+            </span>
+          )}
+          {mobileActions.length > 0 && (
+            <span {...stylex.props(styles.mobileOnly)}>
+              <ActionMenu
+                items={mobileActions}
+                label="More composer actions"
+                side="top"
+                trigger={<MoreHorizontal aria-hidden="true" size={18} strokeWidth={1.75} />}
+              />
+            </span>
           )}
           {actions}
-        </div>
-
-        <div
-          data-slot="chat-composer-model-controls"
-          {...stylex.props(
-            styles.trailing,
-            hasModelControls && styles.trailingWithSelectors,
-          )}
-        >
           {hasModelControls && (
             <div data-slot="chat-composer-selectors" {...stylex.props(styles.selectors)}>
               {capabilities.agents.length > 0 && (
@@ -524,6 +550,12 @@ export function ChatComposer({
               )}
             </div>
           )}
+        </div>
+
+        <div
+          data-slot="chat-composer-submit-controls"
+          {...stylex.props(styles.trailing)}
+        >
           {showStop ? (
             <IconButton
               aria-label="Stop"
@@ -873,11 +905,12 @@ function replaceDraftText(
 
 const styles = stylex.create({
   root: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderColor: colors.border,
     borderRadius: '0.75rem',
     borderStyle: 'solid',
     borderWidth: '1px',
+    boxShadow: shadows.raised,
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
@@ -894,7 +927,7 @@ const styles = stylex.create({
     borderColor: colors.warning,
   },
   dragging: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceHover,
     borderColor: colors.focus,
   },
   fileInput: {
@@ -902,47 +935,52 @@ const styles = stylex.create({
   },
   toolbar: {
     alignItems: 'center',
-    display: 'flex',
+    display: 'grid',
     gap: space.x2,
-    flexWrap: 'wrap',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
     justifyContent: 'space-between',
-    minBlockSize: '2.75rem',
+    minBlockSize: {
+      default: '2.5rem',
+      '@media (hover: none)': '3.25rem',
+    },
     paddingBlock: space.x1,
     paddingInline: space.x2,
   },
   leading: {
     alignItems: 'center',
     display: 'flex',
-    flex: '1 1 auto',
-    gap: space.x1,
-    flexWrap: 'wrap',
-    minInlineSize: 0,
-  },
-  trailing: {
-    alignItems: 'center',
-    display: 'flex',
-    flex: '0 1 auto',
-    flexWrap: 'nowrap',
-    gap: space.x1,
-    justifyContent: 'flex-end',
-    marginInlineStart: 'auto',
-    minInlineSize: 0,
-  },
-  trailingWithSelectors: {
-    inlineSize: {
-      default: '100%',
-      '@media (min-width: 40rem)': 'auto',
-    },
-  },
-  selectors: {
-    alignItems: 'center',
-    display: 'flex',
-    flex: '1 1 auto',
     gap: space.x1,
     minInlineSize: 0,
     overflowX: 'auto',
     overscrollBehaviorInline: 'contain',
     scrollbarWidth: 'none',
+  },
+  trailing: {
+    alignItems: 'center',
+    display: 'flex',
+    gap: space.x1,
+    justifyContent: 'flex-end',
+    minInlineSize: 0,
+  },
+  selectors: {
+    alignItems: 'center',
+    display: 'flex',
+    flex: '0 0 auto',
+    gap: space.x1,
+    inlineSize: 'max-content',
+    minInlineSize: 0,
+  },
+  desktopOnly: {
+    display: {
+      default: 'none',
+      '@media (min-width: 40rem)': 'inline-flex',
+    },
+  },
+  mobileOnly: {
+    display: {
+      default: 'inline-flex',
+      '@media (min-width: 40rem)': 'none',
+    },
   },
   selection: {
     color: colors.textMuted,

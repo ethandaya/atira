@@ -641,7 +641,7 @@ const styles = stylex.create({
     alignItems: 'center',
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x6,
+    gap: space.x4,
     inlineSize: '100%',
     marginInline: 'auto',
     maxInlineSize: '40rem',
@@ -654,9 +654,9 @@ const styles = stylex.create({
     gap: space.x2,
   },
   emptyTitle: {
-    fontSize: type.sizeBody,
+    fontSize: type.sizeHeading,
     fontWeight: type.weightStrong,
-    lineHeight: type.lineCompact,
+    lineHeight: type.lineHeading,
     margin: 0,
   },
   emptyDescription: {

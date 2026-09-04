@@ -451,7 +451,7 @@ const styles = stylex.create({
     paddingInlineStart: space.x3,
   },
   inlineCode: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceInset,
     borderRadius: radii.control,
     fontFamily: type.familyMono,
     fontSize: '0.9em',
@@ -459,7 +459,7 @@ const styles = stylex.create({
     paddingInline: '0.35em',
   },
   codeBlock: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceInset,
     borderColor: colors.border,
     borderRadius: radii.surface,
     borderStyle: 'solid',
@@ -502,7 +502,7 @@ const styles = stylex.create({
     inlineSize: '100%',
   },
   tableHead: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceInset,
   },
   tableCell: {
     borderBlockEndColor: colors.border,

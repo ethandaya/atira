@@ -54,7 +54,7 @@ type WindowRange = { end: number; start: number }
 export function Timeline({
   activity,
   empty = 'No messages yet.',
-  estimatedTurnGap = 24,
+  estimatedTurnGap = 16,
   estimatedTurnHeight = 320,
   history,
   label,
@@ -551,7 +551,7 @@ const styles = stylex.create({
   list: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x6,
+    gap: space.x4,
     listStyle: 'none',
     margin: 0,
     padding: 0,
@@ -563,10 +563,11 @@ const styles = stylex.create({
     flex: 1,
     fontFamily: type.family,
     fontSize: type.sizeBody,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     lineHeight: type.lineBody,
     margin: 0,
-    paddingBlock: space.x6,
+    paddingBlockEnd: space.x4,
+    paddingBlockStart: space.x8,
     textAlign: 'center',
   },
   historyControl: {

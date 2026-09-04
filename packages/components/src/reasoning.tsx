@@ -61,11 +61,14 @@ export function Reasoning({
         variant="plain"
         summary={(
           <span data-slot="reasoning-summary" {...stylex.props(styles.summary)}>
-            {isThinking && typeof summary === 'string' ? (
-              <Shimmer>{summary}</Shimmer>
-            ) : (
-              summary
-            )}
+            <span aria-hidden="true" {...stylex.props(styles.railAnchor)} />
+            <span>
+              {isThinking && typeof summary === 'string' ? (
+                <Shimmer>{summary}</Shimmer>
+              ) : (
+                summary
+              )}
+            </span>
           </span>
         )}
       >
@@ -93,8 +96,18 @@ const styles = stylex.create({
     display: 'inline-flex',
     gap: space.x2,
   },
+  railAnchor: {
+    blockSize: '0.875rem',
+    flexShrink: 0,
+    inlineSize: '0.875rem',
+  },
   content: {
+    borderInlineStartColor: colors.border,
+    borderInlineStartStyle: 'solid',
+    borderInlineStartWidth: '1px',
+    marginInlineStart: '0.4375rem',
     maxInlineSize: '65ch',
+    paddingInlineStart: space.x4,
     whiteSpace: 'pre-wrap',
   },
 })

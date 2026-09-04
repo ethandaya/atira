@@ -206,25 +206,37 @@ function getStatusText(state: PermissionRequestState) {
 
 const styles = stylex.create({
   root: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    borderInlineStartColor: colors.borderStrong,
     borderRadius: radii.surface,
     borderStyle: 'solid',
-    borderWidth: '1px',
+    borderWidth: 0,
+    borderInlineStartWidth: '2px',
     boxSizing: 'border-box',
     color: colors.text,
     display: 'flex',
     flexDirection: 'column',
     fontFamily: type.family,
-    gap: 0,
+    gap: space.x2,
     inlineSize: '100%',
-    overflow: 'hidden',
+    padding: space.x3,
+    '@media (min-width: 40rem)': {
+      alignItems: 'center',
+      columnGap: space.x4,
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr) auto',
+    },
   },
   content: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x2,
-    padding: space.x4,
+    gap: space.x1,
+    minInlineSize: 0,
+    '@media (min-width: 40rem)': {
+      gridColumn: 1,
+      gridRow: 1,
+    },
   },
   title: {
     fontSize: type.sizeTitle,
@@ -255,19 +267,17 @@ const styles = stylex.create({
       default: 'stretch',
       '@media (min-width: 40rem)': 'center',
     },
-    backgroundColor: colors.surface,
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
     display: 'flex',
     flexDirection: {
       default: 'column',
       '@media (min-width: 40rem)': 'row',
     },
-    gap: space.x3,
+    gap: space.x2,
     justifyContent: 'space-between',
-    paddingBlock: space.x3,
-    paddingInline: space.x4,
+    '@media (min-width: 40rem)': {
+      gridColumn: 2,
+      gridRow: 1,
+    },
   },
   status: {
     color: colors.textMuted,
@@ -277,10 +287,9 @@ const styles = stylex.create({
   },
   actions: {
     display: 'flex',
-    flexDirection: {
-      default: 'column-reverse',
-      '@media (min-width: 40rem)': 'row',
-    },
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: space.x2,
+    justifyContent: 'flex-end',
   },
 })

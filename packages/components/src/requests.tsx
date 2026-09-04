@@ -82,9 +82,9 @@ export function PermissionPrompt({
       data-permission-id={request.id}
       data-slot="permission-prompt"
       data-state={request.state.status}
-      {...stylex.props(styles.request)}
+      {...stylex.props(styles.request, styles.permissionRequest)}
     >
-      <div {...stylex.props(styles.requestCopy)}>
+      <div {...stylex.props(styles.requestCopy, styles.permissionCopy)}>
         <h2
           id={titleId}
           data-request-heading
@@ -109,7 +109,7 @@ export function PermissionPrompt({
         </p>
       )}
 
-      <div {...stylex.props(styles.requestFooter)}>
+      <div {...stylex.props(styles.requestFooter, styles.permissionFooter)}>
         <p role="status" {...stylex.props(styles.status)}>
           {permissionStatus(request)}
         </p>
@@ -771,24 +771,40 @@ const styles = stylex.create({
     inlineSize: '100%',
   },
   request: {
-    backgroundColor: colors.surface,
-    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    borderInlineStartColor: colors.borderStrong,
     borderRadius: radii.surface,
     borderStyle: 'solid',
-    borderWidth: '1px',
+    borderWidth: 0,
+    borderInlineStartWidth: '2px',
     boxSizing: 'border-box',
     color: colors.text,
     display: 'flex',
     flexDirection: 'column',
     fontFamily: type.family,
+    gap: space.x2,
     inlineSize: '100%',
-    overflow: 'hidden',
+    padding: space.x3,
+  },
+  permissionRequest: {
+    '@media (min-width: 40rem)': {
+      alignItems: 'center',
+      columnGap: space.x4,
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr) auto',
+    },
   },
   requestCopy: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x2,
-    padding: space.x4,
+    gap: space.x1,
+  },
+  permissionCopy: {
+    '@media (min-width: 40rem)': {
+      gridColumn: 1,
+      gridRow: 1,
+    },
   },
   title: {
     fontSize: type.sizeTitle,
@@ -826,18 +842,19 @@ const styles = stylex.create({
       default: 'stretch',
       '@media (min-width: 40rem)': 'center',
     },
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
     display: 'flex',
     flexDirection: {
       default: 'column',
       '@media (min-width: 40rem)': 'row',
     },
-    gap: space.x3,
+    gap: space.x2,
     justifyContent: 'space-between',
-    paddingBlock: space.x3,
-    paddingInline: space.x4,
+  },
+  permissionFooter: {
+    '@media (min-width: 40rem)': {
+      gridColumn: 2,
+      gridRow: 1,
+    },
   },
   status: {
     color: colors.textMuted,
@@ -846,13 +863,13 @@ const styles = stylex.create({
     margin: 0,
   },
   error: {
-    backgroundColor: colors.dangerSurface,
     color: colors.danger,
     fontSize: type.sizeSmall,
     lineHeight: type.lineBody,
     margin: 0,
-    paddingBlock: space.x2,
-    paddingInline: space.x4,
+    '@media (min-width: 40rem)': {
+      gridColumn: '1 / -1',
+    },
   },
   actions: {
     alignItems: 'center',
@@ -865,7 +882,7 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     gap: space.x5,
-    paddingBlockStart: space.x2,
+    paddingBlockStart: space.x1,
   },
   choiceQuestion: {
     display: 'flex',

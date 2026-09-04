@@ -136,9 +136,9 @@ const articleStyles = stylex.create({
 
 const contentStyles = stylex.create({
   user: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radii.surface,
-    color: colors.onAccent,
+    color: colors.text,
     paddingBlock: space.x2,
     paddingInline: space.x3,
   },

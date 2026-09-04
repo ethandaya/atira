@@ -161,10 +161,13 @@ const styles = stylex.create({
     borderRadius: 0,
     borderStyle: 'solid',
     borderWidth: 0,
-    minBlockSize: '3.25rem',
+    minBlockSize: {
+      default: '2.75rem',
+      '@media (hover: none)': '3rem',
+    },
     outlineWidth: 0,
     resize: 'none',
-    paddingBlock: space.x3,
+    paddingBlock: space.x2,
     paddingInline: space.x4,
   },
   invalid: {

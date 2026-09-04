@@ -167,7 +167,7 @@ const styles = stylex.create({
   article: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x3,
+    gap: space.x2,
     inlineSize: '100%',
   },
   user: {
@@ -182,7 +182,7 @@ const styles = stylex.create({
   assistant: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x3,
+    gap: space.x2,
     minInlineSize: 0,
   },
   assistantMessage: {

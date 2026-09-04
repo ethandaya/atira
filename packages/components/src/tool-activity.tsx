@@ -68,17 +68,27 @@ export function ToolActivity({
       state.status === 'cancelled')
   const header = (
     <span data-slot="tool-activity-header" {...stylex.props(styles.header)}>
+      <span
+        data-slot="tool-activity-state"
+        {...stylex.props(
+          styles.state,
+          state.status === 'failed' && styles.stateDanger,
+        )}
+      >
+        {terminalMark}
+        {!active && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
+      </span>
       <span {...stylex.props(styles.heading)}>
         <span
           data-slot="tool-activity-summary"
-          {...stylex.props(styles.summary)}
+          {...stylex.props(
+            styles.summary,
+            !active && state.status !== 'failed' && styles.summaryComplete,
+            state.status === 'failed' && styles.summaryFailed,
+          )}
         >
           {active ? <Shimmer>{summary}</Shimmer> : summary}
         </span>
-      </span>
-      <span data-slot="tool-activity-state" {...stylex.props(styles.state)}>
-        {active ? null : (terminalMark ?? stateLabel)}
-        {terminalMark && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
       </span>
     </span>
   )
@@ -191,8 +201,9 @@ const styles = stylex.create({
   staticHeader: {
     alignItems: 'center',
     boxSizing: 'border-box',
-    display: 'flex',
-    gap: space.x2,
+    display: 'grid',
+    gap: space.x1,
+    gridTemplateColumns: 'minmax(0, 1fr) 1rem',
     inlineSize: 'fit-content',
     maxInlineSize: '100%',
     minBlockSize: {
@@ -209,8 +220,9 @@ const styles = stylex.create({
   },
   header: {
     alignItems: 'center',
-    display: 'flex',
+    display: 'grid',
     gap: space.x2,
+    gridTemplateColumns: '1rem minmax(0, 1fr)',
     maxInlineSize: '100%',
     minInlineSize: 0,
   },
@@ -231,6 +243,13 @@ const styles = stylex.create({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+  },
+  summaryComplete: {
+    color: colors.textMuted,
+    fontWeight: type.weightRegular,
+  },
+  summaryFailed: {
+    color: colors.danger,
   },
   state: {
     alignItems: 'center',
@@ -257,12 +276,19 @@ const styles = stylex.create({
     blockSize: '0.875rem',
     inlineSize: '0.875rem',
   },
+  stateDanger: {
+    color: colors.danger,
+  },
   evidence: {
+    borderInlineStartColor: colors.border,
+    borderInlineStartStyle: 'solid',
+    borderInlineStartWidth: '1px',
     color: colors.textMuted,
+    marginInlineStart: '0.4375rem',
     overflow: 'auto',
     paddingBlock: space.x2,
     paddingInlineEnd: space.x2,
-    paddingInlineStart: space.x6,
+    paddingInlineStart: space.x4,
   },
   error: {
     color: colors.danger,
@@ -270,5 +296,6 @@ const styles = stylex.create({
     lineHeight: type.lineBody,
     margin: 0,
     paddingBlock: space.x2,
+    paddingInlineStart: '1.375rem',
   },
 })

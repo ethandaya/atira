@@ -152,7 +152,7 @@ function getCopyAnnouncement(status: CopyState['status']): ReactNode {
 
 const styles = stylex.create({
   root: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceInset,
     borderColor: colors.border,
     borderRadius: radii.surface,
     borderStyle: 'solid',
@@ -166,7 +166,7 @@ const styles = stylex.create({
   },
   header: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderBlockEndColor: colors.border,
     borderBlockEndStyle: 'solid',
     borderBlockEndWidth: '1px',

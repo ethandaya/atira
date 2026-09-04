@@ -11,6 +11,7 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import { Button, Disclosure } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { Check } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
 import { CodeBlock } from './code-block'
@@ -62,9 +63,14 @@ export function ContextToolGroup({ parts }: ContextToolGroupProps) {
         defaultOpen={running}
         summary={
           <span {...stylex.props(styles.groupSummary)}>
-            {running ? 'Loading context' : 'Context loaded'}
-            <span {...stylex.props(styles.muted)}>
-              {parts.length} operation{parts.length === 1 ? '' : 's'}
+            <span aria-hidden="true" {...stylex.props(styles.groupMark)}>
+              {!running && <Check size={14} strokeWidth={1.75} />}
+            </span>
+            <span {...stylex.props(styles.groupLabel)}>
+              {running ? 'Loading context' : 'Context loaded'}
+              <span {...stylex.props(styles.muted)}>
+                {parts.length} operation{parts.length === 1 ? '' : 's'}
+              </span>
             </span>
           </span>
         }
@@ -641,12 +647,8 @@ function capitalize(value: string) {
 
 const styles = stylex.create({
   subagent: {
-    borderInlineStartColor: colors.border,
-    borderInlineStartStyle: 'solid',
-    borderInlineStartWidth: '1px',
     boxSizing: 'border-box',
     inlineSize: '100%',
-    paddingInlineStart: space.x2,
   },
   group: {
     display: 'flex',
@@ -654,15 +656,30 @@ const styles = stylex.create({
     gap: space.x1,
   },
   groupSummary: {
-    alignItems: 'baseline',
+    alignItems: 'center',
     color: colors.text,
-    display: 'flex',
+    display: 'grid',
     flex: 1,
     fontFamily: type.family,
     fontSize: type.sizeSmall,
     fontWeight: type.weightMedium,
     gap: space.x2,
+    gridTemplateColumns: '0.875rem minmax(0, 1fr)',
     lineHeight: type.lineBody,
+    minInlineSize: 0,
+  },
+  groupMark: {
+    alignItems: 'center',
+    blockSize: '0.875rem',
+    color: colors.textMuted,
+    display: 'inline-flex',
+    inlineSize: '0.875rem',
+    justifyContent: 'center',
+  },
+  groupLabel: {
+    alignItems: 'baseline',
+    display: 'flex',
+    gap: space.x2,
     minInlineSize: 0,
   },
   groupItems: {
@@ -672,8 +689,8 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     gap: space.x1,
-    marginInlineStart: space.x2,
-    paddingInlineStart: space.x3,
+    marginInlineStart: '0.4375rem',
+    paddingInlineStart: space.x4,
   },
   muted: {
     color: colors.textMuted,
