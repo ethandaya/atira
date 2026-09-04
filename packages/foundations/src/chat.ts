@@ -60,6 +60,12 @@ export type TaskTranscript = Readonly<{
   steps: readonly TaskTranscriptStep[]
 }>
 
+export type TaskActivity = Readonly<{
+  detail?: string
+  summary: string
+  tool?: string
+}>
+
 export type SelectorOption = Readonly<{
   id: string
   label: string
@@ -281,6 +287,7 @@ export type ToolPresentation =
       operation: 'edit' | 'write' | 'patch'
     }
   | {
+      activity?: TaskActivity
       agent?: AgentIdentity
       blockers?: readonly string[]
       childSessionId?: string

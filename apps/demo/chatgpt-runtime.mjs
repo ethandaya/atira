@@ -30,7 +30,7 @@ export function createChatGptSubagentTool({
     formatInput: (value) => subagentTask(value),
     formatOutput: (value) =>
       isRecord(value) ? stringValue(value.result) || 'Subagent completed.' : 'Subagent completed.',
-    handler: async (input, { invocation, signal } = {}) => {
+    handler: async (input, { invocation, onProgress, signal } = {}) => {
       const task = subagentTask(input)
       if (!task) throw new Error('A subagent task is required.')
       const role = subagentRole(input)
@@ -41,7 +41,12 @@ export function createChatGptSubagentTool({
         input: task,
         instructions: subagentInstructions(role),
         model,
-        onEvent: transcript.onEvent,
+        onEvent(event) {
+          if (!transcript.onEvent(event)) return
+          const activity = transcript.activity()
+          if (invocation && activity) invocation.activity = activity
+          onProgress?.()
+        },
         request,
         session: createChatGptSession(),
         sessionId: childSessionId,
@@ -150,7 +155,18 @@ export async function runChatGptTurn({
 
       try {
         if (!tool || !callId) throw new Error('The requested tool is unavailable.')
-        const value = await tool.handler(args, { invocation, signal })
+        const value = await tool.handler(args, {
+          invocation,
+          onProgress: () =>
+            onEvent({
+              id,
+              ...invocation,
+              summary: tool.startedSummary || `Running ${toolName}`,
+              tool: toolName,
+              type: 'tool-progress',
+            }),
+          signal,
+        })
         turnItems.push({
           call_id: callId,
           output: JSON.stringify(value),
@@ -374,11 +390,15 @@ function subagentIdentity(role) {
 }
 
 function createTaskTranscript() {
+  let currentActivity
   let reasoning = ''
   const steps = []
   const stepsById = new Map()
 
   return {
+    activity() {
+      return currentActivity
+    },
     complete(result) {
       return {
         ...(reasoning.trim() ? { reasoning: reasoning.trim() } : {}),
@@ -390,7 +410,16 @@ function createTaskTranscript() {
       if (!isRecord(event)) return
       if (event.type === 'reasoning-delta') {
         reasoning += stringValue(event.text)
-        return
+        if (currentActivity?.summary === 'Thinking') return false
+        currentActivity = {
+          summary: 'Thinking',
+        }
+        return true
+      }
+      if (event.type === 'assistant-delta') {
+        if (currentActivity?.summary === 'Writing response') return false
+        currentActivity = { summary: 'Writing response' }
+        return true
       }
       if (event.type === 'tool-started') {
         const id = stringValue(event.id)
@@ -404,9 +433,13 @@ function createTaskTranscript() {
         }
         steps.push(step)
         stepsById.set(id, step)
-        return
+        currentActivity = {
+          summary: step.summary,
+          tool: step.tool,
+        }
+        return true
       }
-      if (event.type !== 'tool-completed') return
+      if (event.type !== 'tool-completed') return false
 
       const id = stringValue(event.id)
       const step = stepsById.get(id)
@@ -415,6 +448,11 @@ function createTaskTranscript() {
       step.summary = stringValue(event.summary) || step.summary
       if (stringValue(event.output)) step.output = stringValue(event.output)
       if (stringValue(event.error)) step.error = stringValue(event.error)
+      currentActivity = {
+        summary: step.summary,
+        tool: step.tool,
+      }
+      return true
     },
   }
 }

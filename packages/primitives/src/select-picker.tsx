@@ -57,7 +57,7 @@ export function SelectPicker({
         }
       >
         <Select.Value placeholder={placeholder} />
-        <Select.Icon aria-hidden="true">
+        <Select.Icon aria-hidden="true" {...stylex.props(styles.iconSlot)}>
           <ChevronDown
             strokeWidth={1.75}
             {...stylex.props(styles.icon)}
@@ -136,7 +136,7 @@ const styles = stylex.create({
     display: 'inline-flex',
     fontFamily: type.family,
     fontSize: type.sizeSmall,
-    gap: space.x1,
+    gap: space.x2,
     justifyContent: 'space-between',
     lineHeight: type.lineCompact,
     maxInlineSize: '12rem',
@@ -167,6 +167,15 @@ const styles = stylex.create({
     blockSize: '0.875rem',
     flexShrink: 0,
     inlineSize: '0.875rem',
+  },
+  iconSlot: {
+    alignItems: 'center',
+    blockSize: '1rem',
+    display: 'inline-flex',
+    flexShrink: 0,
+    inlineSize: '1rem',
+    justifyContent: 'center',
+    lineHeight: 0,
   },
   positioner: {
     maxInlineSize: 'min(20rem, var(--available-width))',

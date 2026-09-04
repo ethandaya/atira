@@ -116,6 +116,40 @@ describe('chat components', () => {
     expect(onOpenChild).toHaveBeenCalledWith('child-session')
   })
 
+  it('shows the current activity for a running subagent', () => {
+    const part: ToolPart = {
+      callId: 'running-subagent-call',
+      id: 'running-subagent-part',
+      presentation: {
+        activity: {
+          summary: 'Searching design references',
+          tool: 'search_web',
+        },
+        agent: { id: 'research', label: 'Research agent' },
+        childSessionId: 'running-child-session',
+        kind: 'task',
+      },
+      state: {
+        input: { description: 'Compare transcript density patterns' },
+        startedAt: 1,
+        status: 'running',
+      },
+      toolName: 'run_subagent',
+      type: 'tool',
+    }
+
+    const { container } = render(<TaskTool part={part} />)
+
+    expect(container.textContent).toContain(
+      'Research · Searching design references',
+    )
+    expect(
+      container
+        .querySelector('[data-slot="subagent-activity"]')
+        ?.getAttribute('data-activity-tool'),
+    ).toBe('search_web')
+  })
+
   it('shows only one turn-level activity indicator', () => {
     const runningTurn = {
       assistant: [

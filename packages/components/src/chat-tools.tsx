@@ -250,10 +250,21 @@ export function TaskTool({
   const childSessionId = presentation?.childSessionId
   const blockers = presentation?.blockers ?? []
   const agent = presentation?.agent
+  const activity = presentation?.activity
   const transcript = presentation?.transcript
+  const running = !isTerminal(part.state)
+  const agentLabel = agent?.label ?? 'Subagent'
+  const summary = `${
+    running ? agentLabel.replace(/\s+agent$/i, '') : agentLabel
+  } · ${
+    running && activity ? activity.summary : description
+  }`
 
   return (
     <div
+      data-activity-detail={running ? activity?.detail : undefined}
+      data-activity-summary={running ? activity?.summary : undefined}
+      data-activity-tool={running ? activity?.tool : undefined}
       data-agent-id={agent?.id}
       data-child-session-id={childSessionId}
       data-slot="subagent-activity"
@@ -264,7 +275,8 @@ export function TaskTool({
         {...(defaultOpen === undefined ? {} : { defaultOpen })}
         id={part.id}
         state={activityState(part.state)}
-        summary={`${agent?.label ?? 'Subagent'} · ${description}`}
+        summary={summary}
+        title={summary}
         tool={part.toolName}
       >
         {transcript ? (

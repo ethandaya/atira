@@ -170,10 +170,10 @@ const styles = stylex.create({
   option: {
     alignItems: 'flex-start',
     backgroundColor: {
-      default: colors.surfaceMuted,
+      default: 'transparent',
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
       },
     },
     borderRadius: radii.control,
@@ -184,7 +184,11 @@ const styles = stylex.create({
     paddingBlock: space.x2,
     paddingInline: space.x2,
     ':has([data-checked])': {
-      backgroundColor: colors.surfaceSelected,
+      backgroundColor: colors.surfaceMuted,
+    },
+    ':has([data-disabled])': {
+      cursor: 'not-allowed',
+      opacity: 0.5,
     },
   },
   control: {
@@ -229,26 +233,25 @@ const styles = stylex.create({
   },
   radioIndicator: {
     backgroundColor: colors.accent,
-    blockSize: '0.5rem',
+    blockSize: '0.375rem',
     borderRadius: '999px',
-    inlineSize: '0.5rem',
+    inlineSize: '0.375rem',
   },
   copy: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x1,
     minInlineSize: 0,
   },
   label: {
     color: colors.text,
     fontFamily: type.family,
     fontSize: type.sizeBody,
-    lineHeight: type.lineBody,
+    lineHeight: type.lineCompact,
   },
   description: {
     color: colors.textMuted,
     fontFamily: type.family,
     fontSize: type.sizeSmall,
-    lineHeight: type.lineBody,
+    lineHeight: type.lineCompact,
   },
 })

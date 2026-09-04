@@ -704,10 +704,18 @@ export function QueueList({
             <span {...stylex.props(styles.queueText)}>
               {composerDraftText(item.draft) || 'Attachment prompt'}
             </span>
-            <span {...stylex.props(styles.trayState)}>{item.state}</span>
+            <span
+              {...stylex.props(
+                styles.trayState,
+                styles.queueState,
+                item.state === 'failed' && styles.queueStateFailed,
+              )}
+            >
+              {item.state}
+            </span>
             <div {...stylex.props(styles.queueActions)}>
               {item.state === 'failed' && onRetry && (
-                <Button onClick={() => onRetry(item)} size="compact" variant="quiet">
+                <Button onClick={() => onRetry(item)} size="compact" variant="primary">
                   Retry
                 </Button>
               )}
@@ -717,7 +725,7 @@ export function QueueList({
                 </Button>
               )}
               {onRemove && (
-                <Button onClick={() => onRemove(item)} size="compact" variant="quiet">
+                <Button onClick={() => onRemove(item)} size="compact" variant="danger">
                   Remove
                 </Button>
               )}
@@ -1028,9 +1036,6 @@ const styles = stylex.create({
     textTransform: 'capitalize',
   },
   queue: {
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
     color: colors.text,
     display: 'flex',
     flexDirection: 'column',
@@ -1056,17 +1061,39 @@ const styles = stylex.create({
     alignItems: 'center',
     display: 'grid',
     gap: space.x2,
-    gridTemplateColumns: 'minmax(0, 1fr) auto auto',
+    gridTemplateColumns: {
+      default: 'minmax(0, 1fr) auto',
+      '@media (min-width: 40rem)': 'minmax(0, 1fr) auto auto',
+    },
     minBlockSize: '2.75rem',
   },
   queueText: {
     fontSize: type.sizeSmall,
+    gridColumn: 1,
+    gridRow: 1,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
   queueActions: {
+    alignItems: 'center',
     display: 'flex',
     gap: space.x1,
+    gridColumn: {
+      default: '1 / -1',
+      '@media (min-width: 40rem)': 3,
+    },
+    gridRow: {
+      default: 2,
+      '@media (min-width: 40rem)': 1,
+    },
+    justifyContent: 'flex-end',
+  },
+  queueState: {
+    gridColumn: 2,
+    gridRow: 1,
+  },
+  queueStateFailed: {
+    color: colors.danger,
   },
 })

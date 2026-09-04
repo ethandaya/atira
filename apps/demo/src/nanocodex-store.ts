@@ -11,6 +11,7 @@ import type {
   QueuedPrompt,
   RevertedPrompt,
   SubmitIntent,
+  TaskActivity,
   TaskTranscript,
   ToolPart,
 } from '@pretty-amped/foundations/chat'
@@ -27,6 +28,7 @@ type Usage = Readonly<{
 }>
 
 type StreamToolPresentation = Readonly<{
+  activity?: TaskActivity | undefined
   agent?: Readonly<{ id: string; label: string }> | undefined
   childSessionId?: string | undefined
   kind?: 'task' | undefined
@@ -39,6 +41,7 @@ type StreamEvent =
   | { text: string; type: 'assistant-message' }
   | { text: string; type: 'reasoning-delta' }
   | {
+      activity?: StreamToolPresentation['activity']
       agent?: StreamToolPresentation['agent']
       childSessionId?: string | undefined
       id: string
@@ -49,6 +52,17 @@ type StreamEvent =
       type: 'tool-started'
     }
   | {
+      activity?: StreamToolPresentation['activity']
+      agent?: StreamToolPresentation['agent']
+      childSessionId?: string | undefined
+      id: string
+      kind?: 'task' | undefined
+      summary: string
+      tool: string
+      type: 'tool-progress'
+    }
+  | {
+      activity?: StreamToolPresentation['activity']
       agent?: StreamToolPresentation['agent']
       childSessionId?: string | undefined
       error?: string
@@ -519,15 +533,29 @@ function applyStreamEvent(
     }
   }
 
+  if (event.type === 'tool-progress') {
+    const existing = message.parts.find(
+      (part): part is ToolPart => part.type === 'tool' && part.callId === event.id,
+    )
+    if (!existing) return message
+    const presentation = mergeToolPresentation(
+      existing.presentation,
+      toolPresentation(event.tool, event),
+    )
+    return {
+      ...message,
+      parts: upsertPart(message.parts, { ...existing, presentation }),
+    }
+  }
+
   const existing = message.parts.find(
     (part): part is ToolPart => part.type === 'tool' && part.callId === event.id,
   )
   const input = existing && 'input' in existing.state ? existing.state.input : {}
   const eventPresentation = toolPresentation(event.tool, event)
-  const presentation =
-    existing?.presentation.kind === 'task' && eventPresentation.kind === 'task'
-      ? { ...existing.presentation, ...eventPresentation }
-      : existing?.presentation ?? eventPresentation
+  const presentation = existing
+    ? mergeToolPresentation(existing.presentation, eventPresentation)
+    : eventPresentation
   const tool: ToolPart = {
     callId: event.id,
     id: event.id,
@@ -673,6 +701,7 @@ function toolPresentation(
   const value = tool.toLowerCase()
   if (event?.kind === 'task' || value === 'run_subagent') {
     return {
+      ...(event?.activity === undefined ? {} : { activity: event.activity }),
       ...(event?.agent === undefined ? {} : { agent: event.agent }),
       ...(event?.childSessionId === undefined
         ? {}
@@ -695,6 +724,15 @@ function toolPresentation(
     return { diagnostics: [], files: [], kind: 'file-change', operation: value }
   }
   return { kind: 'generic' }
+}
+
+function mergeToolPresentation(
+  existing: ToolPart['presentation'],
+  next: ToolPart['presentation'],
+): ToolPart['presentation'] {
+  return existing.kind === 'task' && next.kind === 'task'
+    ? { ...existing, ...next }
+    : existing
 }
 
 function toolEventInput(
@@ -762,20 +800,24 @@ function parseEvent(line: string): StreamEvent | null {
     return { text: value.text, type: value.type }
   }
   if (
-    value.type === 'tool-started' &&
+    (value.type === 'tool-started' || value.type === 'tool-progress') &&
     typeof value.id === 'string' &&
     typeof value.summary === 'string' &&
     typeof value.tool === 'string' &&
-    (value.input === undefined || typeof value.input === 'string')
+    (value.type === 'tool-progress' ||
+      value.input === undefined ||
+      typeof value.input === 'string')
   ) {
     const presentation = streamToolPresentation(value)
     return {
       id: value.id,
-      ...(value.input === undefined ? {} : { input: value.input }),
+      ...(value.type === 'tool-started' && value.input !== undefined
+        ? { input: value.input as string }
+        : {}),
       ...presentation,
       summary: value.summary,
       tool: value.tool,
-      type: 'tool-started',
+      type: value.type,
     }
   }
   if (
@@ -831,14 +873,25 @@ function streamToolPresentation(
     typeof value.agent.label === 'string'
       ? { id: value.agent.id, label: value.agent.label }
       : undefined
+  const activity = taskActivity(value.activity)
   const transcript = taskTranscript(value.transcript)
   return {
+    ...(activity === undefined ? {} : { activity }),
     ...(agent === undefined ? {} : { agent }),
     ...(typeof value.childSessionId === 'string'
       ? { childSessionId: value.childSessionId }
       : {}),
     ...(value.kind === 'task' ? { kind: value.kind } : {}),
     ...(transcript === undefined ? {} : { transcript }),
+  }
+}
+
+function taskActivity(value: unknown): TaskActivity | undefined {
+  if (!isRecord(value) || typeof value.summary !== 'string') return undefined
+  return {
+    ...(typeof value.detail === 'string' ? { detail: value.detail } : {}),
+    summary: value.summary,
+    ...(typeof value.tool === 'string' ? { tool: value.tool } : {}),
   }
 }
 

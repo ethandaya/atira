@@ -92,22 +92,29 @@ export function PermissionPrompt({
           id={titleId}
           data-request-heading
           tabIndex={-1}
-          {...stylex.props(styles.title)}
+          {...stylex.props(styles.title, styles.permissionTitle)}
         >
           {request.title}
         </h2>
         {request.origin.label && (
-          <p {...stylex.props(styles.origin)}>{request.origin.label}</p>
+          <p {...stylex.props(styles.origin, styles.permissionOrigin)}>
+            {request.origin.label}
+          </p>
         )}
-        <p {...stylex.props(styles.effect)}>{request.effect}</p>
-        <p {...stylex.props(styles.supporting)}>
+        <p {...stylex.props(styles.effect, styles.permissionEffect)}>
+          {request.effect}
+        </p>
+        <p {...stylex.props(styles.supporting, styles.permissionSupporting)}>
           {consequenceLabel(request.consequence)}
           {request.scope ? ` ${request.scope}` : ''}
         </p>
       </div>
 
       {request.state.status === 'failed' && (
-        <p role="alert" {...stylex.props(styles.error)}>
+        <p
+          role="alert"
+          {...stylex.props(styles.error, styles.permissionError)}
+        >
           {request.state.error.message}
         </p>
       )}
@@ -548,7 +555,7 @@ export function RevertDock({
         <Button
           onClick={() => onRestore(reverted)}
           size="compact"
-          variant="outline"
+          variant="primary"
         >
           Edit prompt
         </Button>
@@ -904,6 +911,7 @@ const styles = stylex.create({
       columnGap: space.x4,
       display: 'grid',
       gridTemplateColumns: 'minmax(0, 1fr) auto',
+      rowGap: space.x1,
     },
   },
   requestCopy: {
@@ -925,8 +933,32 @@ const styles = stylex.create({
   },
   permissionCopy: {
     '@media (min-width: 40rem)': {
-      gridColumn: 1,
+      display: 'contents',
+    },
+  },
+  permissionTitle: {
+    '@media (min-width: 40rem)': {
+      gridColumn: '1 / -1',
       gridRow: 1,
+    },
+  },
+  permissionOrigin: {
+    '@media (min-width: 40rem)': {
+      gridColumn: '1 / -1',
+      gridRow: 2,
+    },
+  },
+  permissionEffect: {
+    '@media (min-width: 40rem)': {
+      gridColumn: 1,
+      gridRow: 3,
+      margin: 0,
+    },
+  },
+  permissionSupporting: {
+    '@media (min-width: 40rem)': {
+      gridColumn: '1 / -1',
+      gridRow: 4,
     },
   },
   title: {
@@ -974,7 +1006,7 @@ const styles = stylex.create({
   permissionFooter: {
     '@media (min-width: 40rem)': {
       gridColumn: 2,
-      gridRow: 1,
+      gridRow: 3,
     },
   },
   error: {
@@ -986,12 +1018,19 @@ const styles = stylex.create({
       gridColumn: '1 / -1',
     },
   },
+  permissionError: {
+    '@media (min-width: 40rem)': {
+      gridColumn: '1 / -1',
+      gridRow: 5,
+    },
+  },
   actions: {
     alignItems: 'center',
     display: 'flex',
     flexWrap: 'wrap',
     gap: space.x2,
     justifyContent: 'flex-end',
+    marginInlineStart: 'auto',
   },
   questionProgress: {
     color: colors.textMuted,
@@ -1013,9 +1052,6 @@ const styles = stylex.create({
     gap: space.x3,
   },
   answerSummary: {
-    borderBlockColor: colors.border,
-    borderBlockStyle: 'solid',
-    borderBlockWidth: '1px',
     color: colors.text,
     display: 'flex',
     flexDirection: 'column',
@@ -1070,9 +1106,6 @@ const styles = stylex.create({
     marginBlockEnd: space.x2,
   },
   dock: {
-    borderBlockColor: colors.border,
-    borderBlockStyle: 'solid',
-    borderBlockWidth: '1px',
     color: colors.text,
     fontFamily: type.family,
     inlineSize: '100%',

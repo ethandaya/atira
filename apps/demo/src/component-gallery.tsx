@@ -1080,6 +1080,11 @@ const galleryRunningSubagent: ToolPart = {
   callId: 'gallery-subagent-running-call',
   id: 'gallery-subagent-running',
   presentation: {
+    activity: {
+      detail: 'Comparing transcript density across recent AI interfaces',
+      summary: 'Searching references',
+      tool: 'search_web',
+    },
     agent: { id: 'research', label: 'Research agent' },
     childSessionId: 'gallery-child-running',
     kind: 'task',
@@ -1478,9 +1483,6 @@ const styles = stylex.create({
   },
   sampleHeading: {
     backgroundColor: colors.surfaceMuted,
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
     display: 'flex',
     flexDirection: 'column',
     gap: space.x1,

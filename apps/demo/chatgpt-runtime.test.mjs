@@ -181,14 +181,18 @@ describe('runChatGptTurn', () => {
       tools: { inspect_component_catalog: catalogTool() },
     })
     const invocation = tool.invocation({ role: 'review' })
+    const onProgress = vi.fn()
 
     const result = await tool.handler(
       { role: 'review', task: 'Review the compact tool row.' },
-      { invocation },
+      { invocation, onProgress },
     )
 
     expect(invocation).toEqual(expect.objectContaining({
       agent: { id: 'review', label: 'Review agent' },
+      activity: {
+        summary: 'Writing response',
+      },
       childSessionId: expect.any(String),
       kind: 'task',
       transcript: {
@@ -206,6 +210,7 @@ describe('runChatGptTurn', () => {
         ],
       },
     }))
+    expect(onProgress).toHaveBeenCalledTimes(4)
     expect(result).toEqual({ result: 'The focused review passed.' })
     const body = JSON.parse(request.mock.calls[0][1].body)
     expect(body.input[0].tools.map((candidate) => candidate.name)).toEqual([

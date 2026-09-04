@@ -207,12 +207,7 @@ function getStatusText(state: PermissionRequestState) {
 const styles = stylex.create({
   root: {
     backgroundColor: colors.surfaceMuted,
-    borderColor: 'transparent',
-    borderInlineStartColor: colors.borderStrong,
     borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: 0,
-    borderInlineStartWidth: '2px',
     boxSizing: 'border-box',
     color: colors.text,
     display: 'flex',

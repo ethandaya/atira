@@ -64,6 +64,19 @@ describe('NanocodexChatStore', () => {
             type: 'tool-started',
           },
           {
+            activity: {
+              detail: 'I am checking the response hierarchy.',
+              summary: 'Thinking',
+            },
+            agent: { id: 'review', label: 'Review agent' },
+            childSessionId: 'child-session',
+            id: 'subagent-call',
+            kind: 'task',
+            summary: 'Subagent working',
+            tool: 'run_subagent',
+            type: 'tool-progress',
+          },
+          {
             agent: { id: 'review', label: 'Review agent' },
             childSessionId: 'child-session',
             id: 'subagent-call',
@@ -147,6 +160,10 @@ describe('NanocodexChatStore', () => {
         }),
         expect.objectContaining({
           presentation: {
+            activity: {
+              detail: 'I am checking the response hierarchy.',
+              summary: 'Thinking',
+            },
             agent: { id: 'review', label: 'Review agent' },
             childSessionId: 'child-session',
             kind: 'task',
