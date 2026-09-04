@@ -3,6 +3,29 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+test('fades only overflowing tool labels and follows reading direction', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/?fixture=workflow')
+  const prompt = 'Audit streaming response accessibility and keyboard navigation'
+  await page.getByRole('textbox', { name: 'Message' }).fill(prompt)
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  const turn = page.locator('[data-slot="turn"]').last()
+  await expect(turn).toHaveAttribute('data-state', 'complete')
+  const label = turn.locator('[data-slot="tool-activity-summary"]')
+  await expect(label).toHaveAttribute('data-overflowing', 'true')
+  await expect(label).toHaveCSS('mask-image', /to right/)
+  await expect(turn.getByRole('button', { name: new RegExp(prompt) })).toBeVisible()
+  await expect(page.locator('[data-slot="tool-activity-summary"]').filter({ hasText: 'Custom tool' }))
+    .toHaveCSS('mask-image', 'none')
+
+  await page.setViewportSize({ width: 1100, height: 800 })
+  await expect(label).not.toHaveAttribute('data-overflowing', 'true')
+  await expect(label).toHaveCSS('mask-image', 'none')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await label.evaluate((element) => { element.closest('[dir]')!.setAttribute('dir', 'rtl') })
+  await expect(label).toHaveCSS('mask-image', /to left/)
+})
+
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`transitions lifecycle text without overlapping labels (${reducedMotion})`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion })

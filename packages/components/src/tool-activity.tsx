@@ -16,7 +16,7 @@ import {
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Minus, X } from 'lucide-react'
-import type { ComponentPropsWithRef, ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ComponentPropsWithRef, type ReactNode } from 'react'
 
 export type ToolActivityState =
   | { status: 'receiving-input' }
@@ -62,6 +62,19 @@ export function ToolActivity({
   tool,
   ...props
 }: ToolActivityProps) {
+  const summaryRef = useRef<HTMLSpanElement>(null)
+  const [overflowing, setOverflowing] = useState(false)
+  useLayoutEffect(() => {
+    const element = summaryRef.current
+    if (!element) return
+    const measure = () => setOverflowing(element.scrollWidth > element.clientWidth + 1)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    if (element.firstElementChild) observer.observe(element.firstElementChild)
+    return () => observer.disconnect()
+  }, [summary])
   const stateLabel = toolStateLabel(state)
   const terminalMark = toolStateMark(state)
   const active =
@@ -89,9 +102,12 @@ export function ToolActivity({
       </span>
       <span {...stylex.props(styles.heading)}>
         <span
+          ref={summaryRef}
           data-slot="tool-activity-summary"
+          data-overflowing={overflowing || undefined}
           {...stylex.props(
             styles.summary,
+            overflowing && styles.summaryFade,
             !active && state.status !== 'failed' && styles.summaryComplete,
             state.status === 'failed' && styles.summaryFailed,
           )}
@@ -228,8 +244,13 @@ const styles = stylex.create({
     lineHeight: type.lineBody,
     minInlineSize: 0,
     overflow: 'hidden',
-    textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+  },
+  summaryFade: {
+    maskImage: {
+      default: 'linear-gradient(to right, #000 calc(100% - 2rem), rgb(0 0 0 / 0.85) calc(100% - 1.4rem), rgb(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
+      ':is([dir="rtl"] *)': 'linear-gradient(to left, #000 calc(100% - 2rem), rgb(0 0 0 / 0.85) calc(100% - 1.4rem), rgb(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
+    },
   },
   summaryComplete: {
     color: colors.textMuted,
