@@ -1,5 +1,6 @@
 import {
   colors,
+  motion,
   radii,
   space,
   type,
@@ -76,7 +77,7 @@ export function ToolActivity({
         </span>
       </span>
       <span data-slot="tool-activity-state" {...stylex.props(styles.state)}>
-        {terminalMark ?? stateLabel}
+        {active ? null : (terminalMark ?? stateLabel)}
         {terminalMark && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
       </span>
     </span>
@@ -114,7 +115,10 @@ export function ToolActivity({
           </div>
         </Disclosure>
       ) : (
-        <div {...stylex.props(styles.staticHeader)}>{header}</div>
+        <div {...stylex.props(styles.staticHeader)}>
+          {header}
+          <span aria-hidden="true" {...stylex.props(styles.indicatorSlot)} />
+        </div>
       )}
       {state.status === 'failed' && (
         <p role="alert" {...stylex.props(styles.error)}>
@@ -173,6 +177,11 @@ function toolStateMark(state: ToolActivityState) {
   }
 }
 
+const fadeIn = stylex.keyframes({
+  from: { opacity: 0 },
+  to: { opacity: 1 },
+})
+
 const styles = stylex.create({
   root: {
     color: colors.text,
@@ -180,10 +189,23 @@ const styles = stylex.create({
     inlineSize: '100%',
   },
   staticHeader: {
+    alignItems: 'center',
     boxSizing: 'border-box',
-    minBlockSize: '2rem',
+    display: 'flex',
+    gap: space.x2,
+    inlineSize: 'fit-content',
+    maxInlineSize: '100%',
+    minBlockSize: {
+      default: '2rem',
+      '@media (hover: none)': '2.75rem',
+    },
     paddingBlock: space.x1,
     paddingInline: space.x1,
+  },
+  indicatorSlot: {
+    blockSize: '1rem',
+    flexShrink: 0,
+    inlineSize: '1rem',
   },
   header: {
     alignItems: 'center',
@@ -217,9 +239,21 @@ const styles = stylex.create({
     flexShrink: 0,
     fontSize: type.sizeCaption,
     fontWeight: type.weightMedium,
+    justifyContent: 'center',
     lineHeight: type.lineCompact,
+    minBlockSize: '0.875rem',
+    minInlineSize: '0.875rem',
   },
   stateIcon: {
+    animationDuration: {
+      default: motion.durationFast,
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    animationName: {
+      default: fadeIn,
+      '@media (prefers-reduced-motion: reduce)': 'none',
+    },
+    animationTimingFunction: 'ease-out',
     blockSize: '0.875rem',
     inlineSize: '0.875rem',
   },

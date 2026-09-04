@@ -317,23 +317,27 @@ export class FixtureChatStore implements ChatStore {
       turns: [...this.#snapshot.turns, turn],
     }
     this.#commit()
-    await delay(30)
+    await delay(250)
     if (!this.#isActive(id)) return
 
     const assistantId = `${id}:assistant`
+    const reasoningId = `${assistantId}:reasoning`
+    const toolId = `${assistantId}:tool`
+    const textId = `${assistantId}:text`
     this.#updateTurn(id, (current) => ({
       ...current,
       assistant: [
         {
-          createdAt: now + 30,
+          createdAt: now + 250,
           delivery: { status: 'confirmed' },
           id: assistantId,
           parts: [
             {
-              id: `${assistantId}:text`,
-              markdown: 'Streaming the fixture response…',
+              id: reasoningId,
+              startedAt: now + 250,
               state: { status: 'streaming' },
-              type: 'text',
+              text: '',
+              type: 'reasoning',
             },
           ],
           role: 'assistant',
@@ -343,7 +347,7 @@ export class FixtureChatStore implements ChatStore {
       state: { startedAt: now, status: 'running' },
       user: { ...current.user, delivery: { status: 'confirmed' } },
     }))
-    await delay(3_000)
+    await delay(500)
     if (!this.#isActive(id)) return
 
     this.#updateTurn(id, (current) => ({
@@ -351,7 +355,93 @@ export class FixtureChatStore implements ChatStore {
       assistant: current.assistant.map((assistant) => ({
         ...assistant,
         parts: assistant.parts.map((part) =>
-          part.type === 'text'
+          part.type === 'reasoning'
+            ? { ...part, text: 'Inspecting the fixture lifecycle.' }
+            : part,
+        ),
+      })),
+    }))
+    await delay(500)
+    if (!this.#isActive(id)) return
+
+    this.#updateTurn(id, (current) => ({
+      ...current,
+      assistant: current.assistant.map((assistant) => ({
+        ...assistant,
+        parts: [
+          ...assistant.parts.map((part) =>
+            part.type === 'reasoning'
+              ? {
+                  ...part,
+                  endedAt: now + 1_250,
+                  state: { status: 'complete' as const },
+                }
+              : part,
+          ),
+          {
+            callId: `${toolId}:call`,
+            id: toolId,
+            presentation: { kind: 'web', operation: 'search' },
+            state: {
+              input: { query: text },
+              startedAt: now + 1_250,
+              status: 'running',
+            },
+            toolName: 'search_web',
+            type: 'tool',
+          },
+        ],
+      })),
+    }))
+    await delay(750)
+    if (!this.#isActive(id)) return
+
+    this.#updateTurn(id, (current) => ({
+      ...current,
+      assistant: current.assistant.map((assistant) => ({
+        ...assistant,
+        parts: assistant.parts.map((part) =>
+          part.id === toolId && part.type === 'tool'
+            ? {
+                ...part,
+                state: {
+                  endedAt: now + 2_000,
+                  input: { query: text },
+                  output: 'Fixture search complete.',
+                  status: 'succeeded' as const,
+                },
+              }
+            : part,
+        ),
+      })),
+    }))
+    await delay(750)
+    if (!this.#isActive(id)) return
+
+    this.#updateTurn(id, (current) => ({
+      ...current,
+      assistant: current.assistant.map((assistant) => ({
+        ...assistant,
+        parts: [
+          ...assistant.parts,
+          {
+            id: textId,
+            markdown: 'Streaming the fixture response…',
+            state: { status: 'streaming' },
+            type: 'text',
+          },
+        ],
+      })),
+    }))
+    await delay(250)
+    if (!this.#isActive(id)) return
+
+    this.#updateTurn(id, (current) => ({
+      ...current,
+      assistant: current.assistant.map((assistant) => ({
+        ...assistant,
+        parts: assistant.parts.map((part) =>
+          part.id === textId && part.type === 'text'
             ? {
                 ...part,
                 markdown: 'The deterministic fixture response is complete.',
@@ -375,7 +465,9 @@ export class FixtureChatStore implements ChatStore {
         parts: assistant.parts.map((part) =>
           part.type === 'text' || part.type === 'reasoning'
             ? { ...part, state: { status: 'interrupted' } }
-            : part,
+            : part.type === 'tool'
+              ? cancelTool(part)
+              : part,
         ),
       })),
       state: {
@@ -748,6 +840,26 @@ function completedTool(
     },
     toolName,
     type: 'tool',
+  }
+}
+
+function cancelTool(part: ToolPart): ToolPart {
+  const { state } = part
+  if (
+    state.status === 'succeeded' ||
+    state.status === 'failed' ||
+    state.status === 'cancelled'
+  ) {
+    return part
+  }
+  const input = state.status === 'receiving-input' ? state.partialInput : state.input
+  return {
+    ...part,
+    state: {
+      endedAt: Date.now(),
+      ...(input === undefined ? {} : { input }),
+      status: 'cancelled',
+    },
   }
 }
 

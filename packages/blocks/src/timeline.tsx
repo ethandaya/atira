@@ -67,6 +67,7 @@ export function Timeline({
   virtualizeAfter = 100,
 }: TimelineProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
   const pendingAnchor = useRef<ScrollAnchor | undefined>(undefined)
   const previousVersion = useRef('')
   const previousTurnCount = useRef(turns.length)
@@ -74,6 +75,7 @@ export function Timeline({
   const pinnedTurnIds = useRef(new Set<string>())
   const initialized = useRef(false)
   const [follow, setFollow] = useState<FollowState>({ status: 'following' })
+  const followRef = useRef<FollowState>(follow)
   const [measurementVersion, setMeasurementVersion] = useState(0)
   const [windowRange, setWindowRange] = useState<WindowRange>({
     end: 0,
@@ -99,6 +101,7 @@ export function Timeline({
     estimatedTurnHeight,
   )
   const visibleTurns = turns.slice(range.start, range.end)
+  followRef.current = follow
 
   function changeFollow(next: FollowState) {
     setFollow(next)
@@ -154,9 +157,16 @@ export function Timeline({
 
   useEffect(() => {
     const viewport = viewportRef.current
-    if (!viewport || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => updateVirtualWindow(viewport))
+    const measure = measureRef.current
+    if (!viewport || !measure || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      updateVirtualWindow(viewport)
+      if (followRef.current.status === 'following' && !pendingAnchor.current) {
+        viewport.scrollTop = viewport.scrollHeight
+      }
+    })
     observer.observe(viewport)
+    observer.observe(measure)
     return () => observer.disconnect()
   }, [turns.length, virtualized])
 
@@ -251,9 +261,12 @@ export function Timeline({
         ref={viewportRef}
         onScroll={trackScroll}
         data-slot="timeline-viewport"
-        {...stylex.props(styles.viewport)}
+        {...stylex.props(
+          styles.viewport,
+          follow.status === 'following' && styles.followingViewport,
+        )}
       >
-        <div {...stylex.props(styles.measure)}>
+        <div ref={measureRef} {...stylex.props(styles.measure)}>
           <HistoryControl history={history} onLoadPrevious={loadPrevious} />
           {turns.length === 0 ? (
             <div data-slot="timeline-empty" {...stylex.props(styles.empty)}>
@@ -518,6 +531,10 @@ const styles = stylex.create({
     overflowY: 'auto',
     overscrollBehaviorY: 'contain',
     scrollBehavior: 'auto',
+    scrollbarGutter: 'stable both-edges',
+  },
+  followingViewport: {
+    overflowAnchor: 'none',
   },
   measure: {
     boxSizing: 'border-box',

@@ -119,6 +119,66 @@ test('submits, queues, stops, edits, and restores a reverted prompt', async ({ p
   await expect(message).toHaveValue('Fixture prompt 18')
 })
 
+test('keeps thinking and tool lifecycle rows geometrically stable', async ({ page }) => {
+  await page.goto('/?fixture=workflow')
+  const composer = page.locator('[data-slot="chat-composer"]')
+  const message = page.getByRole('textbox', { name: 'Message' })
+
+  await message.fill('Exercise every lifecycle state')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  const turn = page.locator('[data-slot="turn"]').last()
+  const status = turn.locator('[data-slot="turn-status"]')
+  await expect(status).toBeVisible()
+  await settleLayout(page)
+  const statusBounds = await elementBounds(status)
+
+  const reasoning = turn.locator('[data-slot="reasoning"]')
+  await expect(reasoning).toHaveAttribute('data-state', 'thinking')
+  await settleLayout(page)
+  const reasoningBounds = await elementBounds(reasoning)
+  expect(Math.abs(reasoningBounds.height - statusBounds.height)).toBeLessThanOrEqual(1)
+
+  const tool = turn.locator('[data-slot="tool-activity"]')
+  await expect(tool).toHaveAttribute('data-state', 'running')
+  await settleLayout(page)
+  const runningBounds = await elementBounds(tool)
+  const composerTop = (await elementBounds(composer)).top
+
+  await expect(tool).toHaveAttribute('data-state', 'succeeded')
+  await settleLayout(page)
+  const completedBounds = await elementBounds(tool)
+  expect(Math.abs(completedBounds.top - runningBounds.top)).toBeLessThanOrEqual(1)
+  expect(Math.abs(completedBounds.height - runningBounds.height)).toBeLessThanOrEqual(1)
+  expect(Math.abs((await elementBounds(composer)).top - composerTop)).toBeLessThanOrEqual(1)
+})
+
+test('removes nonessential lifecycle motion when reduced motion is requested', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/?fixture=workflow')
+
+  await page.getByRole('textbox', { name: 'Message' }).fill('Use reduced motion')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  const turn = page.locator('[data-slot="turn"]').last()
+  await expect(turn.locator('[data-slot="reasoning"]')).toHaveAttribute(
+    'data-state',
+    'thinking',
+  )
+  await expect(turn.locator('[data-slot="turn-assistant-message"]')).toHaveCSS(
+    'animation-name',
+    'none',
+  )
+  await expect(turn.locator('[data-slot="shimmer"]')).toHaveCSS('animation-name', 'none')
+
+  const tool = turn.locator('[data-slot="tool-activity"]')
+  await expect(tool).toHaveAttribute('data-state', 'succeeded')
+  await expect(tool.locator('[data-slot="tool-state-icon"]')).toHaveCSS(
+    'animation-name',
+    'none',
+  )
+})
+
 test('restores composer focus, draft, and selection around requests', async ({ page }) => {
   await page.goto('/?fixture=workflow')
   const message = page.getByRole('textbox', { name: 'Message' })
@@ -352,6 +412,27 @@ async function firstVisibleTurn(page: Page) {
 async function turnTop(page: Page, id: string) {
   return page.locator(`[data-turn-id="${id}"]`).evaluate((element) =>
     element.getBoundingClientRect().top,
+  )
+}
+
+async function elementBounds(locator: ReturnType<Page['locator']>) {
+  return locator.evaluate((element) => {
+    const rectangle = element.getBoundingClientRect()
+    return {
+      height: rectangle.height,
+      left: rectangle.left,
+      top: rectangle.top,
+      width: rectangle.width,
+    }
+  })
+}
+
+async function settleLayout(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
   )
 }
 

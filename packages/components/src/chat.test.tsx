@@ -3,6 +3,7 @@
 import type {
   ChatCapabilities,
   ChatMessage,
+  ChatTurn,
   ComposerDraft,
   PermissionRequestView,
   QuestionRequestView,
@@ -135,6 +136,45 @@ describe('chat components', () => {
 
     expect(container.querySelector('[data-slot="turn-status"]')).toBeNull()
     expect(container.querySelector('[data-slot="tool-activity"]')).not.toBeNull()
+  })
+
+  it('does not mount empty assistant rows before content arrives', () => {
+    const turn: ChatTurn = {
+      assistant: [
+        {
+          createdAt: 2,
+          delivery: { status: 'confirmed' },
+          id: 'assistant',
+          parts: [
+            {
+              id: 'assistant-text',
+              markdown: '',
+              state: { status: 'streaming' },
+              type: 'text',
+            },
+          ],
+          role: 'assistant',
+          turnId: 'turn',
+        },
+      ],
+      id: 'turn',
+      state: { startedAt: 1, status: 'running' },
+      user: {
+        createdAt: 1,
+        delivery: { status: 'confirmed' },
+        id: 'user',
+        parts: [],
+        role: 'user',
+        turnId: 'turn',
+      },
+    }
+
+    const { container } = render(<Turn turn={turn} />)
+
+    expect(container.querySelector('[data-slot="turn-assistant-message"]')).toBeNull()
+    expect(container.querySelector('[data-slot="turn-status"]')?.textContent).toBe(
+      'Thinking',
+    )
   })
 
   it('uses one primary composer control while a turn is active', () => {

@@ -1,6 +1,7 @@
 import type { ChatTurn, TurnState } from '@pretty-amped/foundations/chat'
 import {
   colors,
+  motion,
   radii,
   space,
   type,
@@ -36,9 +37,10 @@ export function Turn({
 }: TurnProps) {
   const active =
     turn.state.status === 'running' || turn.state.status === 'retrying'
-  const hasAssistantContent = turn.assistant.some((message) =>
+  const assistant = turn.assistant.filter((message) =>
     message.parts.some(isRenderableAssistantPart),
   )
+  const hasAssistantContent = assistant.length > 0
 
   return (
     <li
@@ -64,12 +66,16 @@ export function Turn({
         </section>
 
         <div data-slot="turn-assistant" {...stylex.props(styles.assistant)}>
-          {turn.assistant.map((message) => (
+          {assistant.map((message) => (
             <section
               aria-label="Assistant message"
               data-message-id={message.id}
               data-slot="turn-assistant-message"
               key={message.id}
+              {...stylex.props(
+                styles.assistantMessage,
+                active && styles.activeAssistantMessage,
+              )}
             >
               <MessageParts
                 message={message}
@@ -143,9 +149,15 @@ function isRenderableAssistantPart(
   part: ChatTurn['assistant'][number]['parts'][number],
 ) {
   if (part.type === 'text') return part.markdown.trim().length > 0
+  if (part.type === 'tool') return part.presentation.kind !== 'todo'
   if (part.type === 'reasoning') return true
-  return part.type !== 'unknown' || part.data !== undefined
+  return true
 }
+
+const fadeIn = stylex.keyframes({
+  from: { opacity: 0 },
+  to: { opacity: 1 },
+})
 
 const styles = stylex.create({
   root: {
@@ -173,6 +185,26 @@ const styles = stylex.create({
     gap: space.x3,
     minInlineSize: 0,
   },
+  assistantMessage: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    minBlockSize: {
+      default: '2rem',
+      '@media (hover: none)': '2.75rem',
+    },
+  },
+  activeAssistantMessage: {
+    animationDuration: {
+      default: motion.durationFast,
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    animationName: {
+      default: fadeIn,
+      '@media (prefers-reduced-motion: reduce)': 'none',
+    },
+    animationTimingFunction: 'ease-out',
+  },
   meta: {
     alignItems: 'center',
     color: colors.textMuted,
@@ -185,6 +217,8 @@ const styles = stylex.create({
     lineHeight: type.lineCompact,
   },
   status: {
+    alignItems: 'center',
+    boxSizing: 'border-box',
     color: colors.textMuted,
     display: 'flex',
     flexDirection: 'column',
@@ -193,6 +227,11 @@ const styles = stylex.create({
     gap: space.x1,
     lineHeight: type.lineBody,
     margin: 0,
+    minBlockSize: {
+      default: '2rem',
+      '@media (hover: none)': '2.75rem',
+    },
+    justifyContent: 'center',
   },
   statusDanger: {
     color: colors.danger,
