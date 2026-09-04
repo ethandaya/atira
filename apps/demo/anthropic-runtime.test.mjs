@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { runAnthropicTurn } from './anthropic-runtime.mjs'
+import { runAnthropicTurn, searchAnthropicWeb } from './anthropic-runtime.mjs'
 
 const inspectComponentCatalog = {
   description: 'Inspect components.',
@@ -105,6 +105,37 @@ describe('runAnthropicTurn', () => {
       status: 'succeeded',
       type: 'tool-completed',
     }))
+  })
+})
+
+describe('searchAnthropicWeb', () => {
+  it('returns a concise answer and only safe source URLs', async () => {
+    const request = vi.fn(async () => messageResponse({
+      content: [
+        {
+          content: [
+            { title: 'StyleX', type: 'web_search_result', url: 'https://stylexjs.com/' },
+            { title: 'Unsafe', type: 'web_search_result', url: 'file:///etc/passwd' },
+          ],
+          tool_use_id: 'web-1',
+          type: 'web_search_tool_result',
+        },
+        { text: 'The official site is StyleX.', type: 'text' },
+      ],
+    }))
+
+    const result = await searchAnthropicWeb({
+      apiKey: 'test-key',
+      model: 'test-model',
+      query: 'StyleX official site',
+      request,
+    })
+
+    expect(result).toEqual({
+      answer: 'The official site is StyleX.',
+      query: 'StyleX official site',
+      sources: [{ title: 'StyleX', url: 'https://stylexjs.com/' }],
+    })
   })
 })
 

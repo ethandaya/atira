@@ -7,5 +7,6 @@ playwright-report/
 test-results/
 
 # Local Amp runtime and review artifacts
+.amp/data/
 .amp/in/artifacts/
 .amp/portals/

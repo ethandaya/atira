@@ -6,6 +6,7 @@ export async function searchWeb({
   model,
   query,
   request = globalThis.fetch,
+  signal,
 }) {
   const normalizedQuery = typeof query === 'string' ? query.trim() : ''
   if (!normalizedQuery) throw new Error('Web search requires a query.')
@@ -35,7 +36,9 @@ export async function searchWeb({
       'Content-Type': 'application/json',
     },
     method: 'POST',
-    signal: AbortSignal.timeout(60_000),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+      : AbortSignal.timeout(60_000),
   })
   const payload = await response.json().catch(() => null)
 

@@ -5,18 +5,23 @@ import { fileURLToPath } from 'node:url'
 import { Agent } from 'nanocodex/node'
 import { createServer as createViteServer } from 'vite'
 
-import { runAnthropicTurn } from './anthropic-runtime.mjs'
+import { runAnthropicTurn, searchAnthropicWeb } from './anthropic-runtime.mjs'
+import { createChatGptSession, runChatGptTurn } from './chatgpt-runtime.mjs'
+import { ChatGptSubscriptionStore } from './chatgpt-subscription.mjs'
 import { searchWeb } from './web-search.mjs'
 
 const openAiApiKey = process.env.OPENAI_API_KEY?.trim()
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY?.trim()
 const nanocodexModel = 'gpt-5.6-sol'
 const anthropicModel = process.env.ANTHROPIC_MODEL?.trim() || 'claude-sonnet-4-6'
-const runtime = selectRuntime()
+const fallbackRuntime = selectFallbackRuntime()
 const root = fileURLToPath(new URL('.', import.meta.url))
 const port = Number(process.env.PORT ?? readArgument('--port') ?? 5173)
 const host = process.env.HOST ?? readArgument('--host') ?? '0.0.0.0'
 const sessions = new Map()
+const chatGptSubscriptions = new ChatGptSubscriptionStore({
+  directory: fileURLToPath(new URL('../../.amp/data/chatgpt-subscriptions/', import.meta.url)),
+})
 const sessionMaxAge = 30 * 60 * 1000
 const maxSessions = 20
 const componentCatalog = [
@@ -130,8 +135,12 @@ const componentCatalog = [
   },
 ]
 const inspectComponentCatalog = {
+  completedSummary: 'Searched component catalog',
   description:
     'Search the current Pretty Amped React component catalog by responsibility, state, or name. Use this before answering questions about interface components or design patterns in Pretty Amped.',
+  failedSummary: 'Component catalog search failed',
+  formatInput: catalogToolInput,
+  formatOutput: catalogToolOutput,
   parameters: {
     additionalProperties: false,
     properties: {
@@ -172,10 +181,15 @@ const inspectComponentCatalog = {
 
     return { matches, query }
   },
+  startedSummary: 'Searching component catalog',
 }
 const searchWebTool = {
+  completedSummary: 'Searched the web',
   description:
     'Search and read the public web for current or external information. Use this whenever the user asks to search, browse, look something up, verify a web source, or answer with up-to-date information. The result includes source URLs for citation.',
+  failedSummary: 'Web search failed',
+  formatInput: webToolInput,
+  formatOutput: webToolOutput,
   parameters: {
     additionalProperties: false,
     properties: {
@@ -188,12 +202,20 @@ const searchWebTool = {
     required: ['query'],
     type: 'object',
   },
-  handler(input) {
+  handler(input, { signal } = {}) {
     const query = isRecord(input) && typeof input.query === 'string'
       ? input.query.trim().slice(0, 500)
       : ''
-    return searchWeb({ apiKey: openAiApiKey, model: nanocodexModel, query })
+    return anthropicApiKey
+      ? searchAnthropicWeb({
+          apiKey: anthropicApiKey,
+          model: anthropicModel,
+          query,
+          signal,
+        })
+      : searchWeb({ apiKey: openAiApiKey, model: nanocodexModel, query, signal })
   },
+  startedSummary: 'Searching the web',
 }
 
 let vite
@@ -243,12 +265,41 @@ async function handleRequest(request, response) {
   setApiHeaders(response)
 
   if (request.method === 'GET' && url.pathname === '/api/runtime') {
-    sessionId(request, response)
+    const id = sessionId(request, response)
+    const runtime = await runtimeForSession(id)
     sendJson(response, 200, {
       available: Boolean(runtime),
       model: runtime?.model ?? nanocodexModel,
       runtime: runtime?.label ?? 'Unavailable',
     })
+    return true
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/auth/chatgpt') {
+    const id = sessionId(request, response)
+    sendJson(response, 200, await chatGptSubscriptions.status(id))
+    return true
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/chatgpt/start') {
+    const id = sessionId(request, response)
+    sendJson(response, 200, await chatGptSubscriptions.startLogin(id))
+    return true
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/chatgpt/poll') {
+    const id = sessionId(request, response)
+    const status = await chatGptSubscriptions.pollLogin(id)
+    if (status.state === 'authenticated') await resetRuntimeSession(id)
+    sendJson(response, 200, status)
+    return true
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/chatgpt/logout') {
+    const id = sessionId(request, response)
+    await chatGptSubscriptions.logout(id)
+    await resetRuntimeSession(id)
+    sendJson(response, 200, { state: 'signed_out' })
     return true
   }
 
@@ -272,6 +323,8 @@ async function handleRequest(request, response) {
 }
 
 async function streamChat(request, response) {
+  const id = sessionId(request, response)
+  const runtime = await runtimeForSession(id)
   if (!runtime) {
     sendJson(response, 503, {
       error: 'No supported AI runtime is configured.',
@@ -292,8 +345,7 @@ async function streamChat(request, response) {
     return
   }
 
-  const id = sessionId(request, response)
-  const session = await getSession(id)
+  const session = await getSession(id, runtime)
 
   if (session.active) {
     sendJson(response, 409, { error: 'Wait for the current response to finish.' })
@@ -309,6 +361,11 @@ async function streamChat(request, response) {
 
   if (session.kind === 'anthropic') {
     await streamAnthropicChat({ control, input, response, session })
+    return
+  }
+
+  if (session.kind === 'chatgpt') {
+    await streamChatGptChat({ control, id, input, response, session })
     return
   }
 
@@ -508,6 +565,69 @@ async function streamAnthropicChat({ control, input, response, session }) {
   }
 }
 
+async function streamChatGptChat({ control, id, input, response, session }) {
+  const abortController = new AbortController()
+  const startedAt = Date.now()
+  control.abortController = abortController
+
+  response.writeHead(200, {
+    'Cache-Control': 'no-store',
+    'Content-Type': 'application/x-ndjson; charset=utf-8',
+  })
+  response.flushHeaders()
+
+  const cancelOnClose = () => {
+    if (response.writableEnded) return
+    control.cancelRequested = true
+    abortController.abort()
+  }
+  response.once('close', cancelOnClose)
+  writeEvent(response, { type: 'started' })
+
+  try {
+    const result = await runChatGptTurn({
+      getCredential: (options) => chatGptSubscriptions.credential(id, options),
+      input,
+      model: nanocodexModel,
+      onEvent: (event) => writeEvent(response, event),
+      session,
+      sessionId: id,
+      signal: abortController.signal,
+      tools: {
+        inspect_component_catalog: inspectComponentCatalog,
+        search_web: searchWebTool,
+      },
+    })
+    writeEvent(response, {
+      text: result.finalMessage,
+      type: 'assistant-message',
+    })
+    writeEvent(response, {
+      durationMs: Date.now() - startedAt,
+      message: result.finalMessage,
+      type: 'completed',
+      usage: {
+        outputTokens: result.usage.output_tokens,
+        totalTokens: result.usage.total_tokens,
+      },
+    })
+  } catch (error) {
+    if (control.cancelRequested || error?.name === 'AbortError') {
+      writeEvent(response, { type: 'cancelled' })
+    } else {
+      writeEvent(response, {
+        message: publicError(error),
+        type: 'error',
+      })
+    }
+  } finally {
+    response.off('close', cancelOnClose)
+    if (session.active === control) session.active = undefined
+    session.lastUsed = Date.now()
+    if (!response.writableEnded && !response.destroyed) response.end()
+  }
+}
+
 async function cancelTurn(request, response) {
   const id = existingSessionId(request)
   const active = id ? sessions.get(id)?.active : undefined
@@ -528,21 +648,24 @@ async function cancelTurn(request, response) {
 
 async function resetSession(request, response) {
   const id = existingSessionId(request)
-  const session = id ? sessions.get(id) : undefined
-
-  if (id) sessions.delete(id)
-
-  if (session) await disposeSession(session)
+  if (id) await resetRuntimeSession(id)
 
   response.writeHead(204)
   response.end()
 }
 
-async function getSession(id) {
+async function resetRuntimeSession(id) {
+  const session = sessions.get(id)
+  sessions.delete(id)
+  if (session) await disposeSession(session)
+}
+
+async function getSession(id, runtime) {
   await pruneSessions()
 
   const existing = sessions.get(id)
-  if (existing) return existing
+  if (existing?.kind === runtime.kind) return existing
+  if (existing) await resetRuntimeSession(id)
 
   if (sessions.size >= maxSessions) {
     throw new Error('The demo is at its session limit. Try again shortly.')
@@ -555,6 +678,13 @@ async function getSession(id) {
         kind: 'anthropic',
         lastUsed: Date.now(),
       }
+    : runtime.kind === 'chatgpt'
+      ? {
+          active: undefined,
+          ...createChatGptSession(),
+          kind: 'chatgpt',
+          lastUsed: Date.now(),
+        }
     : {
         active: undefined,
         agent: Agent.create({
@@ -598,14 +728,21 @@ async function pruneSessions() {
 
 function sessionId(request, response) {
   const existing = existingSessionId(request)
-  if (existing) return existing
+  if (existing) {
+    setSessionCookie(response, existing)
+    return existing
+  }
 
   const id = randomUUID()
+  setSessionCookie(response, id)
+  return id
+}
+
+function setSessionCookie(response, id) {
   response.setHeader(
     'Set-Cookie',
-    `pretty_amped_session=${id}; HttpOnly; Max-Age=86400; Path=/; SameSite=Strict; Secure`,
+    `pretty_amped_session=${id}; HttpOnly; Max-Age=2592000; Path=/; SameSite=Strict; Secure`,
   )
-  return id
 }
 
 function existingSessionId(request) {
@@ -698,7 +835,14 @@ function isRecord(value) {
   return typeof value === 'object' && value !== null
 }
 
-function selectRuntime() {
+async function runtimeForSession(id) {
+  const credential = await chatGptSubscriptions.credential(id)
+  return credential
+    ? { kind: 'chatgpt', label: 'ChatGPT', model: nanocodexModel }
+    : fallbackRuntime
+}
+
+function selectFallbackRuntime() {
   const preference = process.env.PRETTY_AMPED_RUNTIME?.trim().toLowerCase()
 
   if (preference === 'anthropic') {
@@ -724,6 +868,7 @@ function publicError(error) {
   const message = error instanceof Error ? error.message : String(error)
 
   if (message.includes('session limit')) return message
+  if (/sign in with ChatGPT|sign-in has expired/i.test(message)) return message
   if (/credit|billing|insufficient_quota/i.test(message)) {
     return 'The configured AI provider has no credits remaining.'
   }
