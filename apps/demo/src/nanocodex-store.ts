@@ -623,6 +623,9 @@ function toolInput(part: ToolPart) {
 
 function toolPresentation(tool: string): ToolPart['presentation'] {
   const value = tool.toLowerCase()
+  if (value === 'search_web' || value.includes('websearch')) {
+    return { kind: 'web', operation: 'search' }
+  }
   if (value.includes('search') || value === 'inspect_component_catalog') {
     return { kind: 'context', operation: 'grep' }
   }

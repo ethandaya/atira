@@ -37,6 +37,21 @@ describe('NanocodexChatStore', () => {
             tool: 'inspect_component_catalog',
             type: 'tool-completed',
           },
+          {
+            id: 'web-call',
+            input: 'current StyleX release',
+            summary: 'Searching the web',
+            tool: 'search_web',
+            type: 'tool-started',
+          },
+          {
+            id: 'web-call',
+            output: 'StyleX release notes\nhttps://stylexjs.com/',
+            status: 'succeeded',
+            summary: 'Searched the web',
+            tool: 'search_web',
+            type: 'tool-completed',
+          },
           { text: '# Result\n', type: 'assistant-delta' },
           {
             durationMs: 25,
@@ -70,6 +85,16 @@ describe('NanocodexChatStore', () => {
             output: 'Timeline, Turn',
             status: 'succeeded',
           }),
+          type: 'tool',
+        }),
+        expect.objectContaining({
+          presentation: { kind: 'web', operation: 'search' },
+          state: expect.objectContaining({
+            input: { query: 'current StyleX release' },
+            output: 'StyleX release notes\nhttps://stylexjs.com/',
+            status: 'succeeded',
+          }),
+          toolName: 'search_web',
           type: 'tool',
         }),
         expect.objectContaining({

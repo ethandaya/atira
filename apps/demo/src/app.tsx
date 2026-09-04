@@ -106,7 +106,7 @@ function DemoApp() {
 
   const runtimeLabel =
     runtime.status === 'ready'
-      ? `${runtime.runtime} · ${runtime.model} · read-only catalog tool`
+      ? `${runtime.runtime} · ${runtime.model} · catalog + public web search`
       : runtime.status === 'loading'
         ? 'Connecting to Nanocodex…'
         : 'Runtime unavailable'
@@ -296,8 +296,8 @@ function EmptyPlayground({
         <h2 {...stylex.props(styles.emptyTitle)}>Try the components live</h2>
         <p {...stylex.props(styles.emptyDescription)}>
           A retained Nanocodex conversation rendered entirely with Pretty Amped.
-          The model can search the read-only component catalog, with no workspace
-          access.
+          The model can search the read-only component catalog and public web,
+          with no workspace access.
         </p>
       </div>
       <Suggestions>
