@@ -561,6 +561,7 @@ const styles = stylex.create({
     color: colors.textMuted,
     display: 'flex',
     flex: 1,
+    flexDirection: 'column',
     fontFamily: type.family,
     fontSize: type.sizeBody,
     justifyContent: 'flex-end',

@@ -22,6 +22,7 @@ import {
   RadioGroup,
   RadioOption,
   TextareaField,
+  VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Circle, CircleDot, X } from 'lucide-react'
@@ -110,9 +111,9 @@ export function PermissionPrompt({
       )}
 
       <div {...stylex.props(styles.requestFooter, styles.permissionFooter)}>
-        <p role="status" {...stylex.props(styles.status)}>
+        <VisuallyHidden role="status">
           {permissionStatus(request)}
-        </p>
+        </VisuallyHidden>
         {(actionable || submitting) && (
           <div
             role="group"
@@ -374,9 +375,9 @@ export function QuestionRequest({
       )}
 
       <div {...stylex.props(styles.requestFooter)}>
-        <p role="status" {...stylex.props(styles.status)}>
+        <VisuallyHidden role="status">
           {questionStatus(request)}
-        </p>
+        </VisuallyHidden>
         {(actionable || submitting) && (
           <div {...stylex.props(styles.actions)}>
             <Button
@@ -790,9 +791,12 @@ const styles = stylex.create({
   permissionRequest: {
     '@media (min-width: 40rem)': {
       alignItems: 'center',
+      alignSelf: 'flex-start',
       columnGap: space.x4,
       display: 'grid',
       gridTemplateColumns: 'minmax(0, 1fr) auto',
+      inlineSize: 'fit-content',
+      maxInlineSize: '100%',
     },
   },
   requestCopy: {
@@ -855,12 +859,6 @@ const styles = stylex.create({
       gridColumn: 2,
       gridRow: 1,
     },
-  },
-  status: {
-    color: colors.textMuted,
-    fontSize: type.sizeSmall,
-    lineHeight: type.lineBody,
-    margin: 0,
   },
   error: {
     color: colors.danger,

@@ -383,6 +383,21 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
   }))
   expect(dimensions.scrollWidth).toBe(dimensions.clientWidth)
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
+  const toolbar = page.locator('[data-slot="chat-composer-toolbar"]')
+  const toolbarChildren = await toolbar.locator(':scope > *').evaluateAll((elements) =>
+    elements.map((element) => {
+      const bounds = element.getBoundingClientRect()
+      return { bottom: bounds.bottom, top: bounds.top }
+    }),
+  )
+  const firstCenter = (toolbarChildren[0]!.top + toolbarChildren[0]!.bottom) / 2
+  const secondCenter = (toolbarChildren[1]!.top + toolbarChildren[1]!.bottom) / 2
+  expect(Math.abs(firstCenter - secondCenter)).toBeLessThanOrEqual(1)
+
+  await page.getByRole('button', { name: 'More composer actions' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Attach files' })).toBeVisible()
+  await page.getByRole('menuitem', { name: 'Use shell mode' }).click()
+  await expect(page.getByRole('textbox', { name: 'Shell command' })).toBeVisible()
   await expectComposerInViewport(page)
 })
 
