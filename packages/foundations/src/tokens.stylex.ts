@@ -38,8 +38,10 @@ export const space = stylex.defineVars({
 })
 
 export const radii = stylex.defineVars({
-  control: '0.5rem',
-  surface: '0.625rem',
+  control: '0.4375rem',
+  inset: '0.5rem',
+  popover: '0.625rem',
+  surface: '0.75rem',
 })
 
 export const type = stylex.defineVars({
@@ -62,14 +64,19 @@ export const type = stylex.defineVars({
 })
 
 export const motion = stylex.defineVars({
+  durationInstant: '100ms',
   durationFast: '140ms',
-  durationModerate: '200ms',
-  easingStandard: 'cubic-bezier(0.32, 0.72, 0, 1)',
+  durationEnter: '180ms',
+  durationModerate: '220ms',
+  durationStructural: '240ms',
+  easingEnter: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  easingMove: 'cubic-bezier(0.65, 0, 0.35, 1)',
+  easingStandard: 'cubic-bezier(0.22, 1, 0.36, 1)',
 })
 
 export const shadows = stylex.defineVars({
   raised:
-    '0 0 0 1px oklch(0 0 0 / 0.025), 0 1px 2px oklch(0 0 0 / 0.035), 0 6px 18px -10px oklch(0 0 0 / 0.12)',
+    '0 0 0 0.5px color-mix(in oklab, currentColor 10%, transparent), 0 1px 2px oklch(0 0 0 / 0.05), 0 2px 4px oklch(0 0 0 / 0.02)',
   overlay:
-    '0 0 0 1px oklch(0 0 0 / 0.04), 0 8px 24px -8px oklch(0 0 0 / 0.18), 0 24px 48px -20px oklch(0 0 0 / 0.24)',
+    '0 0 0 0.5px color-mix(in oklab, currentColor 14%, transparent), 0 4px 12px -2px oklch(0 0 0 / 0.12), 0 16px 36px -12px oklch(0 0 0 / 0.18)',
 })
