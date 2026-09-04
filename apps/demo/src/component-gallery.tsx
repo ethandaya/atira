@@ -100,8 +100,31 @@ export function ComponentGallery() {
 
   return (
     <main aria-label="Component gallery" {...stylex.props(styles.root)}>
+      <nav aria-label="Component categories" {...stylex.props(styles.categoryNav)}>
+        <div {...stylex.props(styles.categoryNavInner)}>
+          <a href="#gallery-primitives" {...stylex.props(styles.categoryLink)}>
+            Foundations
+          </a>
+          <a href="#gallery-conversation" {...stylex.props(styles.categoryLink)}>
+            Conversation
+          </a>
+          <a href="#gallery-agents" {...stylex.props(styles.categoryLink)}>
+            Agent workflows
+          </a>
+          <a href="#gallery-compositions" {...stylex.props(styles.categoryLink)}>
+            Full compositions
+          </a>
+          <a href="#gallery-output" {...stylex.props(styles.categoryLink)}>
+            Structured output
+          </a>
+        </div>
+      </nav>
       <div {...stylex.props(styles.content)}>
-        <section aria-labelledby="primitives-heading" {...stylex.props(styles.group)}>
+        <section
+          aria-labelledby="primitives-heading"
+          id="gallery-primitives"
+          {...stylex.props(styles.group)}
+        >
           <GroupHeading
             id="primitives-heading"
             title="Foundations and primitives"
@@ -292,6 +315,7 @@ export function ComponentGallery() {
 
         <section
           aria-labelledby="conversation-heading"
+          id="gallery-conversation"
           {...stylex.props(styles.group)}
         >
           <GroupHeading
@@ -462,7 +486,11 @@ export function ComponentGallery() {
           </div>
         </section>
 
-        <section aria-labelledby="agent-heading" {...stylex.props(styles.group)}>
+        <section
+          aria-labelledby="agent-heading"
+          id="gallery-agents"
+          {...stylex.props(styles.group)}
+        >
           <GroupHeading
             id="agent-heading"
             title="Agent workflows"
@@ -623,7 +651,11 @@ export function ComponentGallery() {
           </div>
         </section>
 
-        <section aria-labelledby="chat-heading" {...stylex.props(styles.group)}>
+        <section
+          aria-labelledby="chat-heading"
+          id="gallery-compositions"
+          {...stylex.props(styles.group)}
+        >
           <GroupHeading
             id="chat-heading"
             title="Full compositions"
@@ -781,7 +813,11 @@ export function ComponentGallery() {
           </div>
         </section>
 
-        <section aria-labelledby="output-heading" {...stylex.props(styles.group)}>
+        <section
+          aria-labelledby="output-heading"
+          id="gallery-output"
+          {...stylex.props(styles.group)}
+        >
           <GroupHeading
             id="output-heading"
             title="Structured output"
@@ -1314,6 +1350,55 @@ const styles = stylex.create({
     overflowY: 'auto',
     overscrollBehaviorY: 'contain',
   },
+  categoryNav: {
+    backgroundColor: colors.canvas,
+    borderBlockEndColor: colors.border,
+    borderBlockEndStyle: 'solid',
+    borderBlockEndWidth: '1px',
+    insetBlockStart: 0,
+    position: 'sticky',
+    zIndex: 10,
+  },
+  categoryNavInner: {
+    alignItems: 'center',
+    display: 'flex',
+    gap: space.x1,
+    marginInline: 'auto',
+    maxInlineSize: '68rem',
+    overflowX: 'auto',
+    overscrollBehaviorInline: 'contain',
+    paddingInline: {
+      default: space.x4,
+      '@media (min-width: 48rem)': space.x6,
+    },
+    scrollbarWidth: 'none',
+  },
+  categoryLink: {
+    alignItems: 'center',
+    borderRadius: radii.control,
+    color: colors.textMuted,
+    display: 'inline-flex',
+    flexShrink: 0,
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineCompact,
+    minBlockSize: {
+      default: '2.25rem',
+      '@media (hover: none)': '2.75rem',
+    },
+    outlineColor: { default: 'transparent', ':focus-visible': colors.focus },
+    outlineStyle: 'solid',
+    outlineWidth: '3px',
+    paddingInline: space.x2,
+    textDecoration: 'none',
+    touchAction: 'manipulation',
+    backgroundColor: {
+      default: 'transparent',
+      ':hover': {
+        default: null,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
+      },
+    },
+  },
   content: {
     display: 'flex',
     flexDirection: 'column',
@@ -1330,6 +1415,7 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     gap: space.x6,
+    scrollMarginBlockStart: '3.5rem',
   },
   groupHeading: {
     display: 'flex',

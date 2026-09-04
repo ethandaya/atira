@@ -600,6 +600,10 @@ const styles = stylex.create({
   },
   headerInnerWide: {
     maxInlineSize: '68rem',
+    paddingInline: {
+      default: space.x4,
+      '@media (min-width: 48rem)': space.x6,
+    },
   },
   identity: {
     alignItems: 'baseline',

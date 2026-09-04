@@ -436,6 +436,30 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
   await expectComposerInViewport(page)
 })
 
+test('indexes gallery categories and uses compositor-safe progress motion', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Catalog' }).click()
+
+  const categories = page.getByRole('navigation', { name: 'Component categories' })
+  await expect(categories).toBeVisible()
+  await expect(categories.getByRole('link')).toHaveCount(5)
+
+  const indicator = page.locator('[data-slot="progress-indicator"]').first()
+  await expect(indicator).toHaveCSS('transition-property', 'transform')
+  await expect(indicator).toHaveCSS('width', /\d+px/)
+
+  await categories.getByRole('link', { name: 'Structured output' }).click()
+  const heading = page.getByRole('heading', { name: 'Structured output' })
+  await expect(heading).toBeInViewport()
+  const [categoryBounds, headingBounds] = await Promise.all([
+    elementBounds(categories),
+    elementBounds(heading),
+  ])
+  expect(headingBounds.top).toBeGreaterThanOrEqual(
+    categoryBounds.top + categoryBounds.height,
+  )
+})
+
 async function dispatch(page: Page, name: string, detail?: number) {
   await page.evaluate(
     ({ detail, name }) =>
