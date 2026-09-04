@@ -169,35 +169,34 @@ export function ChatComposer({
           onSelect: () => setMode(draft.mode === 'shell' ? 'prompt' : 'shell'),
         }]
       : []),
-    ...capabilities.agents.map((agent) => ({
-      description: draft.agent?.id === agent.id ? 'Current agent' : 'Agent',
-      disabled: draft.agent?.id === agent.id,
-      icon: <Bot aria-hidden="true" size={15} strokeWidth={1.75} />,
-      id: `agent-${agent.id}`,
-      label: agent.label,
-      onSelect: () =>
-        onDraftChange({
-          ...draft,
-          agent,
-          revision: draft.revision + 1,
-        }),
-    })),
-    ...capabilities.variants.map((variant) => ({
-      description:
-        variant.unavailableReason ??
-        (draft.variant === variant.id ? 'Current variant' : 'Variant'),
-      disabled:
-        variant.unavailableReason !== undefined || draft.variant === variant.id,
-      icon: <SlidersHorizontal aria-hidden="true" size={15} strokeWidth={1.75} />,
-      id: `variant-${variant.id}`,
-      label: variant.label,
-      onSelect: () =>
-        onDraftChange({
-          ...draft,
-          revision: draft.revision + 1,
-          variant: variant.id,
-        }),
-    })),
+    ...capabilities.agents
+      .filter((agent) => draft.agent?.id !== agent.id)
+      .map((agent) => ({
+        icon: <Bot aria-hidden="true" size={15} strokeWidth={1.75} />,
+        id: `agent-${agent.id}`,
+        label: `Use ${agent.label} agent`,
+        onSelect: () =>
+          onDraftChange({
+            ...draft,
+            agent,
+            revision: draft.revision + 1,
+          }),
+      })),
+    ...capabilities.variants
+      .filter((variant) => draft.variant !== variant.id)
+      .map((variant) => ({
+        description: variant.unavailableReason,
+        disabled: variant.unavailableReason !== undefined,
+        icon: <SlidersHorizontal aria-hidden="true" size={15} strokeWidth={1.75} />,
+        id: `variant-${variant.id}`,
+        label: `Use ${variant.label} variant`,
+        onSelect: () =>
+          onDraftChange({
+            ...draft,
+            revision: draft.revision + 1,
+            variant: variant.id,
+          }),
+      })),
   ]
 
   function updateText(next: string) {

@@ -424,7 +424,7 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'Commands' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'References' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'Attach files' })).toBeVisible()
-  await expect(page.getByText('Plan', { exact: true })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Use Plan agent' })).toBeVisible()
   await page.getByRole('menuitem', { name: 'Commands' }).click()
   await expect(page.locator('[data-slot="filter-menu-popup"] input')).toBeFocused()
   await page.keyboard.press('Escape')
