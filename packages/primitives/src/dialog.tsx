@@ -1,7 +1,8 @@
 import { Dialog as BaseDialog } from '@base-ui/react/dialog'
-import { colors, motion, radii, shadows, space, type } from '@pretty-amped/foundations/tokens.stylex'
+import { colors, radii, shadows, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { useRef, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import { AnimatePresence, PresenceSurface } from './presence'
 
 export type DialogProps = {
   actions?: ReactNode
@@ -19,15 +20,23 @@ export type DialogProps = {
 export function Dialog({ actions, children, closeLabel = 'Close', defaultOpen, description, headingLevel = 2, onOpenChange, open, title, trigger }: DialogProps) {
   const portalContainerRef = useRef<HTMLSpanElement>(null)
   const Heading = `h${headingLevel}` as const
+  const [localOpen, setLocalOpen] = useState(defaultOpen ?? false)
+  const [immediate, setImmediate] = useState(false)
+  const isOpen = open ?? localOpen
 
   return (
     <span ref={portalContainerRef} data-slot="dialog" {...stylex.props(styles.container)}>
-      <BaseDialog.Root defaultOpen={defaultOpen} onOpenChange={(next) => onOpenChange?.(next)} open={open}>
+      <BaseDialog.Root onOpenChange={(next, details) => {
+        setImmediate(details.event.type.startsWith('key'))
+        setLocalOpen(next)
+        onOpenChange?.(next)
+      }} open={isOpen}>
         <BaseDialog.Trigger data-slot="dialog-trigger" {...stylex.props(styles.trigger)}>{trigger}</BaseDialog.Trigger>
-        <BaseDialog.Portal container={portalContainerRef}>
-          <BaseDialog.Backdrop data-slot="dialog-backdrop" {...stylex.props(styles.backdrop)} />
+        <AnimatePresence initial={false}>
+        {isOpen && <BaseDialog.Portal keepMounted container={portalContainerRef}>
+          <BaseDialog.Backdrop render={<PresenceSurface immediate={immediate} kind="overlay" />} data-slot="dialog-backdrop" {...stylex.props(styles.backdrop)} />
           <BaseDialog.Viewport data-slot="dialog-viewport" {...stylex.props(styles.viewport)}>
-            <BaseDialog.Popup data-slot="dialog-content" {...stylex.props(styles.popup)}>
+            <BaseDialog.Popup render={<PresenceSurface immediate={immediate} />} data-slot="dialog-content" {...stylex.props(styles.popup)}>
               <div data-slot="dialog-header" {...stylex.props(styles.header)}>
                 <BaseDialog.Title render={<Heading />} data-slot="dialog-title" {...stylex.props(styles.title)}>{title}</BaseDialog.Title>
                 <BaseDialog.Description data-slot="dialog-description" {...stylex.props(styles.description)}>{description}</BaseDialog.Description>
@@ -39,7 +48,8 @@ export function Dialog({ actions, children, closeLabel = 'Close', defaultOpen, d
               </div>
             </BaseDialog.Popup>
           </BaseDialog.Viewport>
-        </BaseDialog.Portal>
+        </BaseDialog.Portal>}
+        </AnimatePresence>
       </BaseDialog.Root>
     </span>
   )
@@ -48,9 +58,9 @@ export function Dialog({ actions, children, closeLabel = 'Close', defaultOpen, d
 const styles = stylex.create({
   container: { display: 'inline-flex' },
   trigger: { alignItems: 'center', appearance: 'none', backgroundColor: { default: colors.surfaceMuted, ':hover': { default: null, '@media (hover: hover) and (pointer: fine)': colors.surfaceHover }, ':active': colors.surfaceSelected }, borderColor: 'transparent', borderRadius: radii.control, borderStyle: 'solid', borderWidth: '1px', color: colors.text, cursor: 'pointer', display: 'inline-flex', fontFamily: type.family, fontSize: type.sizeSmall, fontWeight: type.weightMedium, justifyContent: 'center', lineHeight: type.lineCompact, minBlockSize: { default: '2rem', '@media (hover: none)': '2.75rem' }, outlineColor: { default: 'transparent', ':focus-visible': colors.focus }, outlineOffset: 0, outlineStyle: 'solid', outlineWidth: '3px', paddingInline: space.x3, touchAction: 'manipulation' },
-  backdrop: { backgroundColor: 'oklch(0 0 0 / 0.35)', inset: 0, opacity: 1, position: 'fixed', transitionDuration: { default: motion.durationFast, '@media (prefers-reduced-motion: reduce)': '0ms' }, transitionProperty: 'opacity', transitionTimingFunction: motion.easingStandard, zIndex: 100, '@media (prefers-reduced-motion: no-preference)': { ':is([data-starting-style], [data-ending-style])': { opacity: 0 } } },
+  backdrop: { backgroundColor: 'oklch(0 0 0 / 0.35)', inset: 0, position: 'fixed', zIndex: 100 },
   viewport: { alignItems: 'center', display: 'flex', inset: 0, justifyContent: 'center', padding: space.x6, position: 'fixed', zIndex: 101 },
-  popup: { backgroundColor: colors.surfaceRaised, borderColor: colors.borderStrong, borderRadius: radii.surface, borderStyle: 'solid', borderWidth: '1px', boxShadow: shadows.overlay, boxSizing: 'border-box', color: colors.text, display: 'flex', flexDirection: 'column', gap: space.x4, maxBlockSize: 'calc(100dvh - 3rem)', maxInlineSize: '32rem', outlineColor: { default: 'transparent', ':focus-visible': colors.focus }, outlineStyle: 'solid', outlineWidth: '3px', overflow: 'auto', padding: space.x6, transitionDuration: { default: motion.durationFast, '@media (prefers-reduced-motion: reduce)': '0ms' }, transitionProperty: 'opacity, transform', transitionTimingFunction: motion.easingStandard, width: '100%', '@media (prefers-reduced-motion: no-preference)': { ':is([data-starting-style], [data-ending-style])': { opacity: 0, transform: 'scale(0.98)' } } },
+  popup: { backgroundColor: colors.surfaceRaised, borderColor: colors.borderStrong, borderRadius: radii.surface, borderStyle: 'solid', borderWidth: '1px', boxShadow: shadows.overlay, boxSizing: 'border-box', color: colors.text, display: 'flex', flexDirection: 'column', gap: space.x4, maxBlockSize: 'calc(100dvh - 3rem)', maxInlineSize: '32rem', outlineColor: { default: 'transparent', ':focus-visible': colors.focus }, outlineStyle: 'solid', outlineWidth: '3px', overflow: 'auto', padding: space.x6, width: '100%' },
   header: { display: 'flex', flexDirection: 'column', gap: space.x2 },
   title: { fontFamily: type.family, fontSize: type.sizeInput, fontWeight: type.weightStrong, lineHeight: type.lineCompact, margin: 0 },
   description: { color: colors.textMuted, fontFamily: type.family, fontSize: type.sizeSmall, lineHeight: type.lineBody, margin: 0 },

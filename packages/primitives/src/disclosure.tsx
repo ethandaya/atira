@@ -8,7 +8,8 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronRight } from 'lucide-react'
-import type { ComponentPropsWithRef, ReactNode } from 'react'
+import { useState, type ComponentPropsWithRef, type ReactNode } from 'react'
+import { AnimatePresence, PresenceSurface } from './presence'
 
 type NativeDivProps = Omit<
   ComponentPropsWithRef<'div'>,
@@ -35,13 +36,19 @@ export function Disclosure({
   variant = 'default',
   ...props
 }: DisclosureProps) {
+  const [immediate, setImmediate] = useState(true)
+  const [localOpen, setLocalOpen] = useState(defaultOpen ?? false)
+  const isOpen = open ?? localOpen
   return (
     <Collapsible.Root
       {...props}
-      defaultOpen={defaultOpen}
       disabled={disabled}
-      onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}
-      open={open}
+      onOpenChange={(nextOpen, details) => {
+        setImmediate(details.event.type.startsWith('key'))
+        setLocalOpen(nextOpen)
+        onOpenChange?.(nextOpen)
+      }}
+      open={isOpen}
       data-slot="disclosure"
       {...stylex.props(styles.root)}
     >
@@ -77,7 +84,10 @@ export function Disclosure({
           </button>
         )}
       />
-      <Collapsible.Panel
+      <AnimatePresence initial={false}>
+      {isOpen && <Collapsible.Panel
+        keepMounted
+        render={<PresenceSurface kind="content" immediate={immediate} />}
         data-slot="disclosure-panel"
         {...stylex.props(
           styles.panel,
@@ -85,7 +95,8 @@ export function Disclosure({
         )}
       >
         {children}
-      </Collapsible.Panel>
+      </Collapsible.Panel>}
+      </AnimatePresence>
     </Collapsible.Root>
   )
 }

@@ -10,6 +10,7 @@ import {
   Disclosure,
   Shimmer,
   Spinner,
+  StateTransition,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
@@ -80,7 +81,9 @@ export function ToolActivity({
           state.status === 'failed' && styles.stateDanger,
         )}
       >
-        {terminalMark}
+        <StateTransition state={active ? 'active' : state.status}>
+          {terminalMark}
+        </StateTransition>
         {!active && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
       </span>
       <span {...stylex.props(styles.heading)}>

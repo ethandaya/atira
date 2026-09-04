@@ -9,7 +9,7 @@ import type {
   QuestionRequestView,
   ToolPart,
 } from '@pretty-amped/foundations/chat'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -37,7 +37,7 @@ import { Turn } from './turn'
 afterEach(cleanup)
 
 describe('chat components', () => {
-  it('keeps reasoning geometry while replacing loading with completion', () => {
+  it('keeps reasoning geometry while replacing loading with completion', async () => {
     const { container, rerender } = render(
       <Reasoning state={{ status: 'thinking' }}>Checking the response.</Reasoning>,
     )
@@ -51,7 +51,7 @@ describe('chat components', () => {
       </Reasoning>,
     )
 
-    expect(container.querySelector('[data-slot="spinner"]')).toBeNull()
+    await waitFor(() => expect(container.querySelector('[data-slot="spinner"]')).toBeNull())
     expect(container.querySelector('[data-slot="reasoning-state-icon"]')).not.toBeNull()
     expect(screen.getByText('Thought for 2.1s')).not.toBeNull()
   })

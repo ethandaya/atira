@@ -8,7 +8,8 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { AnimatePresence, PresenceSurface } from './presence'
 
 export type ActionMenuItem = Readonly<{
   description?: string
@@ -34,8 +35,13 @@ export function ActionMenu({
   side = 'bottom',
   trigger,
 }: ActionMenuProps) {
+  const [open, setOpen] = useState(false)
+  const [immediate, setImmediate] = useState(false)
   return (
-    <Menu.Root>
+    <Menu.Root open={open} onOpenChange={(next, details) => {
+      setImmediate(details.event.type.startsWith('key'))
+      setOpen(next)
+    }}>
       <Menu.Trigger
         aria-label={label}
         data-slot="action-menu-trigger"
@@ -46,7 +52,8 @@ export function ActionMenu({
       >
         {trigger}
       </Menu.Trigger>
-      <Menu.Portal>
+      <AnimatePresence initial={false}>
+      {open && <Menu.Portal keepMounted>
         <Menu.Positioner
           align="start"
           side={side}
@@ -54,6 +61,7 @@ export function ActionMenu({
           {...stylex.props(styles.positioner)}
         >
           <Menu.Popup
+            render={<PresenceSurface immediate={immediate} />}
             aria-label={label}
             data-slot="action-menu-popup"
             {...stylex.props(styles.popup)}
@@ -88,7 +96,8 @@ export function ActionMenu({
             ))}
           </Menu.Popup>
         </Menu.Positioner>
-      </Menu.Portal>
+      </Menu.Portal>}
+      </AnimatePresence>
     </Menu.Root>
   )
 }
@@ -162,18 +171,6 @@ const styles = stylex.create({
     overscrollBehaviorY: 'contain',
     padding: space.x1,
     transformOrigin: 'var(--transform-origin)',
-    transitionDuration: {
-      default: motion.durationFast,
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    transitionProperty: 'opacity, transform',
-    transitionTimingFunction: motion.easingStandard,
-    '@media (prefers-reduced-motion: no-preference)': {
-      ':is([data-starting-style], [data-ending-style])': {
-        opacity: 0,
-        transform: 'scale(0.98)',
-      },
-    },
   },
   item: {
     alignItems: 'center',

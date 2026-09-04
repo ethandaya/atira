@@ -7,6 +7,7 @@ import {
   Disclosure,
   Shimmer,
   Spinner,
+  StateTransition,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
@@ -63,6 +64,7 @@ export function Reasoning({
         variant="plain"
         summary={(
           <span data-slot="reasoning-summary" {...stylex.props(styles.summary)}>
+            <StateTransition state={state.status}>
             {isThinking ? (
               <Spinner size="small" />
             ) : (
@@ -74,6 +76,7 @@ export function Reasoning({
                 {...stylex.props(styles.stateIcon)}
               />
             )}
+            </StateTransition>
             <span>
               {isThinking && typeof summary === 'string' ? (
                 <Shimmer>{summary}</Shimmer>

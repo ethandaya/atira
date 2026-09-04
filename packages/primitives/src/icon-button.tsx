@@ -1,6 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 import type { ReactNode } from 'react'
 import { Button, type ButtonProps } from './button'
+import { StateTransition } from './presence'
 
 export type IconButtonProps = Omit<ButtonProps, 'aria-label' | 'children'> & {
   'aria-label': string
@@ -26,7 +27,11 @@ export function IconButton({
         data-slot="icon-button-icon"
         {...stylex.props(iconSizes[iconSize])}
       >
-        {children}
+        {props.variant === 'primary' ? (
+          <StateTransition size={iconSize === 'small' ? 16 : 20} state={label}>
+            {children}
+          </StateTransition>
+        ) : children}
       </span>
     </Button>
   )

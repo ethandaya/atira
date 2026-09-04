@@ -3,6 +3,61 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+test('animates presence without losing dialog focus or leaving interactive exits', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+  const trigger = page.getByRole('button', { name: 'Open dialog', exact: true })
+  await trigger.scrollIntoViewIfNeeded()
+  const samples = await trigger.evaluate(async (element) => {
+    element.click()
+    const values: number[] = []
+    for (let frame = 0; frame < 24; frame++) {
+      await new Promise(requestAnimationFrame)
+      const popup = document.querySelector('[data-slot="dialog-content"]')
+      if (popup) values.push(Number(getComputedStyle(popup).opacity))
+    }
+    return values
+  })
+  expect(samples.some((opacity) => opacity > 0 && opacity < 1)).toBe(true)
+  const popup = page.getByRole('dialog')
+  await expect(popup).toHaveCSS('opacity', '1')
+  expect((await popup.boundingBox())!.width).toBeGreaterThan(250)
+  await popup.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.locator('[data-slot="dialog-content"]')).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+  await trigger.press('Enter')
+  await expect(popup).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('[data-slot="dialog-content"]')).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+})
+
+test('keeps press motion pointer-only and disables presence motion on mobile reduced-motion', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+  const primary = page.getByRole('button', { name: 'Primary', exact: true })
+  await primary.hover()
+  await page.mouse.down()
+  await expect(primary).toHaveCSS('transform', 'matrix(0.97, 0, 0, 0.97, 0, 0)')
+  await page.mouse.up()
+  await expect(primary).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+  await primary.focus()
+  await page.keyboard.down('Space')
+  await expect(primary).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+  await page.keyboard.up('Space')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.reload()
+  await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+  await page.getByRole('button', { name: 'Open dialog', exact: true }).click()
+  const popup = page.getByRole('dialog')
+  await expect(popup).toHaveCSS('opacity', '1')
+  await expect(popup).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+  expect(await popup.evaluate((element) => element.getAnimations().length)).toBe(0)
+  await page.keyboard.press('Escape')
+  await expect(popup).toHaveCount(0)
+})
+
 test('presents an accessible ChatGPT device sign-in flow', async ({ page }) => {
   await page.route('**/api/runtime', async (route) => {
     await route.fulfill({

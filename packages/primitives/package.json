@@ -13,7 +13,8 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "@pretty-amped/foundations": "workspace:*",
-    "lucide-react": "catalog:"
+    "lucide-react": "catalog:",
+    "motion": "13.2.0"
   },
   "peerDependencies": {
     "@stylexjs/stylex": "catalog:",

@@ -7,7 +7,8 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import type { ComponentPropsWithRef } from 'react'
+import { motion as animate, useReducedMotion } from 'motion/react'
+import { useState, type ComponentPropsWithRef } from 'react'
 
 type NativeButtonProps = Omit<
   ComponentPropsWithRef<'button'>,
@@ -28,8 +29,22 @@ export function Button({
   variant = 'secondary',
   ...props
 }: ButtonProps) {
+  const reduced = useReducedMotion()
+  const [pressed, setPressed] = useState(false)
   return (
     <BaseButton
+      render={<animate.button
+        initial={false}
+        animate={{ transform: pressed && !disabled && !reduced && variant !== 'quiet' ? 'scale(0.97)' : 'scale(1)' }}
+        transition={reduced ? { duration: 0 } : { type: 'spring', duration: 0.2, bounce: 0 }}
+        onPointerDown={(event) => {
+          if (event.button === 0) setPressed(true)
+        }}
+        onPointerUp={() => setPressed(false)}
+        onPointerCancel={() => setPressed(false)}
+        onPointerLeave={() => setPressed(false)}
+        onBlur={() => setPressed(false)}
+      />}
       {...props}
       disabled={disabled}
       type={buttonType}
@@ -77,13 +92,8 @@ const styles = stylex.create({
       default: motion.durationFast,
       '@media (prefers-reduced-motion: reduce)': '0ms',
     },
-    transitionProperty: 'background-color, border-color, color, transform',
+    transitionProperty: 'background-color, border-color, color',
     transitionTimingFunction: motion.easingStandard,
-    transform: {
-      default: 'translateY(0)',
-      ':active': 'translateY(1px)',
-      '@media (prefers-reduced-motion: reduce)': 'none',
-    },
     touchAction: 'manipulation',
     userSelect: 'none',
   },
@@ -93,7 +103,6 @@ const styles = stylex.create({
     color: colors.textDisabled,
     cursor: 'not-allowed',
     opacity: 1,
-    transform: 'none',
   },
 })
 
