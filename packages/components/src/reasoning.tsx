@@ -10,6 +10,7 @@ import {
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { Check } from 'lucide-react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
 export type ReasoningState =
@@ -65,7 +66,13 @@ export function Reasoning({
             {isThinking ? (
               <Spinner size="small" />
             ) : (
-              <span aria-hidden="true" {...stylex.props(styles.railAnchor)} />
+              <Check
+                aria-hidden="true"
+                data-slot="reasoning-state-icon"
+                focusable="false"
+                strokeWidth={1.75}
+                {...stylex.props(styles.stateIcon)}
+              />
             )}
             <span>
               {isThinking && typeof summary === 'string' ? (
@@ -99,12 +106,14 @@ const styles = stylex.create({
   summary: {
     alignItems: 'center',
     display: 'grid',
+    fontVariantNumeric: 'tabular-nums',
     gridTemplateColumns: '0.875rem minmax(0, 1fr)',
     gap: space.x2,
     inlineSize: '100%',
   },
-  railAnchor: {
+  stateIcon: {
     blockSize: '0.875rem',
+    color: colors.textMuted,
     flexShrink: 0,
     inlineSize: '0.875rem',
   },

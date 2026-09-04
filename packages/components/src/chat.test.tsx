@@ -31,11 +31,31 @@ import {
   RequestRegion,
   RevertDock,
 } from './requests'
+import { Reasoning } from './reasoning'
 import { Turn } from './turn'
 
 afterEach(cleanup)
 
 describe('chat components', () => {
+  it('keeps reasoning geometry while replacing loading with completion', () => {
+    const { container, rerender } = render(
+      <Reasoning state={{ status: 'thinking' }}>Checking the response.</Reasoning>,
+    )
+
+    expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
+    expect(container.querySelector('[data-slot="reasoning-state-icon"]')).toBeNull()
+
+    rerender(
+      <Reasoning state={{ duration: '2.1s', status: 'complete' }}>
+        Checked the response.
+      </Reasoning>,
+    )
+
+    expect(container.querySelector('[data-slot="spinner"]')).toBeNull()
+    expect(container.querySelector('[data-slot="reasoning-state-icon"]')).not.toBeNull()
+    expect(screen.getByText('Thought for 2.1s')).not.toBeNull()
+  })
+
   it('uses a specialized tool renderer and a lossless generic fallback', () => {
     const read = toolPart('read', { kind: 'context', operation: 'read' })
     const unknown = toolPart('mcp_custom', { kind: 'generic' })

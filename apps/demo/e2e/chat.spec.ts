@@ -145,6 +145,7 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   const tool = turn.locator('[data-slot="tool-activity"]')
   await expect(tool).toHaveAttribute('data-state', 'running')
   await expect(tool.locator('[data-slot="spinner"]')).toBeVisible()
+  await expect(reasoning.locator('[data-slot="reasoning-state-icon"]')).toBeVisible()
   await settleLayout(page)
   const runningBounds = await elementBounds(tool)
   const composerTop = (await elementBounds(composer)).top
