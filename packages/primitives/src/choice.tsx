@@ -8,6 +8,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
+import { Check } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 
 export type CheckboxFieldProps = {
@@ -47,7 +48,7 @@ export function CheckboxField({
           data-slot="checkbox-indicator"
           {...stylex.props(styles.indicator)}
         >
-          ✓
+          <Check aria-hidden="true" size={12} strokeWidth={2.25} />
         </BaseCheckbox.Indicator>
       </BaseCheckbox.Root>
       <OptionCopy label={label} description={description} />
@@ -213,10 +214,8 @@ const styles = stylex.create({
     },
   },
   indicator: {
-    fontFamily: type.family,
-    fontSize: '0.6875rem',
-    fontWeight: type.weightStrong,
-    lineHeight: 1,
+    blockSize: '0.75rem',
+    inlineSize: '0.75rem',
   },
   radioIndicator: {
     backgroundColor: colors.accent,

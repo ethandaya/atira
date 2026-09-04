@@ -24,6 +24,7 @@ import {
   TextareaField,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { Check, Circle, CircleDot, X } from 'lucide-react'
 import {
   useEffect,
   useId,
@@ -438,12 +439,12 @@ export function TodoDock({ defaultOpen, todos }: TodoDockProps) {
             >
               <span aria-hidden="true" {...stylex.props(styles.todoMark)}>
                 {item.state === 'complete'
-                  ? '✓'
+                  ? <Check size={16} strokeWidth={2} />
                   : item.state === 'in-progress'
-                    ? '→'
+                    ? <CircleDot size={16} strokeWidth={1.75} />
                     : item.state === 'cancelled'
-                      ? '×'
-                      : '·'}
+                      ? <X size={16} strokeWidth={1.75} />
+                      : <Circle size={16} strokeWidth={1.75} />}
               </span>
               <span>{item.title}</span>
             </li>
@@ -953,9 +954,10 @@ const styles = stylex.create({
     lineHeight: type.lineBody,
   },
   todoMark: {
+    blockSize: '1rem',
     color: colors.textMuted,
-    fontFamily: type.familyMono,
-    textAlign: 'center',
+    display: 'inline-flex',
+    inlineSize: '1rem',
   },
   revert: {
     alignItems: {

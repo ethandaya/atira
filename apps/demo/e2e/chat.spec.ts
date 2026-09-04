@@ -93,9 +93,11 @@ test('submits, queues, stops, edits, and restores a reverted prompt', async ({ p
   await message.fill('Start a deterministic response')
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Queue' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Queue' })).toHaveCount(0)
 
   await message.fill('Review this after the active response')
+  await expect(page.getByRole('button', { name: 'Stop' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Queue' })).toBeVisible()
   await page.getByRole('button', { name: 'Queue' }).click()
   const queue = page.locator('[data-slot="queue-list"]')
   await expect(queue).toContainText('Review this after the active response')
@@ -103,6 +105,7 @@ test('submits, queues, stops, edits, and restores a reverted prompt', async ({ p
   await expect(message).toHaveValue('Review this after the active response')
   await expect(queue).toHaveCount(0)
 
+  await message.fill('')
   await page.getByRole('button', { name: 'Stop' }).click()
   await expect(page.locator('[data-slot="turn"]').last()).toHaveAttribute(
     'data-state',

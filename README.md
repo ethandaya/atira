@@ -20,7 +20,8 @@ a ChatGPT subscription through OpenAI's device flow; credentials are encrypted
 per browser session and never exposed to client code. Without a subscription it
 uses Anthropic when `ANTHROPIC_API_KEY` is available and otherwise Nanocodex with
 `OPENAI_API_KEY`. Set `PRETTY_AMPED_RUNTIME` to `anthropic` or `nanocodex` to
-choose the fallback explicitly.
+choose the fallback explicitly. The ChatGPT runtime can delegate bounded research,
+review, and planning tasks to isolated, non-recursive subagents.
 
 ## Workspace
 

@@ -5,6 +5,7 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import { Spinner } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { Check } from 'lucide-react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
 export type LoaderState =
@@ -43,32 +44,21 @@ export function Loader({ label, ref, state, ...props }: LoaderProps) {
       data-state={state.status}
       {...stylex.props(styles.root)}
     >
-      {active ? <Spinner size="small" /> : <CheckIcon />}
+      {active ? (
+        <Spinner size="small" />
+      ) : (
+        <Check
+          aria-hidden="true"
+          data-slot="loader-complete-icon"
+          focusable="false"
+          strokeWidth={1.75}
+          {...stylex.props(styles.icon)}
+        />
+      )}
       <span data-slot="loader-label">
         {label ?? stateLabels[state.status]}
       </span>
     </div>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 16 16"
-      data-slot="loader-complete-icon"
-      {...stylex.props(styles.icon)}
-    >
-      <path
-        d="m3.5 8.25 2.75 2.75 6.25-6.25"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.5"
-      />
-    </svg>
   )
 }
 

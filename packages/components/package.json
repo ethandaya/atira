@@ -13,6 +13,7 @@
   "dependencies": {
     "@pretty-amped/foundations": "workspace:*",
     "@pretty-amped/primitives": "workspace:*",
+    "lucide-react": "catalog:",
     "streamdown": "2.6.0"
   },
   "peerDependencies": {

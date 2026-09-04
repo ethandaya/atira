@@ -6,8 +6,9 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, Dialog } from '@pretty-amped/primitives'
+import { Button, Dialog, IconButton } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { Library, MessageSquare, Moon, Sun, Trash2 } from 'lucide-react'
 import { Profiler, useEffect, useState, useSyncExternalStore } from 'react'
 
 import { ComponentGallery } from './component-gallery'
@@ -119,7 +120,7 @@ function DemoApp() {
 
   const runtimeLabel =
     runtime.status === 'ready'
-      ? `${runtime.runtime} · ${runtime.model} · web`
+      ? `${runtime.runtime} · ${runtime.model}`
       : runtime.status === 'loading'
         ? 'Connecting to runtime…'
         : 'Runtime unavailable'
@@ -158,35 +159,50 @@ function DemoApp() {
                 onConnectionChange={refreshRuntime}
               />
             )}
-            {view === 'playground' && snapshot.turns.length > 0 && (
-              <Button
-                disabled={snapshot.activity.status !== 'idle'}
-                onClick={() => void store.clear()}
-                size="compact"
-                variant="quiet"
-              >
-                Clear
-              </Button>
+            {view === 'playground' &&
+              snapshot.turns.length > 0 &&
+              snapshot.activity.status === 'idle' && (
+                <IconButton
+                  aria-label="Clear"
+                  iconSize="small"
+                  onClick={() => void store.clear()}
+                  title="Clear conversation"
+                  variant="quiet"
+                >
+                  <Trash2 size={16} strokeWidth={1.75} />
+                </IconButton>
             )}
-            <Button
+            <IconButton
+              aria-label={view === 'playground' ? 'Catalog' : 'Playground'}
+              iconSize="small"
               onClick={() =>
                 setView((currentView) =>
                   currentView === 'playground' ? 'components' : 'playground',
                 )
               }
-              size="compact"
+              title={view === 'playground' ? 'Component catalog' : 'Playground'}
               variant="quiet"
             >
-              {view === 'playground' ? 'Catalog' : 'Playground'}
-            </Button>
-            <Button
+              {view === 'playground' ? (
+                <Library size={16} strokeWidth={1.75} />
+              ) : (
+                <MessageSquare size={16} strokeWidth={1.75} />
+              )}
+            </IconButton>
+            <IconButton
+              aria-label={theme === 'dark' ? 'Light' : 'Dark'}
               aria-pressed={theme === 'dark'}
+              iconSize="small"
               onClick={toggleTheme}
-              size="compact"
+              title={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
               variant="quiet"
             >
-              {theme === 'dark' ? 'Light' : 'Dark'}
-            </Button>
+              {theme === 'dark' ? (
+                <Sun size={16} strokeWidth={1.75} />
+              ) : (
+                <Moon size={16} strokeWidth={1.75} />
+              )}
+            </IconButton>
           </nav>
         </div>
       </header>
@@ -579,7 +595,7 @@ const styles = stylex.create({
     justifyContent: 'space-between',
     marginInline: 'auto',
     maxInlineSize: '52rem',
-    minBlockSize: '3.5rem',
+    minBlockSize: '3rem',
     paddingInline: space.x4,
   },
   headerInnerWide: {

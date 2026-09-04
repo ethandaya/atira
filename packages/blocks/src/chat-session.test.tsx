@@ -49,7 +49,7 @@ describe('ChatSession', () => {
     expect(store.revert).toHaveBeenCalledWith('turn')
 
     await userEvent.click(
-      screen.getByRole('button', { name: /Run child task.*Task agent/ }),
+      screen.getByRole('button', { name: /Task agent.*Run child task/ }),
     )
     await userEvent.click(
       screen.getByRole('button', { name: 'Open child session' }),

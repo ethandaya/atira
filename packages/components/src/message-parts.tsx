@@ -325,7 +325,7 @@ const styles = stylex.create({
   root: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x3,
+    gap: space.x2,
     inlineSize: '100%',
     minInlineSize: 0,
   },

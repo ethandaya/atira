@@ -25,21 +25,33 @@ type Usage = Readonly<{
   totalTokens: number
 }>
 
+type StreamToolPresentation = Readonly<{
+  agent?: Readonly<{ id: string; label: string }> | undefined
+  childSessionId?: string | undefined
+  kind?: 'task' | undefined
+}>
+
 type StreamEvent =
   | { type: 'started' }
   | { text: string; type: 'assistant-delta' }
   | { text: string; type: 'assistant-message' }
   | { text: string; type: 'reasoning-delta' }
   | {
+      agent?: StreamToolPresentation['agent']
+      childSessionId?: string | undefined
       id: string
       input?: string
+      kind?: 'task' | undefined
       summary: string
       tool: string
       type: 'tool-started'
     }
   | {
+      agent?: StreamToolPresentation['agent']
+      childSessionId?: string | undefined
       error?: string
       id: string
+      kind?: 'task' | undefined
       output?: string
       status: 'succeeded' | 'failed'
       summary: string
@@ -467,34 +479,42 @@ function applyStreamEvent(
   startedAt: number,
 ) {
   if (event.type === 'assistant-delta') {
+    const parts = completeStreamingReasoning(message.parts)
     return {
       ...message,
-      parts: updateText(message.parts, `${message.id}:text`, event.text, false),
+      parts: updateText(parts, `${message.id}:text`, event.text, false),
     }
   }
   if (event.type === 'assistant-message') {
-    return { ...message, parts: replaceText(message.parts, event.text) }
+    return {
+      ...message,
+      parts: replaceText(completeStreamingReasoning(message.parts), event.text),
+    }
   }
   if (event.type === 'reasoning-delta') {
     return {
       ...message,
-      parts: updateReasoning(message.parts, `${message.id}:reasoning`, event.text, startedAt),
+      parts: updateReasoning(message.parts, message.id, event.text, startedAt),
     }
   }
   if (event.type === 'tool-started') {
+    const presentation = toolPresentation(event.tool, event)
     const tool: ToolPart = {
       callId: event.id,
       id: event.id,
-      presentation: toolPresentation(event.tool),
+      presentation,
       state: {
-        input: event.input ? { query: event.input } : {},
+        input: toolEventInput(event.input, presentation),
         startedAt: Date.now(),
         status: 'running',
       },
       toolName: event.tool,
       type: 'tool',
     }
-    return { ...message, parts: upsertPart(message.parts, tool) }
+    return {
+      ...message,
+      parts: upsertPart(completeStreamingReasoning(message.parts), tool),
+    }
   }
 
   const existing = message.parts.find(
@@ -504,7 +524,7 @@ function applyStreamEvent(
   const tool: ToolPart = {
     callId: event.id,
     id: event.id,
-    presentation: existing?.presentation ?? toolPresentation(event.tool),
+    presentation: existing?.presentation ?? toolPresentation(event.tool, event),
     state:
       event.status === 'failed'
         ? {
@@ -550,20 +570,38 @@ function replaceText(parts: ChatMessage['parts'], text: string) {
 
 function updateReasoning(
   parts: ChatMessage['parts'],
-  id: string,
+  messageId: string,
   text: string,
   startedAt: number,
 ) {
-  const existing = parts.find(
-    (part) => part.type === 'reasoning' && part.id === id,
-  )
+  let existing:
+    | Extract<ChatMessage['parts'][number], { type: 'reasoning' }>
+    | undefined
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index]
+    if (part?.type === 'reasoning' && part.state.status === 'streaming') {
+      existing = part
+      break
+    }
+  }
+  const count = parts.filter((part) => part.type === 'reasoning').length
+  const id = existing?.id ?? `${messageId}:reasoning:${count}`
   return upsertPart(parts, {
     id,
-    startedAt,
+    startedAt: existing?.startedAt ?? startedAt,
     state: { status: 'streaming' },
     text: `${existing?.type === 'reasoning' ? existing.text : ''}${text}`,
     type: 'reasoning',
   })
+}
+
+function completeStreamingReasoning(parts: ChatMessage['parts']) {
+  const endedAt = Date.now()
+  return parts.map((part) =>
+    part.type === 'reasoning' && part.state.status === 'streaming'
+      ? { ...part, endedAt, state: { status: 'complete' as const } }
+      : part,
+  )
 }
 
 function upsertPart(
@@ -621,8 +659,20 @@ function toolInput(part: ToolPart) {
   return 'input' in part.state ? part.state.input : undefined
 }
 
-function toolPresentation(tool: string): ToolPart['presentation'] {
+function toolPresentation(
+  tool: string,
+  event?: StreamToolPresentation,
+): ToolPart['presentation'] {
   const value = tool.toLowerCase()
+  if (event?.kind === 'task' || value === 'run_subagent') {
+    return {
+      ...(event?.agent === undefined ? {} : { agent: event.agent }),
+      ...(event?.childSessionId === undefined
+        ? {}
+        : { childSessionId: event.childSessionId }),
+      kind: 'task',
+    }
+  }
   if (value === 'search_web' || value.includes('websearch')) {
     return { kind: 'web', operation: 'search' }
   }
@@ -635,6 +685,16 @@ function toolPresentation(tool: string): ToolPart['presentation'] {
     return { diagnostics: [], files: [], kind: 'file-change', operation: value }
   }
   return { kind: 'generic' }
+}
+
+function toolEventInput(
+  input: string | undefined,
+  presentation: ToolPart['presentation'],
+) {
+  if (!input) return {}
+  return presentation.kind === 'task'
+    ? { description: input }
+    : { query: input }
 }
 
 function capabilities(runtime: RuntimeState, busy: boolean): ChatCapabilities {
@@ -698,9 +758,11 @@ function parseEvent(line: string): StreamEvent | null {
     typeof value.tool === 'string' &&
     (value.input === undefined || typeof value.input === 'string')
   ) {
+    const presentation = streamToolPresentation(value)
     return {
       id: value.id,
       ...(value.input === undefined ? {} : { input: value.input }),
+      ...presentation,
       summary: value.summary,
       tool: value.tool,
       type: 'tool-started',
@@ -715,7 +777,9 @@ function parseEvent(line: string): StreamEvent | null {
     (value.output === undefined || typeof value.output === 'string') &&
     (value.error === undefined || typeof value.error === 'string')
   ) {
+    const presentation = streamToolPresentation(value)
     return {
+      ...presentation,
       ...(value.error === undefined ? {} : { error: value.error }),
       id: value.id,
       ...(value.output === undefined ? {} : { output: value.output }),
@@ -747,6 +811,23 @@ function parseEvent(line: string): StreamEvent | null {
     }
   }
   return null
+}
+
+function streamToolPresentation(
+  value: Record<string, unknown>,
+): StreamToolPresentation {
+  const agent = isRecord(value.agent) &&
+    typeof value.agent.id === 'string' &&
+    typeof value.agent.label === 'string'
+      ? { id: value.agent.id, label: value.agent.label }
+      : undefined
+  return {
+    ...(agent === undefined ? {} : { agent }),
+    ...(typeof value.childSessionId === 'string'
+      ? { childSessionId: value.childSessionId }
+      : {}),
+    ...(value.kind === 'task' ? { kind: value.kind } : {}),
+  }
 }
 
 async function responseError(response: globalThis.Response) {

@@ -37,6 +37,7 @@ describe('NanocodexChatStore', () => {
             tool: 'inspect_component_catalog',
             type: 'tool-completed',
           },
+          { text: 'Planning the external check. ', type: 'reasoning-delta' },
           {
             id: 'web-call',
             input: 'current StyleX release',
@@ -50,6 +51,27 @@ describe('NanocodexChatStore', () => {
             status: 'succeeded',
             summary: 'Searched the web',
             tool: 'search_web',
+            type: 'tool-completed',
+          },
+          {
+            agent: { id: 'review', label: 'Review agent' },
+            childSessionId: 'child-session',
+            id: 'subagent-call',
+            input: 'Review the response hierarchy',
+            kind: 'task',
+            summary: 'Subagent working',
+            tool: 'run_subagent',
+            type: 'tool-started',
+          },
+          {
+            agent: { id: 'review', label: 'Review agent' },
+            childSessionId: 'child-session',
+            id: 'subagent-call',
+            kind: 'task',
+            output: 'The hierarchy is clear.',
+            status: 'succeeded',
+            summary: 'Subagent completed',
+            tool: 'run_subagent',
             type: 'tool-completed',
           },
           { text: '# Result\n', type: 'assistant-delta' },
@@ -72,6 +94,18 @@ describe('NanocodexChatStore', () => {
     expect(snapshot.activity).toEqual({ status: 'idle' })
     expect(turn?.user.delivery).toEqual({ status: 'confirmed' })
     expect(turn?.state.status).toBe('complete')
+    expect(
+      turn?.assistant[0]?.parts.filter((part) => part.type === 'reasoning'),
+    ).toEqual([
+      expect.objectContaining({
+        state: { status: 'complete' },
+        text: 'Checking the catalog. ',
+      }),
+      expect.objectContaining({
+        state: { status: 'complete' },
+        text: 'Planning the external check. ',
+      }),
+    ])
     expect(turn?.assistant[0]?.parts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -95,6 +129,20 @@ describe('NanocodexChatStore', () => {
             status: 'succeeded',
           }),
           toolName: 'search_web',
+          type: 'tool',
+        }),
+        expect.objectContaining({
+          presentation: {
+            agent: { id: 'review', label: 'Review agent' },
+            childSessionId: 'child-session',
+            kind: 'task',
+          },
+          state: expect.objectContaining({
+            input: { description: 'Review the response hierarchy' },
+            output: 'The hierarchy is clear.',
+            status: 'succeeded',
+          }),
+          toolName: 'run_subagent',
           type: 'tool',
         }),
         expect.objectContaining({

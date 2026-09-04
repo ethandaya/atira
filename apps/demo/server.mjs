@@ -6,7 +6,11 @@ import { Agent } from 'nanocodex/node'
 import { createServer as createViteServer } from 'vite'
 
 import { runAnthropicTurn, searchAnthropicWeb } from './anthropic-runtime.mjs'
-import { createChatGptSession, runChatGptTurn } from './chatgpt-runtime.mjs'
+import {
+  createChatGptSession,
+  createChatGptSubagentTool,
+  runChatGptTurn,
+} from './chatgpt-runtime.mjs'
 import { ChatGptSubscriptionStore } from './chatgpt-subscription.mjs'
 import { searchWeb } from './web-search.mjs'
 
@@ -72,6 +76,13 @@ const componentCatalog = [
     name: 'ToolActivity',
     summary: 'One tool invocation with explicit lifecycle and disclosed evidence.',
     states: ['queued', 'running', 'awaiting-approval', 'succeeded', 'failed', 'cancelled'],
+  },
+  {
+    category: 'agent activity',
+    name: 'TaskTool',
+    summary:
+      'A compact delegated subagent task with agent identity, child-session provenance, progress, blockers, result, and terminal state.',
+    states: ['running', 'succeeded', 'failed', 'cancelled', 'blocked'],
   },
   {
     category: 'agent activity',
@@ -585,8 +596,14 @@ async function streamChatGptChat({ control, id, input, response, session }) {
   writeEvent(response, { type: 'started' })
 
   try {
+    const getCredential = (options) =>
+      chatGptSubscriptions.credential(id, options)
+    const childTools = {
+      inspect_component_catalog: inspectComponentCatalog,
+      search_web: searchWebTool,
+    }
     const result = await runChatGptTurn({
-      getCredential: (options) => chatGptSubscriptions.credential(id, options),
+      getCredential,
       input,
       model: nanocodexModel,
       onEvent: (event) => writeEvent(response, event),
@@ -594,8 +611,12 @@ async function streamChatGptChat({ control, id, input, response, session }) {
       sessionId: id,
       signal: abortController.signal,
       tools: {
-        inspect_component_catalog: inspectComponentCatalog,
-        search_web: searchWebTool,
+        ...childTools,
+        run_subagent: createChatGptSubagentTool({
+          getCredential,
+          model: nanocodexModel,
+          tools: childTools,
+        }),
       },
     })
     writeEvent(response, {

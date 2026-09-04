@@ -171,7 +171,7 @@ OpenCode reference: [`packages/ui/src/components`](https://github.com/anomalyco/
 | Context tool group | Missing | Contiguous read/list/glob/grep calls need one calm aggregate row with disclosed details and counts | P0 |
 | Read/list/glob/grep tools | Missing | Need path, pattern, include, offset/limit, result count, scrollable output, loaded-file notices, and grouped context semantics | P0 |
 | Web fetch/search tools | Missing | Need safe URL rendering, provider-aware labels, extracted sources, unavailable links, and external-link policy | P1 |
-| Task/subagent tool | Missing | Need agent identity/color, child session navigation, background state, nested blockers, progress, and missing-child recovery | P0 |
+| Task/subagent tool | Partial | Compact task renderer, agent identity, child-session action, blockers, terminal states, and a bounded ChatGPT child runtime now exist; background task orchestration and nested child requests remain | P0 |
 | Shell/bash tool | Missing | Need command, streaming output, ANSI handling, copy, overflow, running/open defaults, cancellation, failure, and distinction from interactive PTY | P0 |
 | Edit/write/patch tools | Missing | Need file identity, add/delete/move/modify states, diagnostics, change counts, one/many-file disclosure, deferred diffs, and virtualized large output | P0 |
 | Todo tool and dock | Partial | `Plan` is present, but canonical todos must replace hidden tool parts, auto-open while live, animate close safely, and clear stale state | P0 |

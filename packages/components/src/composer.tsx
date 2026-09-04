@@ -4,8 +4,9 @@ import {
   radii,
   space,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, TextareaField } from '@pretty-amped/primitives'
+import { IconButton, TextareaField } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { SendHorizontal, Square } from 'lucide-react'
 import type {
   ComponentPropsWithRef,
   FormEvent,
@@ -121,18 +122,26 @@ export function Composer({
           {actions}
         </div>
         {active ? (
-          <Button onClick={onStop} size="compact" variant="primary">
-            Stop
-          </Button>
+          <IconButton
+            aria-label="Stop"
+            iconSize="small"
+            onClick={onStop}
+            title="Stop response"
+            variant="primary"
+          >
+            <Square fill="currentColor" size={16} strokeWidth={1.75} />
+          </IconButton>
         ) : (
-          <Button
+          <IconButton
+            aria-label={sendLabel}
             disabled={!canSubmit}
-            size="compact"
+            iconSize="small"
+            title={sendLabel}
             type="submit"
             variant="primary"
           >
-            {sendLabel}
-          </Button>
+            <SendHorizontal size={16} strokeWidth={1.75} />
+          </IconButton>
         )}
       </div>
     </form>

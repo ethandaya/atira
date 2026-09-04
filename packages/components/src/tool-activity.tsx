@@ -5,8 +5,9 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import type { ToolProgress } from '@pretty-amped/foundations/chat'
-import { Disclosure, VisuallyHidden } from '@pretty-amped/primitives'
+import { Disclosure, Shimmer, VisuallyHidden } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { Check, Minus, X } from 'lucide-react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
 export type ToolActivityState =
@@ -55,6 +56,15 @@ export function ToolActivity({
 }: ToolActivityProps) {
   const stateLabel = toolStateLabel(state)
   const terminalMark = toolStateMark(state)
+  const active =
+    state.status === 'receiving-input' ||
+    state.status === 'queued' ||
+    state.status === 'running'
+  const canDisclose =
+    Boolean(children) &&
+    (state.status === 'succeeded' ||
+      state.status === 'failed' ||
+      state.status === 'cancelled')
   const header = (
     <span data-slot="tool-activity-header" {...stylex.props(styles.header)}>
       <span {...stylex.props(styles.heading)}>
@@ -62,10 +72,7 @@ export function ToolActivity({
           data-slot="tool-activity-summary"
           {...stylex.props(styles.summary)}
         >
-          {summary}
-        </span>
-        <span data-slot="tool-activity-tool" {...stylex.props(styles.tool)}>
-          {tool}
+          {active ? <Shimmer>{summary}</Shimmer> : summary}
         </span>
       </span>
       <span data-slot="tool-activity-state" {...stylex.props(styles.state)}>
@@ -80,6 +87,7 @@ export function ToolActivity({
       {...props}
       id={id}
       role="group"
+      aria-busy={active || undefined}
       aria-label={`${tool}: ${summary}`}
       data-slot="tool-activity"
       data-state={state.status}
@@ -87,7 +95,12 @@ export function ToolActivity({
       data-tool-activity-id={id}
       {...stylex.props(styles.root)}
     >
-      {children ? (
+      {active && (
+        <VisuallyHidden role="status">
+          {summary}. {stateLabel}.
+        </VisuallyHidden>
+      )}
+      {canDisclose ? (
         <Disclosure
           summary={header}
           variant="plain"
@@ -129,11 +142,32 @@ function toolStateLabel(state: ToolActivityState) {
 function toolStateMark(state: ToolActivityState) {
   switch (state.status) {
     case 'succeeded':
-      return '✓'
+      return (
+        <Check
+          aria-hidden="true"
+          data-slot="tool-state-icon"
+          strokeWidth={1.75}
+          {...stylex.props(styles.stateIcon)}
+        />
+      )
     case 'failed':
-      return '×'
+      return (
+        <X
+          aria-hidden="true"
+          data-slot="tool-state-icon"
+          strokeWidth={1.75}
+          {...stylex.props(styles.stateIcon)}
+        />
+      )
     case 'cancelled':
-      return '–'
+      return (
+        <Minus
+          aria-hidden="true"
+          data-slot="tool-state-icon"
+          strokeWidth={1.75}
+          {...stylex.props(styles.stateIcon)}
+        />
+      )
     default:
       return undefined
   }
@@ -149,19 +183,19 @@ const styles = stylex.create({
     boxSizing: 'border-box',
     minBlockSize: '2rem',
     paddingBlock: space.x1,
+    paddingInline: space.x1,
   },
   header: {
     alignItems: 'center',
     display: 'flex',
     gap: space.x2,
-    inlineSize: '100%',
-    justifyContent: 'space-between',
+    maxInlineSize: '100%',
     minInlineSize: 0,
   },
   heading: {
     alignItems: 'baseline',
     display: 'flex',
-    flex: 1,
+    flex: '0 1 auto',
     flexWrap: 'nowrap',
     gap: space.x2,
     minInlineSize: 0,
@@ -176,33 +210,25 @@ const styles = stylex.create({
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  tool: {
-    color: colors.textMuted,
-    display: {
-      default: 'none',
-      '@media (min-width: 40rem)': 'inline',
-    },
-    fontFamily: type.familyMono,
-    fontSize: type.sizeCaption,
-    fontWeight: type.weightRegular,
-    flexShrink: 0,
-    lineHeight: type.lineCompact,
-  },
   state: {
+    alignItems: 'center',
     color: colors.textMuted,
+    display: 'inline-flex',
     flexShrink: 0,
     fontSize: type.sizeCaption,
     fontWeight: type.weightMedium,
     lineHeight: type.lineCompact,
   },
+  stateIcon: {
+    blockSize: '0.875rem',
+    inlineSize: '0.875rem',
+  },
   evidence: {
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '0.5px',
     color: colors.textMuted,
     overflow: 'auto',
-    paddingBlock: space.x3,
-    paddingInline: space.x2,
+    paddingBlock: space.x2,
+    paddingInlineEnd: space.x2,
+    paddingInlineStart: space.x6,
   },
   error: {
     color: colors.danger,

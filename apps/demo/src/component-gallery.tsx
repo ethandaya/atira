@@ -25,6 +25,7 @@ import {
   RevertDock,
   Suggestion,
   Suggestions,
+  TaskTool,
   Thread,
   TodoDock,
   ToolActivity,
@@ -40,6 +41,7 @@ import type {
   QueuedPrompt,
   RevertedPrompt,
   TodoListView,
+  ToolPart,
 } from '@pretty-amped/foundations/chat'
 import {
   colors,
@@ -61,6 +63,12 @@ import {
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import {
+  Copy as CopyIcon,
+  Minus as MinusIcon,
+  Plus as PlusIcon,
+  RotateCcw as RetryIcon,
+} from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 
 export function ComponentGallery() {
@@ -138,14 +146,14 @@ export function ComponentGallery() {
                   aria-label="Add item"
                   onClick={() => setIconButtonResult('Add item pressed.')}
                 >
-                  <PlusIcon />
+                  <PlusIcon size={20} strokeWidth={1.75} />
                 </IconButton>
                 <IconButton
                   aria-label="Remove item"
                   onClick={() => setIconButtonResult('Remove item pressed.')}
                   variant="outline"
                 >
-                  <MinusIcon />
+                  <MinusIcon size={20} strokeWidth={1.75} />
                 </IconButton>
               </div>
               <p role="status" {...stylex.props(styles.sampleStatus)}>
@@ -381,13 +389,13 @@ export function ComponentGallery() {
                   label="Copy response"
                   onClick={() => setActionResult('Response copied.')}
                 >
-                  <CopyIcon />
+                  <CopyIcon size={16} strokeWidth={1.75} />
                 </Action>
                 <Action
                   label="Regenerate response"
                   onClick={() => setActionResult('Regenerate requested.')}
                 >
-                  <RetryIcon />
+                  <RetryIcon size={16} strokeWidth={1.75} />
                 </Action>
               </Actions>
               <p role="status" {...stylex.props(styles.sampleStatus)}>
@@ -499,6 +507,16 @@ export function ComponentGallery() {
               >
                 <code {...stylex.props(styles.code)}>2 files changed</code>
               </ToolActivity>
+            </ComponentSample>
+
+            <ComponentSample
+              title="TaskTool"
+              description="Compact delegated work with agent identity, child provenance, and a terminal result."
+            >
+              <div {...stylex.props(styles.stack)}>
+                <TaskTool part={galleryRunningSubagent} />
+                <TaskTool part={galleryCompletedSubagent} />
+              </div>
             </ComponentSample>
 
             <ComponentSample
@@ -1022,6 +1040,41 @@ const galleryPromptHistory = [
   },
 ] as const
 
+const galleryRunningSubagent: ToolPart = {
+  callId: 'gallery-subagent-running-call',
+  id: 'gallery-subagent-running',
+  presentation: {
+    agent: { id: 'research', label: 'Research agent' },
+    childSessionId: 'gallery-child-running',
+    kind: 'task',
+  },
+  state: {
+    input: { description: 'Compare transcript density patterns' },
+    startedAt: 1_000,
+    status: 'running',
+  },
+  toolName: 'run_subagent',
+  type: 'tool',
+}
+
+const galleryCompletedSubagent: ToolPart = {
+  callId: 'gallery-subagent-complete-call',
+  id: 'gallery-subagent-complete',
+  presentation: {
+    agent: { id: 'review', label: 'Review agent' },
+    childSessionId: 'gallery-child-complete',
+    kind: 'task',
+  },
+  state: {
+    endedAt: 1_200,
+    input: { description: 'Review the activity hierarchy' },
+    output: 'The active state has one visible owner.',
+    status: 'succeeded',
+  },
+  toolName: 'run_subagent',
+  type: 'tool',
+}
+
 const galleryTurn: ChatTurn = {
   agent: { id: 'build', label: 'Build' },
   assistant: [
@@ -1251,66 +1304,6 @@ function ComponentSample({
       </div>
       <div {...stylex.props(styles.preview)}>{children}</div>
     </article>
-  )
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="1em" height="1em" fill="none" focusable="false">
-      <path d="M10 4v12M4 10h12" stroke="currentColor" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function MinusIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="1em" height="1em" fill="none" focusable="false">
-      <path d="M4 10h12" stroke="currentColor" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function CopyIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      width="1em"
-      height="1em"
-      fill="none"
-      focusable="false"
-    >
-      <rect
-        x="7"
-        y="7"
-        width="9"
-        height="9"
-        rx="1.5"
-        stroke="currentColor"
-      />
-      <path
-        d="M13 7V5.5A1.5 1.5 0 0 0 11.5 4h-7A1.5 1.5 0 0 0 3 5.5v7A1.5 1.5 0 0 0 4.5 14H7"
-        stroke="currentColor"
-      />
-    </svg>
-  )
-}
-
-function RetryIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      width="1em"
-      height="1em"
-      fill="none"
-      focusable="false"
-    >
-      <path
-        d="M15.25 7.25V3.5m0 0H11.5m3.75 0-2.1 2.1a6 6 0 1 0 1.45 6.15"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }
 

@@ -7,6 +7,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
+import { ChevronRight } from 'lucide-react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
 type NativeDivProps = Omit<
@@ -54,28 +55,25 @@ export function Disclosure({
               variant === 'plain' && styles.triggerPlain,
             )}
           >
-            <span data-slot="disclosure-summary" {...stylex.props(styles.summary)}>
+            <span
+              data-slot="disclosure-summary"
+              {...stylex.props(
+                styles.summary,
+                variant === 'plain' && styles.summaryPlain,
+              )}
+            >
               {summary}
             </span>
-            <svg
+            <ChevronRight
               aria-hidden="true"
-              focusable="false"
-              viewBox="0 0 16 16"
               data-slot="disclosure-indicator"
+              focusable="false"
+              strokeWidth={1.75}
               {...stylex.props(
                 styles.indicator,
                 state.open && styles.indicatorOpen,
               )}
-            >
-              <path
-                d="m5.75 3.5 4.5 4.5-4.5 4.5"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-              />
-            </svg>
+            />
           </button>
         )}
       />
@@ -131,6 +129,9 @@ const styles = stylex.create({
     flex: 1,
     minInlineSize: 0,
   },
+  summaryPlain: {
+    flex: '0 1 auto',
+  },
   triggerPlain: {
     backgroundColor: {
       default: 'transparent',
@@ -140,6 +141,9 @@ const styles = stylex.create({
       },
     },
     borderRadius: radii.control,
+    inlineSize: 'fit-content',
+    justifyContent: 'flex-start',
+    maxInlineSize: '100%',
     minBlockSize: {
       default: '2rem',
       '@media (hover: none)': '2.75rem',

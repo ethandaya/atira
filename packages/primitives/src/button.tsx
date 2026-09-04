@@ -88,8 +88,12 @@ const styles = stylex.create({
     userSelect: 'none',
   },
   disabled: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    color: colors.textMuted,
     cursor: 'not-allowed',
-    opacity: 0.52,
+    opacity: 1,
+    transform: 'none',
   },
 })
 

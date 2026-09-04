@@ -21,7 +21,7 @@ vi.mock('@stylexjs/stylex', () => ({
 }))
 
 import { ChatComposer } from './chat-composer'
-import { FileChangeTool, ShellTool } from './chat-tools'
+import { FileChangeTool, ShellTool, TaskTool } from './chat-tools'
 import { MessageParts } from './message-parts'
 import {
   PermissionPrompt,
@@ -30,6 +30,7 @@ import {
   RequestRegion,
   RevertDock,
 } from './requests'
+import { Turn } from './turn'
 
 afterEach(cleanup)
 
@@ -50,7 +51,119 @@ describe('chat components', () => {
 
     expect(container.querySelector('[data-renderer="generic"]')).not.toBeNull()
     expect(screen.getByText('Read /workspace/app.tsx')).not.toBeNull()
-    expect(screen.getByText('Mcp custom')).not.toBeNull()
+    expect(screen.getByText('Custom tool')).not.toBeNull()
+  })
+
+  it('renders subagents as compact tasks with optional child navigation', async () => {
+    const onOpenChild = vi.fn()
+    const part: ToolPart = {
+      callId: 'subagent-call',
+      id: 'subagent-part',
+      presentation: {
+        agent: { id: 'review', label: 'Review agent' },
+        childSessionId: 'child-session',
+        kind: 'task',
+      },
+      state: {
+        endedAt: 2,
+        input: { description: 'Check alignment' },
+        output: 'Looks good.',
+        status: 'succeeded',
+      },
+      toolName: 'run_subagent',
+      type: 'tool',
+    }
+    const { container } = render(
+      <TaskTool onOpenChild={onOpenChild} part={part} />,
+    )
+
+    expect(container.textContent).toContain('Review agent · Check alignment')
+    expect(container.textContent).not.toContain('run_subagent')
+    expect(container.textContent).not.toContain('Looks good.')
+    await userEvent.click(
+      screen.getByRole('button', { name: /Review agent · Check alignment/ }),
+    )
+    expect(container.textContent).toContain('Looks good.')
+    await userEvent.click(screen.getByRole('button', { name: 'Open child session' }))
+    expect(onOpenChild).toHaveBeenCalledWith('child-session')
+  })
+
+  it('shows only one turn-level activity indicator', () => {
+    const runningTurn = {
+      assistant: [
+        {
+          createdAt: 2,
+          delivery: { status: 'confirmed' as const },
+          id: 'assistant',
+          parts: [
+            {
+              callId: 'search-call',
+              id: 'search-part',
+              presentation: { kind: 'web' as const, operation: 'search' as const },
+              state: {
+                input: { query: 'StyleX' },
+                startedAt: 2,
+                status: 'running' as const,
+              },
+              toolName: 'search_web',
+              type: 'tool' as const,
+            },
+          ],
+          role: 'assistant' as const,
+          turnId: 'turn',
+        },
+      ],
+      id: 'turn',
+      state: { startedAt: 1, status: 'running' as const },
+      user: {
+        createdAt: 1,
+        delivery: { status: 'confirmed' as const },
+        id: 'user',
+        parts: [
+          {
+            id: 'user-text',
+            markdown: 'Search StyleX',
+            state: { status: 'complete' as const },
+            type: 'text' as const,
+          },
+        ],
+        role: 'user' as const,
+        turnId: 'turn',
+      },
+    }
+    const { container } = render(<Turn turn={runningTurn} />)
+
+    expect(container.querySelector('[data-slot="turn-status"]')).toBeNull()
+    expect(container.querySelector('[data-slot="tool-activity"]')).not.toBeNull()
+  })
+
+  it('uses one primary composer control while a turn is active', () => {
+    const props = {
+      capabilities,
+      onDraftChange: () => undefined,
+      onStop: () => undefined,
+      onSubmit: () => undefined,
+    }
+    const { rerender } = render(
+      <ChatComposer
+        {...props}
+        activity={{ status: 'busy', turnId: 'turn' }}
+        draft={{ ...draft, segments: [{ id: 'text', text: '', type: 'text' }] }}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Stop' })).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Queue' })).toBeNull()
+
+    rerender(
+      <ChatComposer
+        {...props}
+        activity={{ status: 'busy', turnId: 'turn' }}
+        draft={draft}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Queue' })).not.toBeNull()
   })
 
   it('publishes the exact permission decision', async () => {

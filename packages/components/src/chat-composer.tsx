@@ -18,11 +18,18 @@ import {
 import {
   Button,
   FilterMenu,
+  IconButton,
   SelectPicker,
   TextareaField,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import {
+  Paperclip,
+  SendHorizontal,
+  Square,
+  Terminal,
+} from 'lucide-react'
 import {
   useLayoutEffect,
   useRef,
@@ -120,6 +127,8 @@ export function ChatComposer({
   const canSubmit =
     intent !== undefined &&
     (value.trim().length > 0 || draft.attachments.some((item) => item.state === 'ready'))
+  const showStop =
+    activity.status !== 'idle' && capabilities.canStop && !canSubmit
 
   function updateText(next: string) {
     const control = textareaRef.current
@@ -377,6 +386,7 @@ export function ChatComposer({
                 size="compact"
                 variant="quiet"
               >
+                <Paperclip aria-hidden="true" size={14} strokeWidth={1.75} />
                 Attach
               </Button>
             </>
@@ -428,6 +438,7 @@ export function ChatComposer({
               size="compact"
               variant="quiet"
             >
+              <Terminal aria-hidden="true" size={14} strokeWidth={1.75} />
               {draft.mode === 'shell' ? 'Prompt' : 'Shell'}
             </Button>
           )}
@@ -513,19 +524,28 @@ export function ChatComposer({
               )}
             </div>
           )}
-          {activity.status !== 'idle' && capabilities.canStop && (
-            <Button onClick={onStop} size="compact" variant="outline">
-              Stop
-            </Button>
+          {showStop ? (
+            <IconButton
+              aria-label="Stop"
+              iconSize="small"
+              onClick={onStop}
+              title="Stop response"
+              variant="primary"
+            >
+              <Square fill="currentColor" size={16} strokeWidth={1.75} />
+            </IconButton>
+          ) : (
+            <IconButton
+              aria-label={submitLabel(intent)}
+              disabled={!canSubmit}
+              iconSize="small"
+              title={submitLabel(intent)}
+              type="submit"
+              variant="primary"
+            >
+              <SendHorizontal size={16} strokeWidth={1.75} />
+            </IconButton>
           )}
-          <Button
-            disabled={!canSubmit}
-            size="compact"
-            type="submit"
-            variant="primary"
-          >
-            {submitLabel(intent)}
-          </Button>
         </div>
       </div>
       <VisuallyHidden>Ctrl/⌘ + Enter to submit</VisuallyHidden>
@@ -854,11 +874,10 @@ function replaceDraftText(
 const styles = stylex.create({
   root: {
     backgroundColor: colors.surface,
-    borderColor: colors.borderStrong,
+    borderColor: colors.border,
     borderRadius: '0.75rem',
     borderStyle: 'solid',
     borderWidth: '1px',
-    boxShadow: '0 0.5rem 1.5rem oklch(0 0 0 / 0.06)',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
@@ -867,9 +886,9 @@ const styles = stylex.create({
       default: 'transparent',
       ':focus-within': colors.focus,
     },
-    outlineOffset: 0,
+    outlineOffset: '1px',
     outlineStyle: 'solid',
-    outlineWidth: '3px',
+    outlineWidth: '2px',
   },
   shell: {
     borderColor: colors.warning,

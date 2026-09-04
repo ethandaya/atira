@@ -161,7 +161,7 @@ const styles = stylex.create({
     borderRadius: 0,
     borderStyle: 'solid',
     borderWidth: 0,
-    minBlockSize: '3.5rem',
+    minBlockSize: '3.25rem',
     outlineWidth: 0,
     resize: 'none',
     paddingBlock: space.x3,

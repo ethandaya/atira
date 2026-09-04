@@ -6,7 +6,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 export type FilterMenuItem = Readonly<{
   description?: string
@@ -26,7 +26,7 @@ export type FilterMenuProps<Item extends FilterMenuItem> = {
   onSelect: (item: Item) => void
   open?: boolean
   placeholder?: string
-  triggerLabel: string
+  triggerLabel: ReactNode
 }
 
 export function FilterMenu<Item extends FilterMenuItem>({

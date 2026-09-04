@@ -241,51 +241,62 @@ export function TaskTool({
   const description = firstString(input, ['description', 'prompt']) ?? 'Run task'
   const childSessionId = presentation?.childSessionId
   const blockers = presentation?.blockers ?? []
+  const agent = presentation?.agent
 
   return (
-    <ToolActivity
-      {...(defaultOpen === undefined ? {} : { defaultOpen })}
-      id={part.id}
-      state={activityState(part.state)}
-      summary={description}
-      tool={presentation?.agent?.label ?? part.toolName}
+    <div
+      data-agent-id={agent?.id}
+      data-child-session-id={childSessionId}
+      data-slot="subagent-activity"
+      data-state={part.state.status}
+      {...stylex.props(styles.subagent)}
     >
-      <ToolEvidence
-        part={part}
-        {...(outputCharacterLimit === undefined
-          ? {}
-          : { outputCharacterLimit })}
-      />
-      {blockers.length > 0 && (
-        <section aria-label="Task blockers" {...stylex.props(styles.diagnostics)}>
-          <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
-          <ul {...stylex.props(styles.diagnosticList)}>
-            {blockers.map((blocker, index) => (
-              <li key={`${part.id}:blocker:${index}`}>{blocker}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {childSessionId && onOpenChild && (
-        <div {...stylex.props(styles.actions)}>
-          <Button
-            onClick={() => onOpenChild(childSessionId)}
-            size="compact"
-            variant="outline"
-          >
-            Open child session
-          </Button>
-        </div>
-      )}
-      {childSessionId && !onOpenChild && (
-        <p {...stylex.props(styles.notice)}>Child session unavailable.</p>
-      )}
-      {!childSessionId && isTerminal(part.state) && (
-        <p data-slot="task-child-unavailable" {...stylex.props(styles.notice)}>
-          Child session unavailable.
-        </p>
-      )}
-    </ToolActivity>
+      <ToolActivity
+        {...(defaultOpen === undefined ? {} : { defaultOpen })}
+        id={part.id}
+        state={activityState(part.state)}
+        summary={`${agent?.label ?? 'Subagent'} · ${description}`}
+        tool={part.toolName}
+      >
+        <ToolEvidence
+          part={part}
+          {...(outputCharacterLimit === undefined
+            ? {}
+            : { outputCharacterLimit })}
+        />
+        {blockers.length > 0 && (
+          <section aria-label="Task blockers" {...stylex.props(styles.diagnostics)}>
+            <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
+            <ul {...stylex.props(styles.diagnosticList)}>
+              {blockers.map((blocker, index) => (
+                <li key={`${part.id}:blocker:${index}`}>{blocker}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {childSessionId && onOpenChild && (
+          <div {...stylex.props(styles.actions)}>
+            <Button
+              onClick={() => onOpenChild(childSessionId)}
+              size="compact"
+              variant="quiet"
+            >
+              Open child session
+            </Button>
+          </div>
+        )}
+        {childSessionId && !onOpenChild && (
+          <p {...stylex.props(styles.notice)}>
+            The child transcript is not available in this client.
+          </p>
+        )}
+        {!childSessionId && isTerminal(part.state) && (
+          <p data-slot="task-child-unavailable" {...stylex.props(styles.notice)}>
+            This runtime did not expose a child transcript.
+          </p>
+        )}
+      </ToolActivity>
+    </div>
   )
 }
 
@@ -324,7 +335,7 @@ export function SkillTool(props: ChatToolProps) {
 }
 
 export function GenericTool(props: ChatToolProps) {
-  return <ToolShell {...props} summary={humanize(props.part.toolName)} />
+  return <ToolShell {...props} summary={genericToolSummary(props.part.toolName)} />
 }
 
 type ToolShellProps = ChatToolProps & {
@@ -616,11 +627,27 @@ function humanize(value: string) {
   return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)}` : 'Tool call'
 }
 
+function genericToolSummary(value: string) {
+  const name = value
+    .replace(/^mcp[._-]+/i, '')
+    .replace(/[._-]+tool$/i, '')
+  const label = humanize(name)
+  return label === 'Tool call' ? label : `${label} tool`
+}
+
 function capitalize(value: string) {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`
 }
 
 const styles = stylex.create({
+  subagent: {
+    borderInlineStartColor: colors.border,
+    borderInlineStartStyle: 'solid',
+    borderInlineStartWidth: '1px',
+    boxSizing: 'border-box',
+    inlineSize: '100%',
+    paddingInlineStart: space.x2,
+  },
   group: {
     display: 'flex',
     flexDirection: 'column',

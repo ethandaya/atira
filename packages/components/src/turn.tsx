@@ -36,6 +36,9 @@ export function Turn({
 }: TurnProps) {
   const active =
     turn.state.status === 'running' || turn.state.status === 'retrying'
+  const hasAssistantContent = turn.assistant.some((message) =>
+    message.parts.some(isRenderableAssistantPart),
+  )
 
   return (
     <li
@@ -75,7 +78,7 @@ export function Turn({
               />
             </section>
           ))}
-          <TurnStatus state={turn.state} />
+          {(!active || !hasAssistantContent) && <TurnStatus state={turn.state} />}
         </div>
 
         {(turn.agent || turn.model || actions) && (
@@ -124,7 +127,7 @@ function turnStateLabel(state: TurnState) {
     case 'queued':
       return 'Queued'
     case 'running':
-      return 'Working'
+      return 'Thinking'
     case 'retrying':
       return `Retrying · attempt ${state.attempt}`
     case 'complete':
@@ -134,6 +137,14 @@ function turnStateLabel(state: TurnState) {
     case 'failed':
       return 'Response failed'
   }
+}
+
+function isRenderableAssistantPart(
+  part: ChatTurn['assistant'][number]['parts'][number],
+) {
+  if (part.type === 'text') return part.markdown.trim().length > 0
+  if (part.type === 'reasoning') return true
+  return part.type !== 'unknown' || part.data !== undefined
 }
 
 const styles = stylex.create({

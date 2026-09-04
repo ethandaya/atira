@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createChatGptSession, runChatGptTurn } from './chatgpt-runtime.mjs'
+import {
+  createChatGptSession,
+  createChatGptSubagentTool,
+  runChatGptTurn,
+} from './chatgpt-runtime.mjs'
 
 const credential = {
   accessToken: 'access-secret',
@@ -144,6 +148,40 @@ describe('runChatGptTurn', () => {
     expect(getCredential).toHaveBeenNthCalledWith(2, { forceRefresh: true })
     expect(request.mock.calls[1][1].headers.Authorization).toBe(
       'Bearer refreshed-access',
+    )
+  })
+
+  it('runs a bounded child session without exposing recursive delegation', async () => {
+    const request = vi.fn(async () => sseResponse([
+      { delta: 'The focused review passed.', type: 'response.output_text.delta' },
+      completed([messageOutput('The focused review passed.')]),
+    ]))
+    const tool = createChatGptSubagentTool({
+      getCredential: vi.fn(async () => credential),
+      model: 'gpt-5.6-sol',
+      request,
+      tools: { inspect_component_catalog: catalogTool() },
+    })
+    const invocation = tool.invocation({ role: 'review' })
+
+    const result = await tool.handler(
+      { role: 'review', task: 'Review the compact tool row.' },
+      { invocation },
+    )
+
+    expect(invocation).toEqual(expect.objectContaining({
+      agent: { id: 'review', label: 'Review agent' },
+      childSessionId: expect.any(String),
+      kind: 'task',
+    }))
+    expect(result).toEqual({ result: 'The focused review passed.' })
+    const body = JSON.parse(request.mock.calls[0][1].body)
+    expect(body.input[0].tools.map((candidate) => candidate.name)).toEqual([
+      'inspect_component_catalog',
+    ])
+    expect(body.input[1].content[0].text).toContain('ability to delegate')
+    expect(request.mock.calls[0][1].headers['session-id']).toBe(
+      invocation.childSessionId,
     )
   })
 })

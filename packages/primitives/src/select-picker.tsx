@@ -7,6 +7,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
+import { Check, ChevronDown } from 'lucide-react'
 
 export type SelectPickerOption = Readonly<{
   description?: string
@@ -55,8 +56,11 @@ export function SelectPicker({
         }
       >
         <Select.Value placeholder={placeholder} />
-        <Select.Icon aria-hidden="true" {...stylex.props(styles.icon)}>
-          ▾
+        <Select.Icon aria-hidden="true">
+          <ChevronDown
+            strokeWidth={1.75}
+            {...stylex.props(styles.icon)}
+          />
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
@@ -88,7 +92,9 @@ export function SelectPicker({
                       </span>
                     )}
                   </Select.ItemText>
-                  <Select.ItemIndicator aria-hidden="true">✓</Select.ItemIndicator>
+                  <Select.ItemIndicator aria-hidden="true">
+                    <Check strokeWidth={1.75} {...stylex.props(styles.icon)} />
+                  </Select.ItemIndicator>
                 </Select.Item>
               ))}
             </Select.List>
@@ -157,8 +163,9 @@ const styles = stylex.create({
     color: colors.text,
   },
   icon: {
+    blockSize: '0.875rem',
     flexShrink: 0,
-    fontSize: type.sizeCaption,
+    inlineSize: '0.875rem',
   },
   positioner: {
     maxInlineSize: 'min(20rem, var(--available-width))',
