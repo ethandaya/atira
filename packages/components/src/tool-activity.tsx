@@ -5,7 +5,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import type { ToolProgress } from '@pretty-amped/foundations/chat'
-import { Disclosure } from '@pretty-amped/primitives'
+import { Disclosure, VisuallyHidden } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
@@ -54,6 +54,7 @@ export function ToolActivity({
   ...props
 }: ToolActivityProps) {
   const stateLabel = toolStateLabel(state)
+  const terminalMark = toolStateMark(state)
   const header = (
     <span data-slot="tool-activity-header" {...stylex.props(styles.header)}>
       <span {...stylex.props(styles.heading)}>
@@ -68,7 +69,8 @@ export function ToolActivity({
         </span>
       </span>
       <span data-slot="tool-activity-state" {...stylex.props(styles.state)}>
-        {stateLabel}
+        {terminalMark ?? stateLabel}
+        {terminalMark && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
       </span>
     </span>
   )
@@ -124,6 +126,19 @@ function toolStateLabel(state: ToolActivityState) {
   return [label ?? 'Running', count].filter(Boolean).join(' · ')
 }
 
+function toolStateMark(state: ToolActivityState) {
+  switch (state.status) {
+    case 'succeeded':
+      return '✓'
+    case 'failed':
+      return '×'
+    case 'cancelled':
+      return '–'
+    default:
+      return undefined
+  }
+}
+
 const styles = stylex.create({
   root: {
     color: colors.text,
@@ -132,13 +147,13 @@ const styles = stylex.create({
   },
   staticHeader: {
     boxSizing: 'border-box',
-    minBlockSize: '2.75rem',
-    paddingBlock: space.x2,
+    minBlockSize: '2rem',
+    paddingBlock: space.x1,
   },
   header: {
     alignItems: 'center',
     display: 'flex',
-    gap: space.x3,
+    gap: space.x2,
     inlineSize: '100%',
     justifyContent: 'space-between',
     minInlineSize: 0,
@@ -146,7 +161,8 @@ const styles = stylex.create({
   heading: {
     alignItems: 'baseline',
     display: 'flex',
-    flexWrap: 'wrap',
+    flex: 1,
+    flexWrap: 'nowrap',
     gap: space.x2,
     minInlineSize: 0,
   },
@@ -156,7 +172,9 @@ const styles = stylex.create({
     fontWeight: type.weightMedium,
     lineHeight: type.lineBody,
     minInlineSize: 0,
-    overflowWrap: 'anywhere',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   tool: {
     color: colors.textMuted,
@@ -167,6 +185,7 @@ const styles = stylex.create({
     fontFamily: type.familyMono,
     fontSize: type.sizeCaption,
     fontWeight: type.weightRegular,
+    flexShrink: 0,
     lineHeight: type.lineCompact,
   },
   state: {
@@ -179,10 +198,11 @@ const styles = stylex.create({
   evidence: {
     borderBlockStartColor: colors.border,
     borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
+    borderBlockStartWidth: '0.5px',
     color: colors.textMuted,
     overflow: 'auto',
     paddingBlock: space.x3,
+    paddingInline: space.x2,
   },
   error: {
     color: colors.danger,

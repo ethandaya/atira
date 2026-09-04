@@ -9,7 +9,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button } from '@pretty-amped/primitives'
+import { Button, Disclosure } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useState, type ReactNode } from 'react'
 
@@ -58,15 +58,24 @@ export function ContextToolGroup({ parts }: ContextToolGroupProps) {
       data-state={running ? 'running' : 'complete'}
       {...stylex.props(styles.group)}
     >
-      <p {...stylex.props(styles.groupSummary)}>
-        {running ? 'Loading context' : 'Context loaded'}
-        <span {...stylex.props(styles.muted)}> · {parts.length} operations</span>
-      </p>
-      <div {...stylex.props(styles.groupItems)}>
-        {parts.map((part) => (
-          <ContextTool key={part.id} part={part} />
-        ))}
-      </div>
+      <Disclosure
+        defaultOpen={running}
+        summary={
+          <span {...stylex.props(styles.groupSummary)}>
+            {running ? 'Loading context' : 'Context loaded'}
+            <span {...stylex.props(styles.muted)}>
+              {parts.length} operation{parts.length === 1 ? '' : 's'}
+            </span>
+          </span>
+        }
+        variant="plain"
+      >
+        <div {...stylex.props(styles.groupItems)}>
+          {parts.map((part) => (
+            <ContextTool key={part.id} part={part} />
+          ))}
+        </div>
+      </Disclosure>
     </section>
   )
 }
@@ -618,13 +627,16 @@ const styles = stylex.create({
     gap: space.x1,
   },
   groupSummary: {
+    alignItems: 'baseline',
     color: colors.text,
+    display: 'flex',
+    flex: 1,
     fontFamily: type.family,
     fontSize: type.sizeSmall,
     fontWeight: type.weightMedium,
+    gap: space.x2,
     lineHeight: type.lineBody,
-    margin: 0,
-    minBlockSize: '2rem',
+    minInlineSize: 0,
   },
   groupItems: {
     borderInlineStartColor: colors.border,
@@ -632,10 +644,13 @@ const styles = stylex.create({
     borderInlineStartWidth: '1px',
     display: 'flex',
     flexDirection: 'column',
+    gap: space.x1,
+    marginInlineStart: space.x2,
     paddingInlineStart: space.x3,
   },
   muted: {
     color: colors.textMuted,
+    flexShrink: 0,
     fontWeight: type.weightRegular,
   },
   stack: {

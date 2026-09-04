@@ -28,9 +28,9 @@ type FixtureMetrics = {
 }
 
 const promptSuggestions = [
-  'Explain why StyleX suits AI interfaces',
-  'Audit a streaming response component',
-  'Design an accessible approval flow',
+  'Why StyleX for AI interfaces?',
+  'Audit a streaming response',
+  'Design an approval flow',
 ]
 
 const fixtureCommands = [
@@ -106,7 +106,7 @@ function DemoApp() {
 
   const runtimeLabel =
     runtime.status === 'ready'
-      ? `${runtime.runtime} · ${runtime.model} · catalog + public web search`
+      ? `${runtime.runtime} · ${runtime.model} · web`
       : runtime.status === 'loading'
         ? 'Connecting to Nanocodex…'
         : 'Runtime unavailable'
@@ -127,18 +127,15 @@ function DemoApp() {
           )}
         >
           <div {...stylex.props(styles.identity)}>
-            <h1 {...stylex.props(styles.title)}>
+            <h1 {...stylex.props(styles.title)}>Pretty Amped</h1>
+            <span {...stylex.props(styles.product)}>
               {view === 'playground' ? 'Playground' : 'Components'}
-            </h1>
-            <span {...stylex.props(styles.product)}>Pretty Amped</span>
+            </span>
           </div>
           <nav aria-label="Demo views" {...stylex.props(styles.headerActions)}>
-            {view === 'playground' && (
+            {view === 'playground' && snapshot.turns.length > 0 && (
               <Button
-                disabled={
-                  snapshot.turns.length === 0 ||
-                  snapshot.activity.status !== 'idle'
-                }
+                disabled={snapshot.activity.status !== 'idle'}
                 onClick={() => void store.clear()}
                 size="compact"
                 variant="quiet"
@@ -293,11 +290,10 @@ function EmptyPlayground({
   return (
     <div {...stylex.props(styles.emptyState)}>
       <div {...stylex.props(styles.emptyCopy)}>
-        <h2 {...stylex.props(styles.emptyTitle)}>Try the components live</h2>
+        <h2 {...stylex.props(styles.emptyTitle)}>Start a conversation</h2>
         <p {...stylex.props(styles.emptyDescription)}>
-          A retained Nanocodex conversation rendered entirely with Pretty Amped.
-          The model can search the read-only component catalog and public web,
-          with no workspace access.
+          Ask about the component system or use public web search. This demo
+          cannot access your workspace.
         </p>
       </div>
       <Suggestions>
@@ -333,16 +329,15 @@ const styles = stylex.create({
   },
   headerInner: {
     alignItems: 'center',
+    boxSizing: 'border-box',
     display: 'flex',
     gap: space.x2,
+    inlineSize: '100%',
     justifyContent: 'space-between',
     marginInline: 'auto',
-    maxInlineSize: '46rem',
+    maxInlineSize: '52rem',
     minBlockSize: '3.5rem',
-    paddingInline: {
-      default: space.x4,
-      '@media (min-width: 48rem)': space.x6,
-    },
+    paddingInline: space.x4,
   },
   headerInnerWide: {
     maxInlineSize: '68rem',
@@ -381,15 +376,17 @@ const styles = stylex.create({
     minBlockSize: 0,
   },
   emptyState: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     display: 'flex',
     flexDirection: 'column',
     gap: space.x6,
+    inlineSize: '100%',
     marginInline: 'auto',
-    maxInlineSize: '43rem',
-    textAlign: 'start',
+    maxInlineSize: '40rem',
+    textAlign: 'center',
   },
   emptyCopy: {
+    alignItems: 'center',
     display: 'flex',
     flexDirection: 'column',
     gap: space.x2,

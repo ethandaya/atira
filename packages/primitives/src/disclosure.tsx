@@ -2,6 +2,7 @@ import { Collapsible } from '@base-ui/react/collapsible'
 import {
   colors,
   motion,
+  radii,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -131,7 +132,20 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   triggerPlain: {
-    paddingInline: 0,
+    backgroundColor: {
+      default: 'transparent',
+      ':hover': {
+        default: null,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
+      },
+    },
+    borderRadius: radii.control,
+    minBlockSize: {
+      default: '2rem',
+      '@media (hover: none)': '2.75rem',
+    },
+    paddingBlock: space.x1,
+    paddingInline: space.x1,
   },
   indicator: {
     blockSize: '1rem',
@@ -161,6 +175,6 @@ const styles = stylex.create({
   panelPlain: {
     borderBlockStartStyle: 'none',
     paddingBlock: space.x2,
-    paddingInline: 0,
+    paddingInline: space.x1,
   },
 })

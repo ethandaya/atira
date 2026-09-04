@@ -20,6 +20,7 @@ import {
   FilterMenu,
   SelectPicker,
   TextareaField,
+  VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
@@ -112,6 +113,10 @@ export function ChatComposer({
   const [dragging, setDragging] = useState(false)
   const value = editableDraftText(draft)
   const intent = submitIntent(activity, capabilities)
+  const hasModelControls =
+    capabilities.agents.length > 0 ||
+    capabilities.models.length > 0 ||
+    capabilities.variants.length > 0
   const canSubmit =
     intent !== undefined &&
     (value.trim().length > 0 || draft.attachments.some((item) => item.state === 'ready'))
@@ -429,74 +434,84 @@ export function ChatComposer({
           {actions}
         </div>
 
-        <div data-slot="chat-composer-model-controls" {...stylex.props(styles.trailing)}>
-          {capabilities.agents.length > 0 && (
-            <SelectPicker
-              label="Agent"
-              onValueChange={(id) => {
-                const agent = capabilities.agents.find((item) => item.id === id)
-                if (agent) {
-                  onDraftChange({
-                    ...draft,
-                    agent,
-                    revision: draft.revision + 1,
-                  })
-                }
-              }}
-              options={capabilities.agents.map((agent) => ({
-                label: agent.label,
-                value: agent.id,
-              }))}
-              placeholder="Agent"
-              {...(draft.agent === undefined ? {} : { value: draft.agent.id })}
-            />
+        <div
+          data-slot="chat-composer-model-controls"
+          {...stylex.props(
+            styles.trailing,
+            hasModelControls && styles.trailingWithSelectors,
           )}
-          {capabilities.models.length > 0 && (
-            <SelectPicker
-              label="Model"
-              onValueChange={(id) => {
-                const model = capabilities.models.find(
-                  (item) => modelOptionValue(item) === id,
-                )
-                if (model) {
-                  onDraftChange({
-                    ...draft,
-                    model,
-                    revision: draft.revision + 1,
-                  })
-                }
-              }}
-              options={capabilities.models.map((model) => ({
-                label: model.label,
-                value: modelOptionValue(model),
-              }))}
-              placeholder="Model"
-              {...(draft.model === undefined
-                ? {}
-                : { value: modelOptionValue(draft.model) })}
-            />
-          )}
-          {capabilities.variants.length > 0 && (
-            <SelectPicker
-              label="Variant"
-              onValueChange={(variant) =>
-                onDraftChange({
-                  ...draft,
-                  revision: draft.revision + 1,
-                  variant,
-                })
-              }
-              options={capabilities.variants.map((variant) => ({
-                ...(variant.unavailableReason === undefined
-                  ? {}
-                  : { description: variant.unavailableReason }),
-                disabled: variant.unavailableReason !== undefined,
-                label: variant.label,
-                value: variant.id,
-              }))}
-              placeholder="Variant"
-              {...(draft.variant === undefined ? {} : { value: draft.variant })}
-            />
+        >
+          {hasModelControls && (
+            <div data-slot="chat-composer-selectors" {...stylex.props(styles.selectors)}>
+              {capabilities.agents.length > 0 && (
+                <SelectPicker
+                  label="Agent"
+                  onValueChange={(id) => {
+                    const agent = capabilities.agents.find((item) => item.id === id)
+                    if (agent) {
+                      onDraftChange({
+                        ...draft,
+                        agent,
+                        revision: draft.revision + 1,
+                      })
+                    }
+                  }}
+                  options={capabilities.agents.map((agent) => ({
+                    label: agent.label,
+                    value: agent.id,
+                  }))}
+                  placeholder="Agent"
+                  {...(draft.agent === undefined ? {} : { value: draft.agent.id })}
+                />
+              )}
+              {capabilities.models.length > 0 && (
+                <SelectPicker
+                  label="Model"
+                  onValueChange={(id) => {
+                    const model = capabilities.models.find(
+                      (item) => modelOptionValue(item) === id,
+                    )
+                    if (model) {
+                      onDraftChange({
+                        ...draft,
+                        model,
+                        revision: draft.revision + 1,
+                      })
+                    }
+                  }}
+                  options={capabilities.models.map((model) => ({
+                    label: model.label,
+                    value: modelOptionValue(model),
+                  }))}
+                  placeholder="Model"
+                  {...(draft.model === undefined
+                    ? {}
+                    : { value: modelOptionValue(draft.model) })}
+                />
+              )}
+              {capabilities.variants.length > 0 && (
+                <SelectPicker
+                  label="Variant"
+                  onValueChange={(variant) =>
+                    onDraftChange({
+                      ...draft,
+                      revision: draft.revision + 1,
+                      variant,
+                    })
+                  }
+                  options={capabilities.variants.map((variant) => ({
+                    ...(variant.unavailableReason === undefined
+                      ? {}
+                      : { description: variant.unavailableReason }),
+                    disabled: variant.unavailableReason !== undefined,
+                    label: variant.label,
+                    value: variant.id,
+                  }))}
+                  placeholder="Variant"
+                  {...(draft.variant === undefined ? {} : { value: draft.variant })}
+                />
+              )}
+            </div>
           )}
           {activity.status !== 'idle' && capabilities.canStop && (
             <Button onClick={onStop} size="compact" variant="outline">
@@ -513,7 +528,7 @@ export function ChatComposer({
           </Button>
         </div>
       </div>
-      <p {...stylex.props(styles.hint)}>Ctrl/⌘ + Enter to submit</p>
+      <VisuallyHidden>Ctrl/⌘ + Enter to submit</VisuallyHidden>
     </form>
   )
 }
@@ -840,9 +855,10 @@ const styles = stylex.create({
   root: {
     backgroundColor: colors.surface,
     borderColor: colors.borderStrong,
-    borderRadius: radii.surface,
+    borderRadius: '0.75rem',
     borderStyle: 'solid',
     borderWidth: '1px',
+    boxShadow: '0 0.5rem 1.5rem oklch(0 0 0 / 0.06)',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
@@ -872,32 +888,42 @@ const styles = stylex.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     minBlockSize: '2.75rem',
-    paddingBlock: space.x2,
+    paddingBlock: space.x1,
     paddingInline: space.x2,
   },
   leading: {
     alignItems: 'center',
     display: 'flex',
+    flex: '1 1 auto',
     gap: space.x1,
     flexWrap: 'wrap',
-    inlineSize: {
-      default: '100%',
-      '@media (min-width: 40rem)': 'auto',
-    },
     minInlineSize: 0,
   },
   trailing: {
     alignItems: 'center',
     display: 'flex',
-    flexShrink: 1,
-    flexWrap: 'wrap',
+    flex: '0 1 auto',
+    flexWrap: 'nowrap',
     gap: space.x1,
+    justifyContent: 'flex-end',
+    marginInlineStart: 'auto',
+    minInlineSize: 0,
+  },
+  trailingWithSelectors: {
     inlineSize: {
       default: '100%',
       '@media (min-width: 40rem)': 'auto',
     },
-    justifyContent: 'flex-end',
+  },
+  selectors: {
+    alignItems: 'center',
+    display: 'flex',
+    flex: '1 1 auto',
+    gap: space.x1,
     minInlineSize: 0,
+    overflowX: 'auto',
+    overscrollBehaviorInline: 'contain',
+    scrollbarWidth: 'none',
   },
   selection: {
     color: colors.textMuted,
@@ -907,15 +933,6 @@ const styles = stylex.create({
     },
     fontFamily: type.family,
     fontSize: type.sizeCaption,
-  },
-  hint: {
-    color: colors.textMuted,
-    fontFamily: type.family,
-    fontSize: type.sizeCaption,
-    lineHeight: type.lineCompact,
-    margin: 0,
-    paddingBlockEnd: space.x2,
-    paddingInline: space.x3,
   },
   error: {
     backgroundColor: colors.dangerSurface,

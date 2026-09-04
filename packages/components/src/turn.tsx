@@ -144,25 +144,22 @@ const styles = stylex.create({
   article: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x4,
+    gap: space.x3,
     inlineSize: '100%',
   },
   user: {
     alignSelf: 'flex-end',
     backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
     borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: '1px',
     boxSizing: 'border-box',
-    maxInlineSize: '82%',
+    maxInlineSize: 'min(82%, 64ch)',
     paddingBlock: space.x2,
     paddingInline: space.x3,
   },
   assistant: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x4,
+    gap: space.x3,
     minInlineSize: 0,
   },
   meta: {
@@ -173,7 +170,7 @@ const styles = stylex.create({
     fontSize: type.sizeCaption,
     fontVariantNumeric: 'tabular-nums',
     gap: space.x2,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     lineHeight: type.lineCompact,
   },
   status: {

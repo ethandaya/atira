@@ -56,37 +56,28 @@ export function MessageParts({
     const part = message.parts[index]
     if (!part) continue
 
-    if (part.type === 'tool' && part.presentation.kind === 'context') {
-      const group: ToolPart[] = [part]
+    if (part.type === 'tool') {
+      const tools: ToolPart[] = [part]
       while (index + 1 < message.parts.length) {
         const next = message.parts[index + 1]
-        if (next?.type !== 'tool' || next.presentation.kind !== 'context') break
-        group.push(next)
+        if (next?.type !== 'tool') break
+        tools.push(next)
         index += 1
       }
 
-      content.push(
-        <div
-          data-renderer="context"
-          data-slot="tool-renderer"
-          data-tool-kind="context"
-          key={part.id}
-        >
-          {group.length === 1 ? (
-            <ContextTool part={part} />
-          ) : (
-            <ContextToolGroup parts={group} />
-          )}
-        </div>,
-      )
-      continue
-    }
-
-    if (
-      suppressTodoTools &&
-      part.type === 'tool' &&
-      part.presentation.kind === 'todo'
-    ) {
+      const visibleTools = suppressTodoTools
+        ? tools.filter((tool) => tool.presentation.kind !== 'todo')
+        : tools
+      if (visibleTools.length > 0) {
+        content.push(
+          <ToolSequence
+            key={part.id}
+            parts={visibleTools}
+            renderers={renderers}
+            toolActions={toolActions}
+          />,
+        )
+      }
       continue
     }
 
@@ -107,6 +98,63 @@ export function MessageParts({
       data-state={message.delivery.status}
       {...stylex.props(styles.root)}
     >
+      {content}
+    </div>
+  )
+}
+
+function ToolSequence({
+  parts,
+  renderers,
+  toolActions,
+}: {
+  parts: readonly ToolPart[]
+  renderers: readonly ToolRenderer[]
+  toolActions: ToolActions
+}) {
+  const content: ReactNode[] = []
+
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]
+    if (!part) continue
+
+    if (part.presentation.kind === 'context') {
+      const contextParts: ToolPart[] = [part]
+      while (index + 1 < parts.length) {
+        const next = parts[index + 1]
+        if (next?.presentation.kind !== 'context') break
+        contextParts.push(next)
+        index += 1
+      }
+      content.push(
+        <div
+          data-renderer="context"
+          data-slot="tool-renderer"
+          data-tool-kind="context"
+          key={part.id}
+        >
+          {contextParts.length === 1 ? (
+            <ContextTool part={part} />
+          ) : (
+            <ContextToolGroup parts={contextParts} />
+          )}
+        </div>,
+      )
+      continue
+    }
+
+    content.push(
+      <Part
+        key={part.id}
+        part={part}
+        toolActions={toolActions}
+        renderers={renderers}
+      />,
+    )
+  }
+
+  return (
+    <div data-slot="tool-sequence" {...stylex.props(styles.toolSequence)}>
       {content}
     </div>
   )
@@ -280,6 +328,11 @@ const styles = stylex.create({
     gap: space.x3,
     inlineSize: '100%',
     minInlineSize: 0,
+  },
+  toolSequence: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x1,
   },
   attachment: {
     alignItems: 'center',
