@@ -14,6 +14,39 @@ describe('NanocodexChatStore', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
+  it('preserves failed subagent input and partial transcript, then retries the same turn without consuming the draft', async () => {
+    let resolveRetry: (value: Response) => void = () => undefined
+    const fetch = vi.fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(runtimeResponse())
+      .mockResolvedValueOnce(streamResponse([
+        { type: 'tool-started', id: 'child', tool: 'run_subagent', summary: 'Working', input: 'Find bike stores', kind: 'task', childSessionId: 'child-session' },
+        { type: 'tool-progress', id: 'child', tool: 'run_subagent', summary: 'Working', kind: 'task', transcript: { reasoning: 'Checking stores.', result: 'One supplier.', steps: [] } },
+        { type: 'error', message: 'network error' },
+      ]))
+      .mockImplementationOnce(() => new Promise(resolve => { resolveRetry = resolve }))
+    vi.stubGlobal('fetch', fetch)
+    const store = new NanocodexChatStore()
+    await store.initialize()
+    await store.submit(createDraft('Find a bike'), 'send')
+    const failed = store.getSnapshot().turns[0]!
+    expect(failed.assistant[0]?.parts[0]).toMatchObject({
+      state: { status: 'failed', input: { description: 'Find bike stores' } },
+      presentation: { transcript: { reasoning: 'Checking stores.', result: 'One supplier.' } },
+    })
+    store.updateDraft(createDraft('Unsent follow-up'))
+    const retry = store.retryTurn(failed.id)
+    await store.retryTurn(failed.id)
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(JSON.parse(fetch.mock.calls[2]![1]!.body as string)).toMatchObject({ turnId: failed.id, retry: true, input: 'Find a bike' })
+    resolveRetry(streamResponse([{ type: 'completed', message: 'Recovered.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }]))
+    await retry
+    expect(store.getSnapshot().turns).toHaveLength(1)
+    expect(store.getSnapshot().turns[0]?.user).toEqual(failed.user)
+    expect(store.getSnapshot().turns[0]?.state.status).toBe('complete')
+    expect(store.getSnapshot().composer.segments[0]).toMatchObject({ text: 'Unsent follow-up' })
+    store.dispose()
+  })
+
   it('restores conversations and drafts and resumes their original runtime IDs', async () => {
     let saved: string | null = null
     const storage = { getItem: () => saved, setItem: (_key: string, value: string) => { saved = value } }
@@ -309,7 +342,7 @@ describe('NanocodexChatStore', () => {
 })
 
 function runtimeResponse() {
-  return Response.json({ conversationSessions: true, available: true, model: 'test-model', runtime: 'Nanocodex' })
+  return Response.json({ retryTurns: true, conversationSessions: true, available: true, model: 'test-model', runtime: 'Nanocodex' })
 }
 
 function streamResponse(events: readonly object[]) {

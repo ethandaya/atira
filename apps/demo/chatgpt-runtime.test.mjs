@@ -15,6 +15,24 @@ const credential = {
 }
 
 describe('runChatGptTurn', () => {
+  it('publishes partial child transcripts before a network failure', async () => {
+    const request = vi.fn(async () => sseResponse([
+      { type: 'response.reasoning_summary_text.delta', delta: 'Checking ' },
+      { type: 'response.reasoning_summary_text.delta', delta: 'stores.' },
+      { type: 'response.output_text.delta', delta: 'One possible ' },
+      { type: 'response.output_text.delta', delta: 'supplier.' },
+      { type: 'error', error: { message: 'network error' } },
+    ]))
+    const tool = createChatGptSubagentTool({ getCredential: async () => credential, model: 'test', request, tools: {} })
+    const input = { task: 'Find bike stores', role: 'research' }
+    const invocation = tool.invocation(input)
+    const snapshots = []
+    await expect(tool.handler(input, { invocation, onProgress: () => snapshots.push(structuredClone(invocation.transcript)) }))
+      .rejects.toThrow('network error')
+    expect(snapshots.at(-1)).toEqual({ reasoning: 'Checking stores.', result: 'One possible supplier.', steps: [] })
+    expect(invocation.transcript).toEqual(snapshots.at(-1))
+  })
+
   it('uses the Responses-Lite prefix and projects streamed text', async () => {
     const request = vi.fn(async () => sseResponse([
       { delta: 'Use ', type: 'response.output_text.delta' },

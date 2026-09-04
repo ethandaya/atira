@@ -316,7 +316,9 @@ export function TaskTool({
         )}
         {childSessionId && !onOpenChild && !transcript && (
           <p {...stylex.props(styles.notice)}>
-            The child transcript is not available in this client.
+            {part.state.status === 'failed'
+              ? 'The subagent stopped before a transcript was received.'
+              : 'This runtime has not provided a child transcript.'}
           </p>
         )}
         {!childSessionId && !transcript && isTerminal(part.state) && (
@@ -392,8 +394,10 @@ function TaskTranscriptEvidence({
         </section>
       )}
       <section aria-label="Subagent result" {...stylex.props(styles.taskSection)}>
-        <p {...stylex.props(styles.taskLabel)}>Result</p>
-        <Markdown status="complete">{transcript.result}</Markdown>
+        <p {...stylex.props(styles.taskLabel)}>{part.state.status === 'failed' ? 'Partial response' : 'Result'}</p>
+        {transcript.result
+          ? <Markdown status="complete">{transcript.result}</Markdown>
+          : <p {...stylex.props(styles.taskCopy)}>No response text was received.</p>}
       </section>
       <dl {...stylex.props(styles.evidence)}>
         <ToolTiming state={part.state} />

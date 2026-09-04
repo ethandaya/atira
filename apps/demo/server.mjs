@@ -280,6 +280,7 @@ async function handleRequest(request, response) {
     const runtime = await runtimeForSession(id)
     sendJson(response, 200, {
       conversationSessions: true,
+      retryTurns: true,
       available: Boolean(runtime),
       model: runtime?.model ?? nanocodexModel,
       runtime: runtime?.label ?? 'Unavailable',
@@ -369,6 +370,25 @@ async function streamChat(request, response) {
     sendJson(response, 409, { error: 'Wait for the current response to finish.' })
     return
   }
+
+  const turnId = body.turnId ?? randomUUID()
+  if (typeof turnId !== 'string' || !/^[a-z0-9:-]{1,100}$/i.test(turnId)) {
+    sendJson(response, 400, { error: 'Invalid turn ID.' })
+    return
+  }
+  const previous = session.lastTurn
+  if ((body.retry === true && previous?.id !== turnId) || (previous?.id === turnId && previous.input !== input)) {
+    sendJson(response, 409, { error: 'Only the latest response can be retried with its original prompt.' })
+    return
+  }
+  if (previous?.id === turnId && previous.result) {
+    response.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' })
+    writeEvent(response, previous.result)
+    response.end()
+    session.lastUsed = Date.now()
+    return
+  }
+  session.lastTurn = { id: turnId, input }
 
   const control = {
     cancelRequested: false,
@@ -492,9 +512,9 @@ async function streamChat(request, response) {
   writeEvent(response, { type: 'started' })
 
   try {
-    control.turn = agent.turn.prompt({ input })
+    control.turn = agent.turn.prompt({ input, id: turnId })
     const result = await control.turn.result()
-    writeEvent(response, {
+    completeResponse(response, session, {
       durationMs: Date.now() - startedAt,
       message: result.finalMessage,
       type: 'completed',
@@ -557,7 +577,7 @@ async function streamAnthropicChat({ control, input, response, session }) {
       text: result.finalMessage,
       type: 'assistant-message',
     })
-    writeEvent(response, {
+    completeResponse(response, session, {
       durationMs: Date.now() - startedAt,
       message: result.finalMessage,
       type: 'completed',
@@ -630,7 +650,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
       text: result.finalMessage,
       type: 'assistant-message',
     })
-    writeEvent(response, {
+    completeResponse(response, session, {
       durationMs: Date.now() - startedAt,
       message: result.finalMessage,
       type: 'completed',
@@ -810,6 +830,11 @@ async function readJson(request) {
   } catch {
     throw new Error('The request body must be valid JSON.')
   }
+}
+
+function completeResponse(response, session, event) {
+  session.lastTurn.result = event
+  writeEvent(response, event)
 }
 
 function writeEvent(response, event) {

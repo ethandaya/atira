@@ -21,6 +21,7 @@ import type {
 import { colors, space } from '@pretty-amped/foundations/tokens.stylex'
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { RotateCcw } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 
 import { useChatStore } from './chat-store'
@@ -69,12 +70,26 @@ export function ChatSession({
   const activeTurnId =
     snapshot.activity.status === 'idle' ? undefined : snapshot.activity.turnId
   const reverted = snapshot.revertedPrompt
+  const latestTurn = snapshot.turns.at(-1)
+  const retryableTurnId = store.retryTurn && snapshot.capabilities.canRetryTurn && latestTurn?.state.status === 'failed'
+    ? latestTurn.id : undefined
   const resolvedTurnActions = useMemo(
     () =>
-      renderTurnActions || showRevertActions
-        ? (turn: ChatTurn) => (
+      renderTurnActions || showRevertActions || retryableTurnId
+        ? (turn: ChatTurn) => !renderTurnActions && !showRevertActions && turn.id !== retryableTurnId ? null : (
             <>
               {renderTurnActions?.(turn)}
+              {turn.id === retryableTurnId && (
+                <Button
+                  disabled={snapshot.activity.status !== 'idle'}
+                  onClick={() => run(store.retryTurn!(turn.id))}
+                  size="compact"
+                  variant="quiet"
+                >
+                  <RotateCcw aria-hidden="true" size={14} />
+                  Retry response
+                </Button>
+              )}
               {showRevertActions && turn.state.status !== 'queued' && (
                 <Button
                   aria-label={`Revert prompt ${turn.id}`}
@@ -88,7 +103,7 @@ export function ChatSession({
             </>
           )
         : undefined,
-    [renderTurnActions, showRevertActions, store],
+    [renderTurnActions, showRevertActions, store, snapshot.activity.status, retryableTurnId],
   )
   const toolActions = useMemo(
     () => (onOpenChild ? { onOpenChild } : {}),

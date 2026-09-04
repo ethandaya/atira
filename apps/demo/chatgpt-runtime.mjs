@@ -45,6 +45,7 @@ export function createChatGptSubagentTool({
           if (!transcript.onEvent(event)) return
           const activity = transcript.activity()
           if (invocation && activity) invocation.activity = activity
+          if (invocation) invocation.transcript = transcript.complete()
           onProgress?.()
         },
         request,
@@ -392,6 +393,7 @@ function subagentIdentity(role) {
 function createTaskTranscript() {
   let currentActivity
   let reasoning = ''
+  let response = ''
   const steps = []
   const stepsById = new Map()
 
@@ -399,25 +401,24 @@ function createTaskTranscript() {
     activity() {
       return currentActivity
     },
-    complete(result) {
+    complete(result = response) {
       return {
         ...(reasoning.trim() ? { reasoning: reasoning.trim() } : {}),
         result,
-        steps: steps.map((step) => ({ ...step })),
+        steps: steps.filter((step) => step.status !== 'running').map((step) => ({ ...step })),
       }
     },
     onEvent(event) {
       if (!isRecord(event)) return
       if (event.type === 'reasoning-delta') {
         reasoning += stringValue(event.text)
-        if (currentActivity?.summary === 'Thinking') return false
         currentActivity = {
           summary: 'Thinking',
         }
         return true
       }
       if (event.type === 'assistant-delta') {
-        if (currentActivity?.summary === 'Writing response') return false
+        response += stringValue(event.text)
         currentActivity = { summary: 'Writing response' }
         return true
       }
@@ -427,7 +428,7 @@ function createTaskTranscript() {
         const step = {
           id,
           ...(stringValue(event.input) ? { input: stringValue(event.input) } : {}),
-          status: 'succeeded',
+          status: 'running',
           summary: stringValue(event.summary) || 'Tool call',
           tool: stringValue(event.tool) || 'unknown',
         }

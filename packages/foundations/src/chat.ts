@@ -75,6 +75,7 @@ export type SelectorOption = Readonly<{
 export type DraftReferenceType = 'file' | 'range' | 'resource' | 'agent'
 
 export type ChatCapabilities = Readonly<{
+  canRetryTurn?: boolean
   agents: readonly AgentIdentity[]
   busySubmission: readonly ('queue' | 'follow-up')[]
   canAttach: boolean
@@ -535,6 +536,7 @@ export interface ChatStore {
   restoreReverted(reverted: RevertedPrompt): Promise<void>
   retryQueued(item: QueuedPrompt): Promise<void>
   retrySubmission(): Promise<void>
+  retryTurn?(turnId: string): Promise<void>
   revert(turnId: string): Promise<void>
   stop(turnId: string): Promise<void>
   submit(draft: ComposerDraft, intent: SubmitIntent): Promise<void>

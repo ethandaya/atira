@@ -3,6 +3,47 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+test('retains failed child evidence and retries the response in place', async ({ page }) => {
+  const requests: { input: string; turnId: string; retry: boolean }[] = []
+  let releaseRetry: () => void = () => undefined
+  const retryReady = new Promise<void>(resolve => { releaseRetry = resolve })
+  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: 'test', runtime: 'Test runtime' } }))
+  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
+  await page.route('**/api/chat', async route => {
+    requests.push(route.request().postDataJSON())
+    if (requests.length > 1) await retryReady
+    const events = requests.length === 1 ? [
+      { type: 'tool-started', id: 'child', tool: 'run_subagent', summary: 'Researching', input: 'Find bike stores', kind: 'task', childSessionId: 'child-session' },
+      { type: 'tool-progress', id: 'child', tool: 'run_subagent', summary: 'Researching', kind: 'task', transcript: { reasoning: 'Checking stores.', result: 'One possible supplier.', steps: [] } },
+      { type: 'error', message: 'network error' },
+    ] : [{ type: 'completed', message: 'Research recovered.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }]
+    await route.fulfill({ contentType: 'application/x-ndjson', body: events.map(event => JSON.stringify(event)).join('\n') })
+  })
+  await page.goto('/')
+  const editor = page.getByRole('textbox', { name: 'Message', exact: true })
+  await editor.fill('Find a bike')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  const turn = page.locator('[data-slot="turn"]')
+  await expect(turn).toHaveAttribute('data-state', 'failed')
+  await editor.fill('Keep my draft')
+  await page.reload()
+  await page.getByRole('button', { name: /Subagent · Find bike stores/ }).click()
+  await expect(page.getByText('Checking stores.', { exact: true })).toBeVisible()
+  await expect(page.getByText('One possible supplier.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Partial response', { exact: true })).toBeVisible()
+  await expect(page.getByText('The child transcript is not available in this client.')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Retry response', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Conversations', exact: true })).toBeDisabled()
+  expect(requests).toHaveLength(2)
+  expect(requests[1]).toMatchObject({ turnId: requests[0]!.turnId, input: 'Find a bike', retry: true })
+  releaseRetry()
+  await expect(turn).toHaveAttribute('data-state', 'complete')
+  await expect(turn).toHaveCount(1)
+  await expect(turn).toContainText('Research recovered.')
+  await expect(editor).toHaveValue('Keep my draft')
+  await expect(page.getByRole('button', { name: 'Retry response', exact: true })).toHaveCount(0)
+})
+
 test('preserves and resumes conversations and drafts across reloads', async ({ page }) => {
   const contexts = new Map<string, string[]>()
   await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test runtime' } }))

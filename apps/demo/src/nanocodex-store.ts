@@ -19,7 +19,7 @@ import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
 
 export type RuntimeState =
   | { status: 'loading' }
-  | { model: string; runtime: string; status: 'ready' }
+  | { model: string; runtime: string; status: 'ready'; retryTurns?: boolean }
   | { message: string; status: 'unavailable' }
 
 type Usage = Readonly<{
@@ -230,7 +230,7 @@ export class NanocodexChatStore implements ChatStore {
           : body.available === true &&
         typeof body.model === 'string' &&
         typeof body.runtime === 'string'
-          ? { model: body.model, runtime: body.runtime, status: 'ready' }
+          ? { model: body.model, runtime: body.runtime, status: 'ready', retryTurns: body.retryTurns === true }
           : {
               message: 'Add a supported server-side provider key to run the playground.',
               status: 'unavailable',
@@ -263,10 +263,21 @@ export class NanocodexChatStore implements ChatStore {
   }
 
   async submit(draft: ComposerDraft, intent: SubmitIntent) {
+    if (intent !== 'send') return
+    await this.#send(draft)
+  }
+
+  async retryTurn(turnId: string) {
+    const turn = this.#snapshot.turns.at(-1)
+    if (!this.#snapshot.capabilities.canRetryTurn || turn?.id !== turnId || turn.state.status !== 'failed') return
+    const input = turn.user.parts.filter((part) => part.type === 'text').map((part) => part.markdown).join('\n')
+    await this.#send(createDraft(input), turn)
+  }
+
+  async #send(draft: ComposerDraft, retry?: ChatTurn) {
     const input = composerDraftText(draft).trim()
     if (
       !input ||
-      intent !== 'send' ||
       this.#runtime.status !== 'ready' ||
       this.#snapshot.activity.status !== 'idle'
     ) {
@@ -274,10 +285,10 @@ export class NanocodexChatStore implements ChatStore {
     }
 
     const now = Date.now()
-    const turnId = createId('turn')
-    const userMessageId = createId('message')
+    const turnId = retry?.id ?? createId('turn')
+    const userMessageId = retry?.user.id ?? createId('message')
     const assistantMessageId = createId('message')
-    const clearedDraft = createDraft('', draft.revision + 1)
+    const clearedDraft = retry ? this.#snapshot.composer : createDraft('', draft.revision + 1)
     const turn: ChatTurn = {
       assistant: [],
       id: turnId,
@@ -309,13 +320,15 @@ export class NanocodexChatStore implements ChatStore {
       activity: { status: 'busy', turnId },
       capabilities: capabilities(this.#runtime, true),
       composer: clearedDraft,
-      turns: [...this.#snapshot.turns, turn],
+      turns: retry
+        ? this.#snapshot.turns.map((item) => item.id === turnId ? { ...turn, user: retry.user } : item)
+        : [...this.#snapshot.turns, turn],
     }
     this.#commit()
 
     try {
       const response = await fetch('/api/chat', {
-        body: JSON.stringify({ input, resume: this.#hasContext }),
+        body: JSON.stringify({ input, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
         headers: { 'Content-Type': 'application/json', ...this.#conversationHeaders() },
         method: 'POST',
         signal: controller.signal,
@@ -363,6 +376,12 @@ export class NanocodexChatStore implements ChatStore {
         : 'The response could not be completed.'
       if (accepted) {
         this.#failTurn(turnId, assistantMessageId, failure, now)
+      } else if (retry) {
+        this.#snapshot = {
+          ...this.#snapshot,
+          turns: this.#snapshot.turns.map((item) => item.id === turnId ? retry : item),
+          submissionError: chatError(failure, false),
+        }
       } else {
         this.#failedDraft = draft
         this.#snapshot = {
@@ -760,9 +779,10 @@ function settleAssistantParts(
       }
       if (part.type === 'tool' && !isTerminalTool(part)) {
         if (state.status === 'failed') {
+          const input = toolInput(part)
           return {
             ...part,
-            state: { endedAt: Date.now(), error: state.error, status: 'failed' },
+            state: { endedAt: Date.now(), error: state.error, ...(input === undefined ? {} : { input }), status: 'failed' },
           }
         }
         const input = toolInput(part)
@@ -848,6 +868,7 @@ function capabilities(runtime: RuntimeState, busy: boolean): ChatCapabilities {
     ...unavailableCapabilities,
     canStop: busy,
     canSubmit: runtime.status === 'ready' && !busy,
+    canRetryTurn: runtime.status === 'ready' && runtime.retryTurns === true,
   }
 }
 
