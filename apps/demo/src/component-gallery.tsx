@@ -46,6 +46,7 @@ import type {
 import {
   colors,
   radii,
+  shadows,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -80,7 +81,7 @@ export function ComponentGallery() {
   const [iconButtonResult, setIconButtonResult] = useState('No icon button pressed.')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogResult, setDialogResult] = useState('Dialog has not been opened.')
-  const [activityListOpen, setActivityListOpen] = useState(false)
+  const [activityListOpen, setActivityListOpen] = useState(true)
   const [artifactResult, setArtifactResult] = useState('No artifact opened.')
   const [actionResult, setActionResult] = useState(
     'No message action selected.',
@@ -530,7 +531,7 @@ export function ComponentGallery() {
                 defaultOpen
                 id="gallery-tool"
                 state={{ status: 'succeeded' }}
-                summary="Updated the component registry"
+                summary="Registry updated"
                 tool="write_file"
               >
                 <code {...stylex.props(styles.code)}>2 files changed</code>
@@ -539,18 +540,17 @@ export function ComponentGallery() {
 
             <ComponentSample
               title="TaskTool"
-              description="Compact delegated work with agent identity, child provenance, and a terminal result."
+              description="Delegated work with agent identity, child provenance, and terminal state."
             >
               <div {...stylex.props(styles.stack)}>
                 <TaskTool part={galleryRunningSubagent} />
-                <TaskTool part={galleryCompletedSubagent} />
+                <TaskTool defaultOpen part={galleryCompletedSubagent} />
               </div>
             </ComponentSample>
 
             <ComponentSample
               title="ActivityList"
-              description="A controlled, chronological disclosure for tool evidence."
-              wide
+              description="A controlled chronological disclosure for tool evidence."
             >
               <ActivityList
                 id="gallery-activity-list"
@@ -1338,7 +1338,9 @@ function ComponentSample({
         </h3>
         <p {...stylex.props(styles.sampleDescription)}>{description}</p>
       </div>
-      <div {...stylex.props(styles.preview)}>{children}</div>
+      <div {...stylex.props(styles.preview, wide && styles.previewWide)}>
+        {children}
+      </div>
     </article>
   )
 }
@@ -1436,25 +1438,24 @@ const styles = stylex.create({
     maxInlineSize: '65ch',
   },
   grid: {
-    alignItems: 'start',
     display: 'grid',
-    columnGap: space.x6,
+    columnGap: space.x4,
     gridTemplateColumns: {
       default: 'minmax(0, 1fr)',
       '@media (min-width: 56rem)': 'repeat(2, minmax(0, 1fr))',
     },
-    rowGap: space.x8,
+    rowGap: space.x5,
   },
   sample: {
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radii.surface,
+    boxShadow: shadows.raised,
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x3,
+    minBlockSize: '100%',
     minInlineSize: 0,
-    paddingBlockStart: space.x4,
+    overflow: 'hidden',
   },
   sampleWide: {
     '@media (min-width: 56rem)': {
@@ -1462,9 +1463,16 @@ const styles = stylex.create({
     },
   },
   sampleHeading: {
+    backgroundColor: colors.surfaceMuted,
+    borderBlockStartColor: colors.border,
+    borderBlockStartStyle: 'solid',
+    borderBlockStartWidth: '1px',
     display: 'flex',
     flexDirection: 'column',
     gap: space.x1,
+    order: 2,
+    paddingBlock: space.x3,
+    paddingInline: space.x4,
   },
   sampleTitle: {
     fontSize: type.sizeSmall,
@@ -1481,21 +1489,34 @@ const styles = stylex.create({
   },
   preview: {
     display: 'flex',
+    flexGrow: 1,
     flexDirection: 'column',
     gap: space.x3,
+    justifyContent: 'center',
+    minBlockSize: '9.5rem',
     minInlineSize: 0,
+    order: 1,
+    padding: {
+      default: space.x4,
+      '@media (min-width: 48rem)': space.x5,
+    },
+  },
+  previewWide: {
+    minBlockSize: '10rem',
   },
   controls: {
     alignItems: 'center',
     display: 'flex',
     flexWrap: 'wrap',
-    gap: space.x2,
+    gap: space.x1,
+    justifyContent: 'center',
   },
   sampleStatus: {
     color: colors.textMuted,
     fontSize: type.sizeCaption,
     lineHeight: type.lineBody,
     margin: 0,
+    textAlign: 'center',
   },
   borderedPreview: {
     borderColor: colors.border,
