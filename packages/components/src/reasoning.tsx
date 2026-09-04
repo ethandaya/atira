@@ -106,10 +106,13 @@ const styles = stylex.create({
   summary: {
     alignItems: 'center',
     display: 'grid',
+    fontSize: type.sizeSmall,
     fontVariantNumeric: 'tabular-nums',
+    fontWeight: type.weightRegular,
     gridTemplateColumns: '0.875rem minmax(0, 1fr)',
     gap: space.x2,
     inlineSize: '100%',
+    lineHeight: type.lineBody,
   },
   stateIcon: {
     blockSize: '0.875rem',
@@ -121,6 +124,8 @@ const styles = stylex.create({
     borderInlineStartColor: colors.border,
     borderInlineStartStyle: 'solid',
     borderInlineStartWidth: '1px',
+    fontSize: type.sizeBody,
+    lineHeight: type.lineBody,
     marginInlineStart: '0.4375rem',
     maxInlineSize: '65ch',
     paddingInlineStart: space.x4,

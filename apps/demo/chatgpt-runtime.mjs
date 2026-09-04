@@ -35,17 +35,22 @@ export function createChatGptSubagentTool({
       if (!task) throw new Error('A subagent task is required.')
       const role = subagentRole(input)
       const childSessionId = invocation?.childSessionId ?? randomUUID()
+      const transcript = createTaskTranscript()
       const result = await runChatGptTurn({
         getCredential,
         input: task,
         instructions: subagentInstructions(role),
         model,
+        onEvent: transcript.onEvent,
         request,
         session: createChatGptSession(),
         sessionId: childSessionId,
         signal,
         tools,
       })
+      if (invocation) {
+        invocation.transcript = transcript.complete(result.finalMessage)
+      }
       return { result: result.finalMessage }
     },
     invocation: (input) => {
@@ -366,6 +371,52 @@ function subagentIdentity(role) {
   if (role === 'review') return { id: role, label: 'Review agent' }
   if (role === 'planning') return { id: role, label: 'Planning agent' }
   return { id: 'research', label: 'Research agent' }
+}
+
+function createTaskTranscript() {
+  let reasoning = ''
+  const steps = []
+  const stepsById = new Map()
+
+  return {
+    complete(result) {
+      return {
+        ...(reasoning.trim() ? { reasoning: reasoning.trim() } : {}),
+        result,
+        steps: steps.map((step) => ({ ...step })),
+      }
+    },
+    onEvent(event) {
+      if (!isRecord(event)) return
+      if (event.type === 'reasoning-delta') {
+        reasoning += stringValue(event.text)
+        return
+      }
+      if (event.type === 'tool-started') {
+        const id = stringValue(event.id)
+        if (!id) return
+        const step = {
+          id,
+          ...(stringValue(event.input) ? { input: stringValue(event.input) } : {}),
+          status: 'succeeded',
+          summary: stringValue(event.summary) || 'Tool call',
+          tool: stringValue(event.tool) || 'unknown',
+        }
+        steps.push(step)
+        stepsById.set(id, step)
+        return
+      }
+      if (event.type !== 'tool-completed') return
+
+      const id = stringValue(event.id)
+      const step = stepsById.get(id)
+      if (!step) return
+      step.status = event.status === 'failed' ? 'failed' : 'succeeded'
+      step.summary = stringValue(event.summary) || step.summary
+      if (stringValue(event.output)) step.output = stringValue(event.output)
+      if (stringValue(event.error)) step.error = stringValue(event.error)
+    },
+  }
 }
 
 function messageItem(role, text) {

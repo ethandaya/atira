@@ -13,7 +13,8 @@
   "dependencies": {
     "@pretty-amped/components": "workspace:*",
     "@pretty-amped/foundations": "workspace:*",
-    "@pretty-amped/primitives": "workspace:*"
+    "@pretty-amped/primitives": "workspace:*",
+    "lucide-react": "catalog:"
   },
   "peerDependencies": {
     "@stylexjs/stylex": "catalog:",

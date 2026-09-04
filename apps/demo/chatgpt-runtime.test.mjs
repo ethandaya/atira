@@ -152,10 +152,28 @@ describe('runChatGptTurn', () => {
   })
 
   it('runs a bounded child session without exposing recursive delegation', async () => {
-    const request = vi.fn(async () => sseResponse([
-      { delta: 'The focused review passed.', type: 'response.output_text.delta' },
-      completed([messageOutput('The focused review passed.')]),
-    ]))
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse([
+        {
+          delta: 'I will inspect the component contract.',
+          type: 'response.reasoning_summary_text.delta',
+        },
+        {
+          item: {
+            arguments: '{"query":"tool activity"}',
+            call_id: 'child-catalog-call',
+            name: 'inspect_component_catalog',
+            type: 'function_call',
+          },
+          type: 'response.output_item.done',
+        },
+        completed([]),
+      ]))
+      .mockResolvedValueOnce(sseResponse([
+        { delta: 'The focused review passed.', type: 'response.output_text.delta' },
+        completed([messageOutput('The focused review passed.')]),
+      ]))
     const tool = createChatGptSubagentTool({
       getCredential: vi.fn(async () => credential),
       model: 'gpt-5.6-sol',
@@ -173,6 +191,20 @@ describe('runChatGptTurn', () => {
       agent: { id: 'review', label: 'Review agent' },
       childSessionId: expect.any(String),
       kind: 'task',
+      transcript: {
+        reasoning: 'I will inspect the component contract.',
+        result: 'The focused review passed.',
+        steps: [
+          {
+            id: 'child-catalog-call',
+            input: 'tool activity',
+            output: 'Markdown',
+            status: 'succeeded',
+            summary: 'Searched component catalog',
+            tool: 'inspect_component_catalog',
+          },
+        ],
+      },
     }))
     expect(result).toEqual({ result: 'The focused review passed.' })
     const body = JSON.parse(request.mock.calls[0][1].body)

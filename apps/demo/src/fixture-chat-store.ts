@@ -789,6 +789,20 @@ function createToolFixtureTurn(index: number): ChatTurn {
         agent: { id: 'review', label: 'Review agent' },
         childSessionId: 'fixture-child-session',
         kind: 'task',
+        transcript: {
+          reasoning: 'I compared the activity states and transcript hierarchy.',
+          result: '**No blocking issues.** The activity rail remains stable across states.',
+          steps: [
+            {
+              id: 'fixture-child-inspect',
+              input: 'activity hierarchy',
+              output: 'Reasoning, ToolActivity, MessageParts',
+              status: 'succeeded',
+              summary: 'Searched component catalog',
+              tool: 'inspect_component_catalog',
+            },
+          ],
+        },
       },
       { description: 'Review the chat surface' },
       'No blocking issues.',

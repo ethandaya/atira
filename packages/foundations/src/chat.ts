@@ -44,6 +44,22 @@ export type AgentIdentity = Readonly<{
   label: string
 }>
 
+export type TaskTranscriptStep = Readonly<{
+  error?: string
+  id: string
+  input?: string
+  output?: string
+  status: 'succeeded' | 'failed'
+  summary: string
+  tool: string
+}>
+
+export type TaskTranscript = Readonly<{
+  reasoning?: string
+  result: string
+  steps: readonly TaskTranscriptStep[]
+}>
+
 export type SelectorOption = Readonly<{
   id: string
   label: string
@@ -269,6 +285,7 @@ export type ToolPresentation =
       blockers?: readonly string[]
       childSessionId?: string
       kind: 'task'
+      transcript?: TaskTranscript
     }
   | { kind: 'web'; operation: 'fetch' | 'search' }
   | { kind: 'todo' }

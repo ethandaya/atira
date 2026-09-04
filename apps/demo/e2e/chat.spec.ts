@@ -132,10 +132,13 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   await expect(status.locator('[data-slot="spinner"]')).toBeVisible()
   await settleLayout(page)
   const statusBounds = await elementBounds(status)
+  const statusTypography = await textMetrics(status)
 
   const reasoning = turn.locator('[data-slot="reasoning"]')
   await expect(reasoning).toHaveAttribute('data-state', 'thinking')
   await expect(reasoning.locator('[data-slot="spinner"]')).toBeVisible()
+  await expect.poll(() => textMetrics(reasoning.locator('[data-slot="reasoning-summary"]')))
+    .toEqual(statusTypography)
   await settleLayout(page)
   const activityBounds = await elementBounds(
     turn.locator('[data-slot="activity-sequence"]'),
@@ -146,6 +149,8 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   await expect(tool).toHaveAttribute('data-state', 'running')
   await expect(tool.locator('[data-slot="spinner"]')).toBeVisible()
   await expect(reasoning.locator('[data-slot="reasoning-state-icon"]')).toBeVisible()
+  expect(await textMetrics(reasoning.locator('[data-slot="reasoning-summary"]')))
+    .toEqual(statusTypography)
   await settleLayout(page)
   const runningBounds = await elementBounds(tool)
   const composerTop = (await elementBounds(composer)).top
@@ -303,6 +308,28 @@ test('selects every built-in tool renderer and the generic fallback', async ({ p
     'data-tool-kind',
     'generic',
   )
+})
+
+test('renders a readable subagent transcript with markdown', async ({ page }) => {
+  await page.goto('/?fixture=workflow')
+  const task = page.locator('[data-renderer="task"]')
+
+  await task.getByRole('button', { name: /Review agent · Review the chat surface/ }).click()
+
+  const transcript = task.locator('[data-slot="task-transcript"]')
+  await expect(transcript).toBeVisible()
+  await expect(transcript.getByText('No blocking issues.', { exact: true })).toHaveCSS(
+    'font-weight',
+    '600',
+  )
+  await expect(task).not.toContainText('transcript is not available')
+
+  const description = transcript.getByText('Review the chat surface', { exact: true })
+  const result = transcript.locator(
+    '[aria-label="Subagent result"] [data-slot="markdown"]',
+  )
+  expect((await textMetrics(description)).fontSize).toBe('14px')
+  expect((await textMetrics(result)).fontSize).toBe('14px')
 })
 
 test('bounds the stress fixture and keeps the composer responsive', async ({ page }, testInfo) => {
@@ -514,6 +541,17 @@ async function elementBounds(locator: ReturnType<Page['locator']>) {
       left: rectangle.left,
       top: rectangle.top,
       width: rectangle.width,
+    }
+  })
+}
+
+async function textMetrics(locator: ReturnType<Page['locator']>) {
+  return locator.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      lineHeight: style.lineHeight,
     }
   })
 }

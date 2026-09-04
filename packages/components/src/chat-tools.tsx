@@ -1,5 +1,6 @@
 import type {
   JsonValue,
+  TaskTranscript,
   ToolPart,
   ToolState,
 } from '@pretty-amped/foundations/chat'
@@ -16,6 +17,7 @@ import { useState, type ReactNode } from 'react'
 
 import { CodeBlock } from './code-block'
 import { Diff, type DiffFile } from './diff'
+import { Markdown } from './markdown'
 import { ToolActivity, type ToolActivityState } from './tool-activity'
 
 export type ChatToolProps = {
@@ -248,6 +250,7 @@ export function TaskTool({
   const childSessionId = presentation?.childSessionId
   const blockers = presentation?.blockers ?? []
   const agent = presentation?.agent
+  const transcript = presentation?.transcript
 
   return (
     <div
@@ -264,12 +267,20 @@ export function TaskTool({
         summary={`${agent?.label ?? 'Subagent'} · ${description}`}
         tool={part.toolName}
       >
-        <ToolEvidence
-          part={part}
-          {...(outputCharacterLimit === undefined
-            ? {}
-            : { outputCharacterLimit })}
-        />
+        {transcript ? (
+          <TaskTranscriptEvidence
+            description={description}
+            part={part}
+            transcript={transcript}
+          />
+        ) : (
+          <ToolEvidence
+            part={part}
+            {...(outputCharacterLimit === undefined
+              ? {}
+              : { outputCharacterLimit })}
+          />
+        )}
         {blockers.length > 0 && (
           <section aria-label="Task blockers" {...stylex.props(styles.diagnostics)}>
             <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
@@ -291,17 +302,90 @@ export function TaskTool({
             </Button>
           </div>
         )}
-        {childSessionId && !onOpenChild && (
+        {childSessionId && !onOpenChild && !transcript && (
           <p {...stylex.props(styles.notice)}>
             The child transcript is not available in this client.
           </p>
         )}
-        {!childSessionId && isTerminal(part.state) && (
+        {!childSessionId && !transcript && isTerminal(part.state) && (
           <p data-slot="task-child-unavailable" {...stylex.props(styles.notice)}>
             This runtime did not expose a child transcript.
           </p>
         )}
       </ToolActivity>
+    </div>
+  )
+}
+
+function TaskTranscriptEvidence({
+  description,
+  part,
+  transcript,
+}: {
+  description: string
+  part: ToolPart
+  transcript: TaskTranscript
+}) {
+  return (
+    <div data-slot="task-transcript" {...stylex.props(styles.taskTranscript)}>
+      <section aria-label="Subagent task" {...stylex.props(styles.taskSection)}>
+        <p {...stylex.props(styles.taskLabel)}>Task</p>
+        <p dir="auto" {...stylex.props(styles.taskCopy)}>
+          {description}
+        </p>
+      </section>
+      {transcript.reasoning && (
+        <section
+          aria-label="Subagent reasoning"
+          {...stylex.props(styles.taskSection)}
+        >
+          <p {...stylex.props(styles.taskLabel)}>Reasoning</p>
+          <Markdown status="complete">{transcript.reasoning}</Markdown>
+        </section>
+      )}
+      {transcript.steps.length > 0 && (
+        <section
+          aria-label="Subagent activity"
+          {...stylex.props(styles.taskSection)}
+        >
+          <p {...stylex.props(styles.taskLabel)}>Activity</p>
+          <div {...stylex.props(styles.taskSteps)}>
+            {transcript.steps.map((step) => (
+              <ToolActivity
+                id={`${part.id}:${step.id}`}
+                key={step.id}
+                state={
+                  step.status === 'succeeded'
+                    ? { status: 'succeeded' }
+                    : {
+                        error: step.error ?? 'The tool failed.',
+                        status: 'failed',
+                      }
+                }
+                summary={step.summary}
+                tool={step.tool}
+              >
+                {(step.input || step.output || step.error) && (
+                  <dl {...stylex.props(styles.evidence)}>
+                    {step.input && <EvidenceRow label="Input" value={step.input} />}
+                    {step.output && <EvidenceRow label="Result" value={step.output} />}
+                    {step.error && (
+                      <EvidenceRow danger label="Error" value={step.error} />
+                    )}
+                  </dl>
+                )}
+              </ToolActivity>
+            ))}
+          </div>
+        </section>
+      )}
+      <section aria-label="Subagent result" {...stylex.props(styles.taskSection)}>
+        <p {...stylex.props(styles.taskLabel)}>Result</p>
+        <Markdown status="complete">{transcript.result}</Markdown>
+      </section>
+      <dl {...stylex.props(styles.evidence)}>
+        <ToolTiming state={part.state} />
+      </dl>
     </div>
   )
 }
@@ -649,6 +733,40 @@ const styles = stylex.create({
   subagent: {
     boxSizing: 'border-box',
     inlineSize: '100%',
+  },
+  taskTranscript: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x3,
+    minInlineSize: 0,
+  },
+  taskSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x1,
+    minInlineSize: 0,
+  },
+  taskLabel: {
+    color: colors.textMuted,
+    fontFamily: type.family,
+    fontSize: type.sizeCaption,
+    fontWeight: type.weightMedium,
+    lineHeight: type.lineCompact,
+    margin: 0,
+  },
+  taskCopy: {
+    color: colors.text,
+    fontFamily: type.family,
+    fontSize: type.sizeBody,
+    lineHeight: type.lineBody,
+    margin: 0,
+    maxInlineSize: '65ch',
+    overflowWrap: 'anywhere',
+  },
+  taskSteps: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x1,
   },
   group: {
     display: 'flex',

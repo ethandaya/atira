@@ -11,6 +11,7 @@ import type {
   QueuedPrompt,
   RevertedPrompt,
   SubmitIntent,
+  TaskTranscript,
   ToolPart,
 } from '@pretty-amped/foundations/chat'
 import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
@@ -29,6 +30,7 @@ type StreamToolPresentation = Readonly<{
   agent?: Readonly<{ id: string; label: string }> | undefined
   childSessionId?: string | undefined
   kind?: 'task' | undefined
+  transcript?: TaskTranscript | undefined
 }>
 
 type StreamEvent =
@@ -521,10 +523,15 @@ function applyStreamEvent(
     (part): part is ToolPart => part.type === 'tool' && part.callId === event.id,
   )
   const input = existing && 'input' in existing.state ? existing.state.input : {}
+  const eventPresentation = toolPresentation(event.tool, event)
+  const presentation =
+    existing?.presentation.kind === 'task' && eventPresentation.kind === 'task'
+      ? { ...existing.presentation, ...eventPresentation }
+      : existing?.presentation ?? eventPresentation
   const tool: ToolPart = {
     callId: event.id,
     id: event.id,
-    presentation: existing?.presentation ?? toolPresentation(event.tool, event),
+    presentation,
     state:
       event.status === 'failed'
         ? {
@@ -671,6 +678,9 @@ function toolPresentation(
         ? {}
         : { childSessionId: event.childSessionId }),
       kind: 'task',
+      ...(event?.transcript === undefined
+        ? {}
+        : { transcript: event.transcript }),
     }
   }
   if (value === 'search_web' || value.includes('websearch')) {
@@ -821,12 +831,55 @@ function streamToolPresentation(
     typeof value.agent.label === 'string'
       ? { id: value.agent.id, label: value.agent.label }
       : undefined
+  const transcript = taskTranscript(value.transcript)
   return {
     ...(agent === undefined ? {} : { agent }),
     ...(typeof value.childSessionId === 'string'
       ? { childSessionId: value.childSessionId }
       : {}),
     ...(value.kind === 'task' ? { kind: value.kind } : {}),
+    ...(transcript === undefined ? {} : { transcript }),
+  }
+}
+
+function taskTranscript(value: unknown): TaskTranscript | undefined {
+  if (
+    !isRecord(value) ||
+    typeof value.result !== 'string' ||
+    !Array.isArray(value.steps)
+  ) {
+    return undefined
+  }
+
+  const steps = value.steps.flatMap((item) => {
+    if (
+      !isRecord(item) ||
+      typeof item.id !== 'string' ||
+      typeof item.summary !== 'string' ||
+      typeof item.tool !== 'string' ||
+      (item.status !== 'succeeded' && item.status !== 'failed')
+    ) {
+      return []
+    }
+    return [
+      {
+        ...(typeof item.error === 'string' ? { error: item.error } : {}),
+        id: item.id,
+        ...(typeof item.input === 'string' ? { input: item.input } : {}),
+        ...(typeof item.output === 'string' ? { output: item.output } : {}),
+        status: item.status,
+        summary: item.summary,
+        tool: item.tool,
+      } satisfies TaskTranscript['steps'][number],
+    ]
+  })
+
+  return {
+    ...(typeof value.reasoning === 'string' && value.reasoning
+      ? { reasoning: value.reasoning }
+      : {}),
+    result: value.result,
+    steps,
   }
 }
 

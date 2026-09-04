@@ -156,6 +156,9 @@ importers:
       '@pretty-amped/primitives':
         specifier: workspace:*
         version: link:../primitives
+      lucide-react:
+        specifier: 'catalog:'
+        version: 1.41.0(react@19.2.8)
     devDependencies:
       '@stylexjs/stylex':
         specifier: 'catalog:'

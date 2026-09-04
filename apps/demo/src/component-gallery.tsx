@@ -1100,6 +1100,20 @@ const galleryCompletedSubagent: ToolPart = {
     agent: { id: 'review', label: 'Review agent' },
     childSessionId: 'gallery-child-complete',
     kind: 'task',
+    transcript: {
+      reasoning: 'I reviewed the active and terminal layouts at both breakpoints.',
+      result: '**The hierarchy is sound.** One state owner remains visible throughout.',
+      steps: [
+        {
+          id: 'gallery-child-inspect',
+          input: 'activity hierarchy',
+          output: 'ToolActivity, Reasoning, ActivityList',
+          status: 'succeeded',
+          summary: 'Searched component catalog',
+          tool: 'inspect_component_catalog',
+        },
+      ],
+    },
   },
   state: {
     endedAt: 1_200,

@@ -72,6 +72,20 @@ describe('NanocodexChatStore', () => {
             status: 'succeeded',
             summary: 'Subagent completed',
             tool: 'run_subagent',
+            transcript: {
+              reasoning: 'I checked the hierarchy.',
+              result: '**No blocking issues.** The hierarchy is clear.',
+              steps: [
+                {
+                  id: 'child-catalog-call',
+                  input: 'response hierarchy',
+                  output: 'Turn, MessageParts',
+                  status: 'succeeded',
+                  summary: 'Searched component catalog',
+                  tool: 'inspect_component_catalog',
+                },
+              ],
+            },
             type: 'tool-completed',
           },
           { text: '# Result\n', type: 'assistant-delta' },
@@ -136,6 +150,20 @@ describe('NanocodexChatStore', () => {
             agent: { id: 'review', label: 'Review agent' },
             childSessionId: 'child-session',
             kind: 'task',
+            transcript: {
+              reasoning: 'I checked the hierarchy.',
+              result: '**No blocking issues.** The hierarchy is clear.',
+              steps: [
+                {
+                  id: 'child-catalog-call',
+                  input: 'response hierarchy',
+                  output: 'Turn, MessageParts',
+                  status: 'succeeded',
+                  summary: 'Searched component catalog',
+                  tool: 'inspect_component_catalog',
+                },
+              ],
+            },
           },
           state: expect.objectContaining({
             input: { description: 'Review the response hierarchy' },

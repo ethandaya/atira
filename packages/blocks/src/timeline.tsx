@@ -16,6 +16,7 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
+import { ChevronDown } from 'lucide-react'
 import {
   memo,
   useEffect,
@@ -399,11 +400,21 @@ export type JumpToLatestProps = {
 }
 
 export function JumpToLatest({ onJump, pendingCount }: JumpToLatestProps) {
+  const label = `${pendingCount > 0 ? `${pendingCount} new · ` : ''}Jump to latest`
+
   return (
     <div data-slot="jump-to-latest" {...stylex.props(styles.jump)}>
       <div {...stylex.props(styles.jumpButton)}>
-        <Button onClick={onJump} size="compact" variant="outline">
-          {pendingCount > 0 ? `${pendingCount} new · ` : ''}Jump to latest
+        <Button
+          aria-label={label}
+          onClick={onJump}
+          size="compact"
+          variant="outline"
+        >
+          <ChevronDown aria-hidden="true" size={14} strokeWidth={1.75} />
+          <span aria-hidden="true" {...stylex.props(styles.jumpLabel)}>
+            {label}
+          </span>
         </Button>
       </div>
     </div>
@@ -595,8 +606,28 @@ const styles = stylex.create({
     paddingBlockEnd: space.x6,
   },
   jump: {
-    insetBlockEnd: space.x4,
+    alignItems: {
+      default: 'normal',
+      '@media (max-width: 29.99rem)': 'center',
+    },
+    backgroundColor: {
+      default: 'transparent',
+      '@media (max-width: 29.99rem)': colors.canvas,
+    },
+    blockSize: {
+      default: 'auto',
+      '@media (max-width: 29.99rem)': '3.75rem',
+    },
+    display: {
+      default: 'block',
+      '@media (max-width: 29.99rem)': 'flex',
+    },
+    insetBlockEnd: {
+      default: space.x4,
+      '@media (max-width: 29.99rem)': 0,
+    },
     insetInline: 0,
+    justifyContent: 'center',
     pointerEvents: 'none',
     position: 'absolute',
     textAlign: 'center',
@@ -605,5 +636,11 @@ const styles = stylex.create({
   jumpButton: {
     display: 'inline-flex',
     pointerEvents: 'auto',
+  },
+  jumpLabel: {
+    display: {
+      default: 'none',
+      '@media (min-width: 30rem)': 'inline',
+    },
   },
 })

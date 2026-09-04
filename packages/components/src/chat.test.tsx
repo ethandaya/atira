@@ -84,6 +84,11 @@ describe('chat components', () => {
         agent: { id: 'review', label: 'Review agent' },
         childSessionId: 'child-session',
         kind: 'task',
+        transcript: {
+          reasoning: 'I checked the activity hierarchy.',
+          result: '**Looks good.**',
+          steps: [],
+        },
       },
       state: {
         endedAt: 2,
@@ -105,6 +110,8 @@ describe('chat components', () => {
       screen.getByRole('button', { name: /Review agent · Check alignment/ }),
     )
     expect(container.textContent).toContain('Looks good.')
+    expect(container.textContent).not.toContain('transcript is not available')
+    expect(screen.getByText('Looks good.', { selector: 'strong' })).not.toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Open child session' }))
     expect(onOpenChild).toHaveBeenCalledWith('child-session')
   })
