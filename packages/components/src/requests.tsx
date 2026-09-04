@@ -934,13 +934,7 @@ const styles = stylex.create({
     fontWeight: type.weightStrong,
     lineHeight: type.lineCompact,
     margin: 0,
-    outlineColor: {
-      default: 'transparent',
-      ':focus-visible': colors.focus,
-    },
-    outlineOffset: '3px',
-    outlineStyle: 'solid',
-    outlineWidth: '3px',
+    outline: 'none',
   },
   origin: {
     color: colors.textMuted,
