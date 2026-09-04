@@ -29,6 +29,6 @@ const styles = stylex.create({
   label: { color: colors.text, fontSize: type.sizeSmall, lineHeight: type.lineCompact },
   value: { color: colors.textMuted, fontSize: type.sizeSmall, fontVariantNumeric: 'tabular-nums', lineHeight: type.lineCompact },
   track: { backgroundColor: colors.surfaceMuted, borderRadius: radii.control, gridColumn: '1 / -1', height: space.x2, overflow: 'hidden' },
-  indicator: { backgroundColor: colors.accent, height: '100%', transitionDuration: { default: motion.durationModerate, '@media (prefers-reduced-motion: reduce)': '0ms' }, transitionProperty: 'width', transitionTimingFunction: motion.easingStandard, width: 'var(--progress-percentage)' },
-  indeterminate: { animationName: { default: 'none', '@media (prefers-reduced-motion: no-preference)': stylex.keyframes({ '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(400%)' } }) }, animationDuration: '1.2s', animationIterationCount: 'infinite', animationTimingFunction: 'ease-in-out', width: '25%' },
+  indicator: { backgroundColor: colors.accent, height: '100%', transform: 'translateX(calc(var(--progress-percentage) - 100%))', transitionDuration: { default: motion.durationModerate, '@media (prefers-reduced-motion: reduce)': '0ms' }, transitionProperty: 'transform', transitionTimingFunction: motion.easingStandard, width: '100%' },
+  indeterminate: { animationName: { default: 'none', '@media (prefers-reduced-motion: no-preference)': stylex.keyframes({ '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(400%)' } }) }, animationDuration: '1s', animationIterationCount: 'infinite', animationTimingFunction: 'linear', transform: 'translateX(-100%)', width: '25%' },
 })

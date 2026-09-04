@@ -272,7 +272,7 @@ const styles = stylex.create({
       default: fadeIn,
       '@media (prefers-reduced-motion: reduce)': 'none',
     },
-    animationTimingFunction: 'ease-out',
+    animationTimingFunction: motion.easingStandard,
     blockSize: '0.875rem',
     inlineSize: '0.875rem',
   },

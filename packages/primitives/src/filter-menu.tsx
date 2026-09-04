@@ -166,6 +166,10 @@ const styles = stylex.create({
       default: '2rem',
       '@media (hover: none)': '2.75rem',
     },
+    minInlineSize: {
+      default: '2rem',
+      '@media (hover: none)': '2.75rem',
+    },
     opacity: { default: 1, ':disabled': 0.5 },
     outlineColor: { default: 'transparent', ':focus-visible': colors.focus },
     outlineStyle: 'solid',

@@ -203,7 +203,7 @@ const styles = stylex.create({
       default: fadeIn,
       '@media (prefers-reduced-motion: reduce)': 'none',
     },
-    animationTimingFunction: 'ease-out',
+    animationTimingFunction: motion.easingStandard,
   },
   meta: {
     alignItems: 'center',
