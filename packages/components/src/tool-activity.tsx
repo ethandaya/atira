@@ -96,7 +96,7 @@ export function ToolActivity({
             state.status === 'failed' && styles.summaryFailed,
           )}
         >
-          <TextTransition state={summary}>{active ? <Shimmer>{summary}</Shimmer> : summary}</TextTransition>
+          <TextTransition state={`${state.status}:${summary}`}>{active ? <Shimmer>{summary}</Shimmer> : summary}</TextTransition>
         </span>
       </span>
     </span>
@@ -120,8 +120,8 @@ export function ToolActivity({
           {summary}. {stateLabel}.
         </VisuallyHidden>
       )}
-      {canDisclose ? (
         <Disclosure
+          disabled={!canDisclose}
           summary={header}
           variant="plain"
           {...(defaultOpen === undefined ? {} : { defaultOpen })}
@@ -133,12 +133,6 @@ export function ToolActivity({
             {children}
           </div>
         </Disclosure>
-      ) : (
-        <div {...stylex.props(styles.staticHeader)}>
-          {header}
-          <span aria-hidden="true" {...stylex.props(styles.indicatorSlot)} />
-        </div>
-      )}
       {state.status === 'failed' && (
         <p role="alert" {...stylex.props(styles.error)}>
           {state.error}
@@ -210,26 +204,6 @@ const styles = stylex.create({
     color: colors.text,
     fontFamily: type.family,
     inlineSize: '100%',
-  },
-  staticHeader: {
-    alignItems: 'center',
-    boxSizing: 'border-box',
-    display: 'grid',
-    gap: space.x1,
-    gridTemplateColumns: 'minmax(0, 1fr) 1rem',
-    inlineSize: '100%',
-    maxInlineSize: '100%',
-    minBlockSize: {
-      default: '2rem',
-      '@media (hover: none)': '2.75rem',
-    },
-    paddingBlock: space.x1,
-    paddingInline: space.x2,
-  },
-  indicatorSlot: {
-    blockSize: '1rem',
-    flexShrink: 0,
-    inlineSize: '1rem',
   },
   header: {
     alignItems: 'center',

@@ -38,7 +38,7 @@ export function Disclosure({
 }: DisclosureProps) {
   const [immediate, setImmediate] = useState(true)
   const [localOpen, setLocalOpen] = useState(defaultOpen ?? false)
-  const isOpen = open ?? localOpen
+  const isOpen = !disabled && (open ?? localOpen)
   return (
     <Collapsible.Root
       {...props}
@@ -60,6 +60,7 @@ export function Disclosure({
             {...stylex.props(
               styles.trigger,
               variant === 'plain' && styles.triggerPlain,
+              disabled && styles.triggerDisabled,
             )}
           >
             <span
@@ -79,6 +80,7 @@ export function Disclosure({
               {...stylex.props(
                 styles.indicator,
                 state.open && styles.indicatorOpen,
+                disabled && styles.indicatorDisabled,
               )}
             />
           </button>
@@ -176,6 +178,13 @@ const styles = stylex.create({
   },
   indicatorOpen: {
     transform: 'rotate(90deg)',
+  },
+  triggerDisabled: {
+    cursor: 'default',
+    backgroundColor: 'transparent',
+  },
+  indicatorDisabled: {
+    visibility: 'hidden',
   },
   panel: {
     borderBlockStartColor: colors.border,

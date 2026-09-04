@@ -128,15 +128,9 @@ export function TurnStatus({ state }: { state: TurnState }) {
         state.status === 'failed' && styles.statusDanger,
       )}
     >
-      {active ? (
-        <>
-          <Spinner size="small" />
-          <TextTransition state={label}><Shimmer>{label}</Shimmer></TextTransition>
-          <span aria-hidden="true" {...stylex.props(styles.statusEnd)} />
-        </>
-      ) : (
-        label
-      )}
+      {active && <Spinner size="small" />}
+      <TextTransition state={label}>{active ? <Shimmer>{label}</Shimmer> : label}</TextTransition>
+      {active && <span aria-hidden="true" {...stylex.props(styles.statusEnd)} />}
       {state.status === 'failed' && (
         <span {...stylex.props(styles.error)}>{state.error.message}</span>
       )}

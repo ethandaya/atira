@@ -69,18 +69,20 @@ export function PresenceItem(props: HTMLMotionProps<'li'>) {
   />
 }
 
-/** A one-line status handoff. Exiting copy never contributes to width or announcements. */
+/** Sequential label handoff: never paint two labels over each other. */
 export function TextTransition({ children, state }: { children: ReactNode; state: string }) {
   const reduced = useReducedMotion()
   return (
-    <span {...stylex.props(styles.text)}>
-      <AnimatePresence initial={false}>
+    <span data-slot="text-transition" {...stylex.props(styles.text)}>
+      <AnimatePresence initial={false} mode="wait">
         <motion.span
           key={state}
+          data-text-state={state}
           {...stylex.props(styles.text)}
           initial={reduced ? false : { opacity: 0, transform: 'translateY(3px)' }}
           animate={{ opacity: 1, transform: 'translateY(0px)' }}
-          transition={{ duration: reduced ? 0 : 0.14, ease: [0.22, 1, 0.36, 1] }}
+          exit={{ opacity: 0, transform: 'translateY(-2px)', transition: { duration: reduced ? 0 : 0.08 } }}
+          transition={{ duration: reduced ? 0 : 0.16, ease: [0.22, 1, 0.36, 1] }}
         >
           {children}
         </motion.span>

@@ -105,6 +105,7 @@ export function Timeline({
   followRef.current = follow
 
   function changeFollow(next: FollowState) {
+    followRef.current = next
     setFollow(next)
     onFollowStateChange?.(next)
   }
@@ -260,6 +261,16 @@ export function Timeline({
     >
       <div
         ref={viewportRef}
+        onClickCapture={(event) => {
+          const trigger = event.target instanceof Element
+            ? event.target.closest('[data-slot="disclosure-trigger"][aria-expanded="false"]:not([disabled])')
+            : null
+          // Opening evidence is a reading action, not new streamed output.
+          // Detach before the panel resize can pull its header out of view.
+          if (trigger && followRef.current.status === 'following') {
+            changeFollow({ pendingCount: 0, status: 'detached' })
+          }
+        }}
         onScroll={trackScroll}
         data-slot="timeline-viewport"
         {...stylex.props(

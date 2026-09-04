@@ -8,6 +8,7 @@ import {
   Shimmer,
   Spinner,
   StateTransition,
+  TextTransition,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
@@ -77,13 +78,13 @@ export function Reasoning({
               />
             )}
             </StateTransition>
-            <span>
+            <TextTransition state={`${state.status}:${typeof summary === 'string' ? summary : ''}`}>
               {isThinking && typeof summary === 'string' ? (
                 <Shimmer>{summary}</Shimmer>
               ) : (
                 summary
               )}
-            </span>
+            </TextTransition>
           </span>
         )}
       >

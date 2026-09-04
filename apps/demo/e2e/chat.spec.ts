@@ -3,6 +3,38 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`transitions lifecycle text without overlapping labels (${reducedMotion})`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion })
+    await page.goto('/?fixture=workflow')
+    await page.getByRole('textbox', { name: 'Message' }).fill('Exercise text transitions')
+    const samples = await page.getByRole('button', { name: 'Send', exact: true }).evaluate(async (button) => {
+      button.click()
+      const values: { state: string; opacity: number; count: number }[] = []
+      const start = performance.now()
+      while (performance.now() - start < 3500) {
+        await new Promise(requestAnimationFrame)
+        const turn = Array.from(document.querySelectorAll('[data-slot="turn"]')).at(-1)
+        for (const label of turn?.querySelectorAll<HTMLElement>('[data-text-state]') ?? []) {
+          values.push({
+            state: label.dataset.textState ?? '',
+            opacity: Number(getComputedStyle(label).opacity),
+            count: label.parentElement!.querySelectorAll('[data-text-state]').length,
+          })
+        }
+      }
+      return values
+    })
+    expect(samples.every((sample) => sample.count === 1)).toBe(true)
+    for (const prefix of ['complete:Thought', 'succeeded:Search']) {
+      const completion = samples.filter((sample) => sample.state.startsWith(prefix))
+      expect(completion.length).toBeGreaterThan(0)
+      expect(completion.some((sample) => sample.opacity > 0 && sample.opacity < 1))
+        .toBe(reducedMotion === 'no-preference')
+    }
+  })
+}
+
 test('animates presence without losing dialog focus or leaving interactive exits', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Catalog', exact: true }).click()
@@ -372,10 +404,16 @@ test('renders a readable subagent transcript with markdown', async ({ page }) =>
   await page.goto('/?fixture=workflow')
   const task = page.locator('[data-renderer="task"]')
 
-  await task.getByRole('button', { name: /Review agent · Review the chat surface/ }).click()
+  const trigger = task.getByRole('button', { name: /Review agent · Review the chat surface/ })
+  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute('data-follow-state', 'following')
+  const headerTop = (await trigger.boundingBox())!.y
+  await trigger.click()
 
   const transcript = task.locator('[data-slot="task-transcript"]')
   await expect(transcript).toBeVisible()
+  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute('data-follow-state', 'detached')
+  await settleLayout(page)
+  expect(Math.abs((await trigger.boundingBox())!.y - headerTop)).toBeLessThanOrEqual(2)
   await expect(transcript.getByText('No blocking issues.', { exact: true })).toHaveCSS(
     'font-weight',
     '600',
