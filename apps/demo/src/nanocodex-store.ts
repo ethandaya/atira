@@ -106,7 +106,7 @@ export class NanocodexChatStore implements ChatStore {
         typeof body.runtime === 'string'
           ? { model: body.model, runtime: body.runtime, status: 'ready' }
           : {
-              message: 'Add a server-side OpenAI API key to run the playground.',
+              message: 'Add a supported server-side provider key to run the playground.',
               status: 'unavailable',
             }
     } catch (error) {

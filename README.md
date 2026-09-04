@@ -15,6 +15,11 @@ pnpm install
 pnpm dev
 ```
 
+The playground keeps provider credentials server-side. It uses Anthropic when
+`ANTHROPIC_API_KEY` is available and otherwise uses Nanocodex with
+`OPENAI_API_KEY`; set `PRETTY_AMPED_RUNTIME` to `anthropic` or `nanocodex` to
+choose explicitly.
+
 ## Workspace
 
 - `packages/foundations` — semantic StyleX tokens and scoped themes
@@ -41,8 +46,8 @@ pnpm dev
 
 The workspace includes themed StyleX foundations, owned Base UI-backed
 primitives, conversation and agent-state components, structured coding output,
-the controlled chat composition, OpenCode and Nanocodex adapters, and a component
-gallery. The [50-component parity tracker](docs/knowledge-base/component-system.md#external-ai-component-parity-tracker)
+the controlled chat composition, OpenCode and provider-backed playground adapters,
+and a component gallery. The [50-component parity tracker](docs/knowledge-base/component-system.md#external-ai-component-parity-tracker)
 records shipped equivalents and the remaining component work. Registry, CLI,
 and MCP distribution remain future tasks. Statements marked
 **Proposal** or **Hypothesis** in the knowledge base are starting positions to

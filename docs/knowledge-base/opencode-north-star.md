@@ -113,7 +113,7 @@ Source: [`packages/components/src/index.ts`](../../packages/components/src/index
 
 ### Current proving surface
 
-The demo proves source consumption, themes, responsive basics, streamed Markdown, cancellation, and a real Nanocodex tool lifecycle. It does not prove OpenCode integration, durable synchronization, a coding workbench, or the critical state races below.
+The demo proves source consumption, themes, responsive basics, Markdown responses, cancellation, and real provider-backed tool lifecycles through Nanocodex or Anthropic. It does not prove OpenCode integration, durable synchronization, a coding workbench, or the critical state races below.
 
 There is currently no component unit-test suite, Storybook state matrix, browser regression suite, protocol fixture suite, or visual regression suite. The gallery is useful review coverage but not compatibility evidence.
 

@@ -108,7 +108,7 @@ function DemoApp() {
     runtime.status === 'ready'
       ? `${runtime.runtime} · ${runtime.model} · web`
       : runtime.status === 'loading'
-        ? 'Connecting to Nanocodex…'
+        ? 'Connecting to runtime…'
         : 'Runtime unavailable'
   return (
     <div
@@ -180,7 +180,7 @@ function DemoApp() {
               </span>
             )}
             empty={<EmptyPlayground runtime={runtime} store={store} />}
-            label="Nanocodex playground conversation"
+            label="Playground conversation"
             store={store}
           />
         </div>
@@ -272,7 +272,7 @@ function EmptyPlayground({
   store: NanocodexChatStore
 }) {
   if (runtime.status === 'loading') {
-    return <Loader label="Connecting to Nanocodex" state={{ status: 'pending' }} />
+    return <Loader label="Connecting to runtime" state={{ status: 'pending' }} />
   }
 
   if (runtime.status === 'unavailable') {
