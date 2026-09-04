@@ -204,14 +204,14 @@ const styles = stylex.create({
     display: 'grid',
     gap: space.x1,
     gridTemplateColumns: 'minmax(0, 1fr) 1rem',
-    inlineSize: 'fit-content',
+    inlineSize: '100%',
     maxInlineSize: '100%',
     minBlockSize: {
       default: '2rem',
       '@media (hover: none)': '2.75rem',
     },
     paddingBlock: space.x1,
-    paddingInline: space.x1,
+    paddingInline: space.x2,
   },
   indicatorSlot: {
     blockSize: '1rem',
@@ -237,7 +237,7 @@ const styles = stylex.create({
   summary: {
     color: colors.text,
     fontSize: type.sizeSmall,
-    fontWeight: type.weightMedium,
+    fontWeight: type.weightRegular,
     lineHeight: type.lineBody,
     minInlineSize: 0,
     overflow: 'hidden',

@@ -130,7 +130,7 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   summaryPlain: {
-    flex: '0 1 auto',
+    flex: 1,
   },
   triggerPlain: {
     backgroundColor: {
@@ -141,15 +141,15 @@ const styles = stylex.create({
       },
     },
     borderRadius: radii.control,
-    inlineSize: 'fit-content',
-    justifyContent: 'flex-start',
+    inlineSize: '100%',
+    justifyContent: 'space-between',
     maxInlineSize: '100%',
     minBlockSize: {
       default: '2rem',
       '@media (hover: none)': '2.75rem',
     },
     paddingBlock: space.x1,
-    paddingInline: space.x1,
+    paddingInline: space.x2,
   },
   indicator: {
     blockSize: '1rem',

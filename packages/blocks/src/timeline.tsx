@@ -542,7 +542,7 @@ const styles = stylex.create({
     flexDirection: 'column',
     inlineSize: '100%',
     marginInline: 'auto',
-    maxInlineSize: '52rem',
+    maxInlineSize: '48rem',
     minBlockSize: '100%',
     minInlineSize: 0,
     paddingBlock: space.x6,
@@ -551,7 +551,7 @@ const styles = stylex.create({
   list: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x4,
+    gap: space.x8,
     listStyle: 'none',
     margin: 0,
     padding: 0,

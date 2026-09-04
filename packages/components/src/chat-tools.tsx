@@ -654,6 +654,7 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     gap: space.x1,
+    inlineSize: '100%',
   },
   groupSummary: {
     alignItems: 'center',
@@ -662,7 +663,7 @@ const styles = stylex.create({
     flex: 1,
     fontFamily: type.family,
     fontSize: type.sizeSmall,
-    fontWeight: type.weightMedium,
+    fontWeight: type.weightRegular,
     gap: space.x2,
     gridTemplateColumns: '0.875rem minmax(0, 1fr)',
     lineHeight: type.lineBody,

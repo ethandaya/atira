@@ -93,8 +93,10 @@ const styles = stylex.create({
   },
   summary: {
     alignItems: 'center',
-    display: 'inline-flex',
+    display: 'grid',
+    gridTemplateColumns: '0.875rem minmax(0, 1fr)',
     gap: space.x2,
+    inlineSize: '100%',
   },
   railAnchor: {
     blockSize: '0.875rem',

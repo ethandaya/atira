@@ -56,23 +56,25 @@ export function MessageParts({
     const part = message.parts[index]
     if (!part) continue
 
-    if (part.type === 'tool') {
-      const tools: ToolPart[] = [part]
+    if (isActivityPart(part)) {
+      const activityParts: MessagePart[] = [part]
       while (index + 1 < message.parts.length) {
         const next = message.parts[index + 1]
-        if (next?.type !== 'tool') break
-        tools.push(next)
+        if (!next || !isActivityPart(next)) break
+        activityParts.push(next)
         index += 1
       }
 
-      const visibleTools = suppressTodoTools
-        ? tools.filter((tool) => tool.presentation.kind !== 'todo')
-        : tools
-      if (visibleTools.length > 0) {
+      const visibleParts = suppressTodoTools
+        ? activityParts.filter(
+            (item) => item.type !== 'tool' || item.presentation.kind !== 'todo',
+          )
+        : activityParts
+      if (visibleParts.length > 0) {
         content.push(
-          <ToolSequence
+          <ActivitySequence
             key={part.id}
-            parts={visibleTools}
+            parts={visibleParts}
             renderers={renderers}
             toolActions={toolActions}
           />,
@@ -97,6 +99,63 @@ export function MessageParts({
       data-slot="message-parts"
       data-state={message.delivery.status}
       {...stylex.props(styles.root)}
+    >
+      {content}
+    </div>
+  )
+}
+
+function ActivitySequence({
+  parts,
+  renderers,
+  toolActions,
+}: {
+  parts: readonly MessagePart[]
+  renderers: readonly ToolRenderer[]
+  toolActions: ToolActions
+}) {
+  const content: ReactNode[] = []
+
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]
+    if (!part) continue
+
+    if (part.type === 'tool') {
+      const tools: ToolPart[] = [part]
+      while (index + 1 < parts.length) {
+        const next = parts[index + 1]
+        if (next?.type !== 'tool') break
+        tools.push(next)
+        index += 1
+      }
+      content.push(
+        <ToolSequence
+          key={part.id}
+          parts={tools}
+          renderers={renderers}
+          toolActions={toolActions}
+        />,
+      )
+      continue
+    }
+
+    content.push(
+      <Part
+        key={part.id}
+        part={part}
+        toolActions={toolActions}
+        renderers={renderers}
+      />,
+    )
+  }
+
+  const active = parts.some(isActiveActivityPart)
+
+  return (
+    <div
+      data-slot="activity-sequence"
+      data-state={active ? 'active' : 'complete'}
+      {...stylex.props(styles.activitySequence, active && styles.activitySequenceActive)}
     >
       {content}
     </div>
@@ -321,6 +380,20 @@ function formatDuration(durationMs: number) {
   return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)}s`
 }
 
+function isActivityPart(part: MessagePart) {
+  return part.type === 'reasoning' || part.type === 'tool'
+}
+
+function isActiveActivityPart(part: MessagePart) {
+  if (part.type === 'reasoning') return part.state.status === 'streaming'
+  if (part.type !== 'tool') return false
+  return (
+    part.state.status === 'receiving-input' ||
+    part.state.status === 'queued' ||
+    part.state.status === 'running'
+  )
+}
+
 const styles = stylex.create({
   root: {
     display: 'flex',
@@ -329,10 +402,25 @@ const styles = stylex.create({
     inlineSize: '100%',
     minInlineSize: 0,
   },
+  activitySequence: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.inset,
+    borderStyle: 'solid',
+    borderWidth: '1px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 0,
+    inlineSize: '100%',
+    padding: space.x1,
+  },
+  activitySequenceActive: {
+    backgroundColor: colors.surfaceMuted,
+  },
   toolSequence: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x1,
+    gap: 0,
   },
   attachment: {
     alignItems: 'center',

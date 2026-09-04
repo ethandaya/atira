@@ -285,7 +285,7 @@ const styles = stylex.create({
     gap: space.x2,
     inlineSize: '100%',
     marginInline: 'auto',
-    maxInlineSize: '52rem',
+    maxInlineSize: '48rem',
     minInlineSize: 0,
     paddingBlockEnd: space.x3,
     paddingBlockStart: space.x2,

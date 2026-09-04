@@ -167,7 +167,7 @@ const styles = stylex.create({
   article: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x2,
+    gap: space.x4,
     inlineSize: '100%',
   },
   user: {
@@ -175,7 +175,7 @@ const styles = stylex.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.surface,
     boxSizing: 'border-box',
-    maxInlineSize: 'min(82%, 64ch)',
+    maxInlineSize: 'min(88%, 36rem)',
     paddingBlock: space.x2,
     paddingInline: space.x3,
   },
@@ -189,10 +189,7 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-    minBlockSize: {
-      default: '2rem',
-      '@media (hover: none)': '2.75rem',
-    },
+    minBlockSize: '2rem',
   },
   activeAssistantMessage: {
     animationDuration: {
@@ -215,6 +212,7 @@ const styles = stylex.create({
     gap: space.x2,
     justifyContent: 'flex-start',
     lineHeight: type.lineCompact,
+    marginBlockStart: '-0.75rem',
   },
   status: {
     alignItems: 'center',
@@ -229,7 +227,6 @@ const styles = stylex.create({
     margin: 0,
     minBlockSize: {
       default: '2rem',
-      '@media (hover: none)': '2.75rem',
     },
     justifyContent: 'center',
   },
