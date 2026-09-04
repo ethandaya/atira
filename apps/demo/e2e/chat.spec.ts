@@ -212,6 +212,7 @@ test('restores composer focus, draft, and selection around requests', async ({ p
   expect(Math.abs(questionTimelineBounds.top - timelineBounds.top)).toBeLessThanOrEqual(1)
   expect(Math.abs(questionTimelineBounds.height - timelineBounds.height)).toBeLessThanOrEqual(1)
   await page.getByRole('radio', { name: 'Compact' }).click()
+  await page.getByRole('button', { name: 'Next' }).click()
   await page.getByRole('textbox', { name: 'Review notes' }).fill('Keep the exact IDs.')
   await page.getByRole('button', { name: 'Submit answer' }).click()
   await expect(page.locator('[data-slot="question-request"]')).toHaveCount(0)

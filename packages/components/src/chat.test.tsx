@@ -236,7 +236,7 @@ describe('chat components', () => {
     fireEvent.click(button)
 
     expect(onDecision).toHaveBeenCalledOnce()
-    expect(screen.getByRole('button', { name: 'Allowing…' }).dataset.state).toBe(
+    expect(screen.getByRole('button', { name: 'Allow once' }).dataset.state).toBe(
       'disabled',
     )
   })
@@ -306,6 +306,47 @@ describe('chat components', () => {
     })
   })
 
+  it('progresses through multi-question requests without changing the answer payload', async () => {
+    const onAnswer = vi.fn()
+    const request: QuestionRequestView = {
+      id: 'multi-question-request',
+      order: 0,
+      origin: { sessionId: 'session' },
+      questions: [
+        {
+          allowCustom: false,
+          id: 'framework',
+          label: 'Choose a framework',
+          options: [{ id: 'stylex', label: 'StyleX' }],
+          required: true,
+          type: 'single-choice',
+        },
+        {
+          id: 'notes',
+          label: 'Review notes',
+          required: true,
+          type: 'text',
+        },
+      ],
+      state: { status: 'pending' },
+      type: 'question',
+    }
+    render(<QuestionRequest onAnswer={onAnswer} request={request} />)
+
+    expect(screen.getByLabelText('Question 1 of 2')).not.toBeNull()
+    await userEvent.click(screen.getByRole('radio', { name: 'StyleX' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Review notes' }), 'Keep it light.')
+    await userEvent.click(screen.getByRole('button', { name: 'Submit answer' }))
+
+    expect(onAnswer).toHaveBeenCalledWith({
+      answers: [
+        { optionIds: ['stylex'], questionId: 'framework', type: 'choice' },
+        { questionId: 'notes', type: 'text', value: 'Keep it light.' },
+      ],
+    })
+  })
+
   it('validates required choices before publishing an answer', async () => {
     const onAnswer = vi.fn()
     render(
@@ -342,7 +383,7 @@ describe('chat components', () => {
 
     expect(onAnswer).toHaveBeenCalledOnce()
     expect(
-      screen.getByRole('button', { name: 'Submitting…' }).dataset.state,
+      screen.getByRole('button', { name: 'Submit answer' }).dataset.state,
     ).toBe('disabled')
   })
 

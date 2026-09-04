@@ -169,6 +169,13 @@ const styles = stylex.create({
   },
   option: {
     alignItems: 'flex-start',
+    backgroundColor: {
+      default: colors.surfaceMuted,
+      ':hover': {
+        default: null,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
+      },
+    },
     borderRadius: radii.control,
     cursor: 'pointer',
     display: 'flex',
@@ -176,6 +183,9 @@ const styles = stylex.create({
     minBlockSize: '2.75rem',
     paddingBlock: space.x2,
     paddingInline: space.x2,
+    ':has([data-checked])': {
+      backgroundColor: colors.surfaceSelected,
+    },
   },
   control: {
     alignItems: 'center',

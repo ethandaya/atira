@@ -11,7 +11,9 @@ import type {
 import { selectActiveRequest } from '@pretty-amped/foundations/chat-invariants'
 import {
   colors,
+  motion,
   radii,
+  shadows,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -128,33 +130,31 @@ export function PermissionPrompt({
                 size="compact"
                 variant="quiet"
               >
-                {submitting && activeDecision === 'reject' ? 'Rejecting…' : 'Reject'}
+                Reject
               </Button>
             )}
             {availableDecisions.includes('always') && (
               <Button
+                aria-label="Always allow"
                 disabled={submitting}
                 focusableWhenDisabled={submitting && activeDecision === 'always'}
                 onClick={() => decide('always')}
                 size="compact"
                 variant="outline"
               >
-                {submitting && activeDecision === 'always'
-                  ? 'Allowing…'
-                  : 'Always allow'}
+                Always
               </Button>
             )}
             {availableDecisions.includes('once') && (
               <Button
+                aria-label="Allow once"
                 disabled={submitting}
                 focusableWhenDisabled={submitting && activeDecision === 'once'}
                 onClick={() => decide('once')}
                 size="compact"
                 variant="primary"
               >
-                {submitting && activeDecision === 'once'
-                  ? 'Allowing…'
-                  : 'Allow once'}
+                Allow
               </Button>
             )}
           </div>
@@ -180,6 +180,7 @@ export function QuestionRequest({
     Record<string, string | readonly string[]>
   >({})
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [questionIndex, setQuestionIndex] = useState(0)
   const [submittingRequestId, setSubmittingRequestId] = useState<string>()
   const submittingLocally = submittingRequestId === request.id
   const submitting =
@@ -187,6 +188,8 @@ export function QuestionRequest({
   const actionable =
     (request.state.status === 'pending' || request.state.status === 'failed') &&
     !submittingLocally
+  const activeQuestion = request.questions[questionIndex]
+  const isLastQuestion = questionIndex >= request.questions.length - 1
 
   useEffect(() => {
     if (request.state.status === 'failed') setSubmittingRequestId(undefined)
@@ -211,24 +214,31 @@ export function QuestionRequest({
     event.preventDefault()
     if (!actionable) return
 
-    const nextErrors = validateQuestionValues(request, values)
+    const questionsToValidate = isLastQuestion
+      ? request.questions
+      : activeQuestion
+        ? [activeQuestion]
+        : []
+    const nextErrors = validateQuestionValues(questionsToValidate, values)
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors)
-      const firstQuestionId = request.questions.find(
+      const firstQuestion = request.questions.find(
         (question) => nextErrors[question.id],
-      )?.id
-      if (firstQuestionId) {
-        const field = Array.from(
-          event.currentTarget.querySelectorAll<HTMLElement>(
-            '[data-question-id]',
-          ),
-        ).find((element) => element.dataset.questionId === firstQuestionId)
-        field
-          ?.querySelector<HTMLElement>(
-            'textarea, [role="radio"], [role="checkbox"]',
-          )
-          ?.focus()
+      )
+      if (firstQuestion) {
+        const nextIndex = request.questions.indexOf(firstQuestion)
+        if (nextIndex !== questionIndex) setQuestionIndex(nextIndex)
+        focusQuestion(event.currentTarget, firstQuestion.id)
       }
+      return
+    }
+
+    if (!isLastQuestion) {
+      const nextIndex = questionIndex + 1
+      const nextQuestion = request.questions[nextIndex]
+      setErrors({})
+      setQuestionIndex(nextIndex)
+      if (nextQuestion) focusQuestion(event.currentTarget, nextQuestion.id)
       return
     }
 
@@ -265,106 +275,39 @@ export function QuestionRequest({
       {...stylex.props(styles.request)}
     >
       <div {...stylex.props(styles.requestCopy)}>
-        <h2
-          id={titleId}
-          data-request-heading
-          tabIndex={-1}
-          {...stylex.props(styles.title)}
-        >
-          A question needs your input
-        </h2>
-        {request.origin.label && (
-          <p {...stylex.props(styles.origin)}>{request.origin.label}</p>
-        )}
+        <div {...stylex.props(styles.requestHeading)}>
+          <div {...stylex.props(styles.requestHeadingCopy)}>
+            <h2
+              id={titleId}
+              data-request-heading
+              tabIndex={-1}
+              {...stylex.props(styles.title)}
+            >
+              A question needs your input
+            </h2>
+            {request.origin.label && (
+              <p {...stylex.props(styles.origin)}>{request.origin.label}</p>
+            )}
+          </div>
+          {request.questions.length > 1 && (
+            <span
+              aria-label={`Question ${questionIndex + 1} of ${request.questions.length}`}
+              {...stylex.props(styles.questionProgress)}
+            >
+              {questionIndex + 1} / {request.questions.length}
+            </span>
+          )}
+        </div>
         <div {...stylex.props(styles.questions)}>
-          {request.questions.map((question) => {
-            if (question.type === 'text') {
-              return (
-                <div data-question-id={question.id} key={question.id}>
-                  <TextareaField
-                    description={errors[question.id]}
-                    disabled={!actionable}
-                    invalid={errors[question.id] !== undefined}
-                    label={question.label}
-                    maxLength={question.maxLength}
-                    onValueChange={(value) => updateValue(question.id, value)}
-                    required={question.required}
-                    rows={question.multiline ? 3 : 1}
-                    value={stringValue(values[question.id])}
-                  />
-                </div>
-              )
-            }
-
-            const selected = arrayValue(values[question.id])
-            return (
-              <div
-                data-question-id={question.id}
-                key={question.id}
-                {...stylex.props(styles.choiceQuestion)}
-              >
-                {question.type === 'single-choice' ? (
-                  <RadioGroup
-                    disabled={!actionable}
-                    label={question.label}
-                    name={question.id}
-                    onValueChange={(value) =>
-                      updateValue(question.id, [value])
-                    }
-                    required={question.required}
-                    value={selected[0]}
-                  >
-                    {question.options.map((option) => (
-                      <RadioOption
-                        description={option.description}
-                        key={option.id}
-                        label={option.label}
-                        value={option.id}
-                      />
-                    ))}
-                  </RadioGroup>
-                ) : (
-                  <fieldset {...stylex.props(styles.fieldset)}>
-                    <legend {...stylex.props(styles.legend)}>{question.label}</legend>
-                    {question.options.map((option) => (
-                      <CheckboxField
-                        checked={selected.includes(option.id)}
-                        description={option.description}
-                        disabled={!actionable}
-                        key={option.id}
-                        label={option.label}
-                        onCheckedChange={(checked) =>
-                          updateValue(
-                            question.id,
-                            checked
-                              ? [...selected, option.id]
-                              : selected.filter((id) => id !== option.id),
-                          )
-                        }
-                        value={option.id}
-                      />
-                    ))}
-                  </fieldset>
-                )}
-                {question.allowCustom && (
-                  <TextareaField
-                    disabled={!actionable}
-                    label="Other answer"
-                    onValueChange={(value) =>
-                      updateValue(customKey(question.id), value, question.id)
-                    }
-                    rows={1}
-                    value={stringValue(values[customKey(question.id)])}
-                  />
-                )}
-                {errors[question.id] && (
-                  <p role="alert" {...stylex.props(styles.fieldError)}>
-                    {errors[question.id]}
-                  </p>
-                )}
-              </div>
-            )
-          })}
+          {activeQuestion && (
+            <QuestionControl
+              actionable={actionable}
+              error={errors[activeQuestion.id]}
+              question={activeQuestion}
+              updateValue={updateValue}
+              values={values}
+            />
+          )}
         </div>
       </div>
 
@@ -380,6 +323,16 @@ export function QuestionRequest({
         </VisuallyHidden>
         {(actionable || submitting) && (
           <div {...stylex.props(styles.actions)}>
+            {questionIndex > 0 && (
+              <Button
+                disabled={!actionable}
+                onClick={() => setQuestionIndex((current) => Math.max(0, current - 1))}
+                size="compact"
+                variant="quiet"
+              >
+                Back
+              </Button>
+            )}
             <Button
               disabled={!actionable}
               onClick={() => {
@@ -399,12 +352,111 @@ export function QuestionRequest({
               type="submit"
               variant="primary"
             >
-              {submitting ? 'Submitting…' : 'Submit answer'}
+              {isLastQuestion ? 'Submit answer' : 'Next'}
             </Button>
           </div>
         )}
       </div>
     </form>
+  )
+}
+
+function QuestionControl({
+  actionable,
+  error,
+  question,
+  updateValue,
+  values,
+}: {
+  actionable: boolean
+  error: string | undefined
+  question: QuestionRequestView['questions'][number]
+  updateValue: (
+    key: string,
+    value: string | readonly string[],
+    errorKey?: string,
+  ) => void
+  values: Readonly<Record<string, string | readonly string[]>>
+}) {
+  if (question.type === 'text') {
+    return (
+      <div data-question-id={question.id}>
+        <TextareaField
+          description={error}
+          disabled={!actionable}
+          invalid={error !== undefined}
+          label={question.label}
+          maxLength={question.maxLength}
+          onValueChange={(value) => updateValue(question.id, value)}
+          required={question.required}
+          rows={question.multiline ? 3 : 1}
+          value={stringValue(values[question.id])}
+        />
+      </div>
+    )
+  }
+
+  const selected = arrayValue(values[question.id])
+  return (
+    <div data-question-id={question.id} {...stylex.props(styles.choiceQuestion)}>
+      {question.type === 'single-choice' ? (
+        <RadioGroup
+          disabled={!actionable}
+          label={question.label}
+          name={question.id}
+          onValueChange={(value) => updateValue(question.id, [value])}
+          required={question.required}
+          value={selected[0]}
+        >
+          {question.options.map((option) => (
+            <RadioOption
+              description={option.description}
+              key={option.id}
+              label={option.label}
+              value={option.id}
+            />
+          ))}
+        </RadioGroup>
+      ) : (
+        <fieldset {...stylex.props(styles.fieldset)}>
+          <legend {...stylex.props(styles.legend)}>{question.label}</legend>
+          {question.options.map((option) => (
+            <CheckboxField
+              checked={selected.includes(option.id)}
+              description={option.description}
+              disabled={!actionable}
+              key={option.id}
+              label={option.label}
+              onCheckedChange={(checked) =>
+                updateValue(
+                  question.id,
+                  checked
+                    ? [...selected, option.id]
+                    : selected.filter((id) => id !== option.id),
+                )
+              }
+              value={option.id}
+            />
+          ))}
+        </fieldset>
+      )}
+      {question.allowCustom && (
+        <TextareaField
+          disabled={!actionable}
+          label="Other answer"
+          onValueChange={(value) =>
+            updateValue(customKey(question.id), value, question.id)
+          }
+          rows={1}
+          value={stringValue(values[customKey(question.id)])}
+        />
+      )}
+      {error && (
+        <p role="alert" {...stylex.props(styles.fieldError)}>
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -733,11 +785,11 @@ function arrayValue(value: string | readonly string[] | undefined) {
 }
 
 function validateQuestionValues(
-  request: QuestionRequestView,
+  questions: QuestionRequestView['questions'],
   values: Readonly<Record<string, string | readonly string[]>>,
 ) {
   const errors: Record<string, string> = {}
-  for (const question of request.questions) {
+  for (const question of questions) {
     if (!question.required) continue
     if (question.type === 'text') {
       if (!stringValue(values[question.id]).trim()) {
@@ -756,6 +808,21 @@ function validateQuestionValues(
   return errors
 }
 
+function focusQuestion(form: HTMLFormElement, questionId: string) {
+  function focus() {
+    const field = Array.from(
+      form.querySelectorAll<HTMLElement>('[data-question-id]'),
+    ).find((element) => element.dataset.questionId === questionId)
+    const control = field?.querySelector<HTMLElement>(
+      'textarea, [role="radio"], [role="checkbox"]',
+    )
+    control?.focus()
+    return control !== undefined && control !== null
+  }
+
+  if (!focus()) requestAnimationFrame(focus)
+}
+
 function questionAnswerLabel(
   question: QuestionRequestView['questions'][number],
   answer: QuestionAnswer,
@@ -772,6 +839,11 @@ function questionAnswerLabel(
   if (answer.customValue) labels.push(answer.customValue)
   return labels.join(', ') || 'No answer'
 }
+
+const requestEnter = stylex.keyframes({
+  from: { opacity: 0, transform: 'translateY(0.25rem) scale(0.995)' },
+  to: { opacity: 1, transform: 'translateY(0) scale(1)' },
+})
 
 const styles = stylex.create({
   region: {
@@ -799,13 +871,21 @@ const styles = stylex.create({
     zIndex: 1,
   },
   request: {
-    backgroundColor: colors.surfaceMuted,
+    animationDuration: {
+      default: motion.durationEnter,
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    animationName: {
+      default: requestEnter,
+      '@media (prefers-reduced-motion: reduce)': 'none',
+    },
+    animationTimingFunction: motion.easingEnter,
+    backgroundColor: colors.surfaceRaised,
     borderColor: 'transparent',
-    borderInlineStartColor: colors.borderStrong,
     borderRadius: radii.surface,
     borderStyle: 'solid',
-    borderWidth: 0,
-    borderInlineStartWidth: '2px',
+    borderWidth: '1px',
+    boxShadow: shadows.raised,
     boxSizing: 'border-box',
     color: colors.text,
     display: 'flex',
@@ -813,23 +893,35 @@ const styles = stylex.create({
     fontFamily: type.family,
     gap: space.x2,
     inlineSize: '100%',
-    padding: space.x3,
+    padding: {
+      default: space.x3,
+      '@media (min-width: 40rem)': space.x4,
+    },
   },
   permissionRequest: {
     '@media (min-width: 40rem)': {
       alignItems: 'center',
-      alignSelf: 'flex-start',
       columnGap: space.x4,
       display: 'grid',
       gridTemplateColumns: 'minmax(0, 1fr) auto',
-      inlineSize: 'fit-content',
-      maxInlineSize: '100%',
     },
   },
   requestCopy: {
     display: 'flex',
     flexDirection: 'column',
     gap: space.x1,
+  },
+  requestHeading: {
+    alignItems: 'flex-start',
+    display: 'flex',
+    gap: space.x4,
+    justifyContent: 'space-between',
+  },
+  requestHeadingCopy: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x1,
+    minInlineSize: 0,
   },
   permissionCopy: {
     '@media (min-width: 40rem)': {
@@ -857,10 +949,14 @@ const styles = stylex.create({
     margin: 0,
   },
   effect: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.inset,
     fontSize: type.sizeBody,
     lineHeight: type.lineBody,
-    margin: 0,
+    marginBlock: space.x1,
     overflowWrap: 'anywhere',
+    paddingBlock: space.x2,
+    paddingInline: space.x3,
   },
   supporting: {
     color: colors.textMuted,
@@ -903,11 +999,19 @@ const styles = stylex.create({
     gap: space.x2,
     justifyContent: 'flex-end',
   },
+  questionProgress: {
+    color: colors.textMuted,
+    flexShrink: 0,
+    fontFamily: type.familyMono,
+    fontSize: type.sizeCaption,
+    fontVariantNumeric: 'tabular-nums',
+    lineHeight: type.lineCompact,
+  },
   questions: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x5,
-    paddingBlockStart: space.x1,
+    gap: space.x4,
+    paddingBlockStart: space.x3,
   },
   choiceQuestion: {
     display: 'flex',

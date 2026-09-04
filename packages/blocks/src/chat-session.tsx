@@ -268,6 +268,7 @@ const styles = stylex.create({
     gridTemplateRows: 'auto minmax(0, 1fr) auto',
     inlineSize: '100%',
     minBlockSize: 0,
+    overflow: 'clip',
   },
   timeline: {
     gridRow: 2,
