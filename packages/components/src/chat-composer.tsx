@@ -18,6 +18,9 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import {
   ActionMenu,
+  AnimatePresence,
+  PresenceItem,
+  PresenceSurface,
   Button,
   FilterMenu,
   IconButton,
@@ -579,8 +582,9 @@ export function AttachmentTray({
       data-slot="attachment-tray"
       {...stylex.props(styles.tray)}
     >
+      <AnimatePresence initial={false}>
       {attachments.map((item) => (
-        <li
+        <PresenceItem
           data-attachment-id={item.attachment.id}
           data-attachment-kind={item.attachment.kind}
           data-state={item.state}
@@ -626,8 +630,9 @@ export function AttachmentTray({
               Remove
             </Button>
           )}
-        </li>
+        </PresenceItem>
       ))}
+      </AnimatePresence>
     </ul>
   )
 }
@@ -688,14 +693,14 @@ export function QueueList({
   onRemove,
   onRetry,
 }: QueueListProps) {
-  if (items.length === 0) return null
-
   return (
-    <section aria-label="Queued prompts" data-slot="queue-list" {...stylex.props(styles.queue)}>
+    <AnimatePresence initial={false}>
+    {items.length > 0 && <PresenceSurface kind="content" role="region" aria-label="Queued prompts" data-slot="queue-list" {...stylex.props(styles.queue)}>
       <p {...stylex.props(styles.queueTitle)}>Queued · {items.length}</p>
       <ol {...stylex.props(styles.queueItems)}>
+        <AnimatePresence initial={false}>
         {items.map((item) => (
-          <li
+          <PresenceItem
             data-queue-id={item.id}
             data-state={item.state}
             key={item.id}
@@ -730,10 +735,12 @@ export function QueueList({
                 </Button>
               )}
             </div>
-          </li>
+          </PresenceItem>
         ))}
+        </AnimatePresence>
       </ol>
-    </section>
+    </PresenceSurface>}
+    </AnimatePresence>
   )
 }
 

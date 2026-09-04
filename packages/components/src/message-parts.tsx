@@ -9,9 +9,9 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Shimmer } from '@pretty-amped/primitives'
+import { AnimatePresence, PresenceSurface, Shimmer } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 import {
   ContextTool,
@@ -114,7 +114,7 @@ function ActivitySequence({
   renderers: readonly ToolRenderer[]
   toolActions: ToolActions
 }) {
-  const content: ReactNode[] = []
+  const content: ReactElement[] = []
 
   for (let index = 0; index < parts.length; index += 1) {
     const part = parts[index]
@@ -157,7 +157,9 @@ function ActivitySequence({
       data-state={active ? 'active' : 'complete'}
       {...stylex.props(styles.activitySequence, active && styles.activitySequenceActive)}
     >
-      {content}
+      <AnimatePresence initial={false}>
+        {content.map((item) => <PresenceSurface key={item.key} kind="content">{item}</PresenceSurface>)}
+      </AnimatePresence>
     </div>
   )
 }

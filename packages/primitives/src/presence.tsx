@@ -24,6 +24,7 @@ export function PresenceSurface({
   return (
     <motion.div
       {...props}
+      data-presence={present ? 'present' : 'exiting'}
       inert={!present || props.inert}
       aria-hidden={!present || props['aria-hidden']}
       initial={instant ? false : { opacity: 0, transform }}
@@ -57,7 +58,39 @@ export function StateTransition({ children, state, size = 14 }: { children: Reac
 
 export { AnimatePresence } from 'motion/react'
 
+export function PresenceItem(props: HTMLMotionProps<'li'>) {
+  const reduced = useReducedMotion()
+  const present = useIsPresent()
+  return <motion.li {...props} inert={!present} aria-hidden={!present || undefined}
+    initial={reduced ? false : { opacity: 0, transform: 'translateY(4px)' }}
+    animate={{ opacity: 1, transform: 'translateY(0px)' }}
+    exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.1 } }}
+    transition={{ duration: reduced ? 0 : 0.16, ease: [0.22, 1, 0.36, 1] }}
+  />
+}
+
+/** A one-line status handoff. Exiting copy never contributes to width or announcements. */
+export function TextTransition({ children, state }: { children: ReactNode; state: string }) {
+  const reduced = useReducedMotion()
+  return (
+    <span {...stylex.props(styles.text)}>
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={state}
+          {...stylex.props(styles.text)}
+          initial={reduced ? false : { opacity: 0, transform: 'translateY(3px)' }}
+          animate={{ opacity: 1, transform: 'translateY(0px)' }}
+          transition={{ duration: reduced ? 0 : 0.14, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {children}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  )
+}
+
 const styles = stylex.create({
+  text: { display: 'inline-block', maxInlineSize: '100%', verticalAlign: 'bottom' },
   slot: { display: 'inline-grid', placeItems: 'center' },
   size: (size: number) => ({ inlineSize: `${size}px`, blockSize: `${size}px` }),
   mark: { gridArea: '1 / 1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },

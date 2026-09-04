@@ -1,6 +1,7 @@
 import { space } from '@pretty-amped/foundations/tokens.stylex'
 import {
   IconButton,
+  StateTransition,
   type IconButtonProps,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
@@ -57,7 +58,7 @@ export function Action({
         title={title}
         variant={variant}
       >
-        {children}
+        <StateTransition state={label} size={iconSize === 'small' ? 16 : 20}>{children}</StateTransition>
       </IconButton>
     </span>
   )

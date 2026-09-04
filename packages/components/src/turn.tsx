@@ -6,7 +6,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Shimmer, Spinner, VisuallyHidden } from '@pretty-amped/primitives'
+import { AnimatePresence, PresenceSurface, Shimmer, Spinner, TextTransition, VisuallyHidden } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
@@ -96,7 +96,9 @@ export function Turn({
               {turn.agent && turn.model ? ' · ' : ''}
               {turn.model?.label}
             </span>
-            {actions}
+            <AnimatePresence initial={false}>
+              {actions && <PresenceSurface key="actions" kind="content">{actions}</PresenceSurface>}
+            </AnimatePresence>
           </footer>
         )}
       </article>
@@ -129,7 +131,7 @@ export function TurnStatus({ state }: { state: TurnState }) {
       {active ? (
         <>
           <Spinner size="small" />
-          <Shimmer>{label}</Shimmer>
+          <TextTransition state={label}><Shimmer>{label}</Shimmer></TextTransition>
           <span aria-hidden="true" {...stylex.props(styles.statusEnd)} />
         </>
       ) : (

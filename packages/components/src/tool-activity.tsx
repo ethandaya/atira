@@ -11,6 +11,7 @@ import {
   Shimmer,
   Spinner,
   StateTransition,
+  TextTransition,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
@@ -95,7 +96,7 @@ export function ToolActivity({
             state.status === 'failed' && styles.summaryFailed,
           )}
         >
-          {active ? <Shimmer>{summary}</Shimmer> : summary}
+          <TextTransition state={summary}>{active ? <Shimmer>{summary}</Shimmer> : summary}</TextTransition>
         </span>
       </span>
     </span>

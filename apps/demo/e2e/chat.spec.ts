@@ -253,6 +253,7 @@ test('restores composer focus, draft, and selection around requests', async ({ p
   await page.goto('/?fixture=workflow')
   const message = page.getByRole('textbox', { name: 'Message' })
   await message.fill('Draft remains intact')
+  const originalEditor = await message.elementHandle()
   await message.press('Home')
   await expect.poll(() => selectionStart(message)).toBe(0)
   for (let offset = 0; offset < 6; offset += 1) {
@@ -273,6 +274,8 @@ test('restores composer focus, draft, and selection around requests', async ({ p
   await page.getByRole('button', { name: 'Allow once' }).click()
   await expect(message).toBeFocused()
   await expect(message).toHaveValue('Draft remains intact')
+  expect(await originalEditor!.evaluate((element) => element.isConnected)).toBe(true)
+  await expect(page.locator('[data-slot="active-request-layer"]')).toHaveCount(0)
   await expect.poll(() => selectionStart(message)).toBe(6)
 
   await dispatch(page, 'pretty-amped:request-question')

@@ -11,7 +11,6 @@ import type {
 import { selectActiveRequest } from '@pretty-amped/foundations/chat-invariants'
 import {
   colors,
-  motion,
   radii,
   shadows,
   space,
@@ -19,6 +18,8 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import {
   Button,
+  AnimatePresence,
+  PresenceSurface,
   CheckboxField,
   Disclosure,
   RadioGroup,
@@ -307,6 +308,7 @@ export function QuestionRequest({
         </div>
         <div {...stylex.props(styles.questions)}>
           {activeQuestion && (
+            <PresenceSurface key={activeQuestion.id} kind="content" immediate={questionIndex === 0}>
             <QuestionControl
               actionable={actionable}
               error={errors[activeQuestion.id]}
@@ -314,6 +316,7 @@ export function QuestionRequest({
               updateValue={updateValue}
               values={values}
             />
+            </PresenceSurface>
           )}
         </div>
       </div>
@@ -661,7 +664,7 @@ export function RequestRegion({
         focusOwner.current === 'request'
       ) {
         region
-          ?.querySelector<HTMLElement>('[data-request-heading]')
+          ?.querySelector<HTMLElement>('[data-presence="present"] [data-request-heading]')
           ?.focus({ preventScroll: true })
       }
     }
@@ -705,12 +708,12 @@ export function RequestRegion({
       {...stylex.props(styles.region)}
     >
       {todos && <TodoDock todos={todos} />}
-      {active ? (
         <div data-slot="request-stage" {...stylex.props(styles.requestStage)}>
-          <div aria-hidden="true" inert {...stylex.props(styles.reservedComposer)}>
-            {children}
+          <div aria-hidden={!!active || undefined} inert={!!active} {...stylex.props(active && styles.reservedComposer)}>
+            {reverted || children}
           </div>
-          <div data-slot="active-request-layer" {...stylex.props(styles.requestLayer)}>
+          <AnimatePresence initial={false}>
+          {active && <PresenceSurface key={active.id} kind="content" data-slot="active-request-layer" {...stylex.props(styles.requestLayer)}>
             {active.type === 'permission' ? (
               <PermissionPrompt
                 key={active.id}
@@ -728,13 +731,9 @@ export function RequestRegion({
                 request={active}
               />
             )}
-          </div>
+          </PresenceSurface>}
+          </AnimatePresence>
         </div>
-      ) : reverted ? (
-        reverted
-      ) : (
-        children
-      )}
     </div>
   )
 }
@@ -847,11 +846,6 @@ function questionAnswerLabel(
   return labels.join(', ') || 'No answer'
 }
 
-const requestEnter = stylex.keyframes({
-  from: { opacity: 0, transform: 'translateY(0.25rem) scale(0.995)' },
-  to: { opacity: 1, transform: 'translateY(0) scale(1)' },
-})
-
 const styles = stylex.create({
   region: {
     display: 'flex',
@@ -878,15 +872,6 @@ const styles = stylex.create({
     zIndex: 1,
   },
   request: {
-    animationDuration: {
-      default: motion.durationEnter,
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    animationName: {
-      default: requestEnter,
-      '@media (prefers-reduced-motion: reduce)': 'none',
-    },
-    animationTimingFunction: motion.easingEnter,
     backgroundColor: colors.surfaceRaised,
     borderColor: 'transparent',
     borderRadius: radii.surface,
