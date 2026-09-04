@@ -2,6 +2,7 @@ import { Combobox } from '@base-ui/react/combobox'
 import {
   colors,
   radii,
+  shadows,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -149,7 +150,7 @@ const styles = stylex.create({
       default: 'transparent',
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
       },
     },
     borderColor: 'transparent',
@@ -173,7 +174,7 @@ const styles = stylex.create({
     touchAction: 'manipulation',
   },
   triggerOpen: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceHover,
     color: colors.text,
   },
   positioner: {
@@ -182,12 +183,12 @@ const styles = stylex.create({
     zIndex: 20,
   },
   popup: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderColor: colors.borderStrong,
     borderRadius: radii.surface,
     borderStyle: 'solid',
     borderWidth: '1px',
-    boxShadow: '0 0.5rem 1.5rem oklch(0 0 0 / 0.12)',
+    boxShadow: shadows.overlay,
     boxSizing: 'border-box',
     color: colors.text,
     inlineSize: '100%',
@@ -206,7 +207,7 @@ const styles = stylex.create({
   },
   input: {
     appearance: 'none',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceInset,
     borderColor: colors.border,
     borderRadius: radii.control,
     borderStyle: 'solid',
@@ -246,7 +247,7 @@ const styles = stylex.create({
     userSelect: 'none',
   },
   itemHighlighted: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceHover,
   },
   description: {
     color: colors.textMuted,

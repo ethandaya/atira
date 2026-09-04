@@ -1,3 +1,5 @@
+export { ActionMenu } from './action-menu'
+export type { ActionMenuItem, ActionMenuProps } from './action-menu'
 export { Button } from './button'
 export type { ButtonProps } from './button'
 export { CheckboxField, RadioGroup, RadioOption } from './choice'

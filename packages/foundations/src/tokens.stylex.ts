@@ -1,11 +1,16 @@
 import * as stylex from '@stylexjs/stylex'
 
 export const colors = stylex.defineVars({
-  canvas: 'oklch(1 0 0)',
-  surface: 'oklch(1 0 0)',
-  surfaceMuted: 'oklch(0.97 0 0)',
-  text: 'oklch(0.145 0 0)',
-  textMuted: 'oklch(0.52 0 0)',
+  canvas: 'oklch(0.985 0.003 250)',
+  surface: 'oklch(0.998 0.001 250)',
+  surfaceRaised: 'oklch(1 0 0)',
+  surfaceInset: 'oklch(0.96 0.004 250)',
+  surfaceMuted: 'oklch(0.972 0.003 250)',
+  surfaceHover: 'oklch(0.945 0.005 250)',
+  surfaceSelected: 'oklch(0.925 0.008 250)',
+  text: 'oklch(0.18 0.008 250)',
+  textMuted: 'oklch(0.46 0.012 250)',
+  textDisabled: 'oklch(0.62 0.006 250)',
   border: 'oklch(0 0 0 / 0.08)',
   borderStrong: 'oklch(0 0 0 / 0.14)',
   accent: 'oklch(0.205 0 0)',
@@ -46,16 +51,25 @@ export const type = stylex.defineVars({
   sizeSmall: '0.8125rem',
   sizeBody: '0.875rem',
   sizeInput: '1rem',
-  sizeTitle: '0.875rem',
-  lineCompact: '1.25',
-  lineBody: '1.625',
+  sizeTitle: '0.9375rem',
+  sizeHeading: '1.0625rem',
+  lineCompact: '1.3',
+  lineBody: '1.55',
+  lineHeading: '1.2',
   weightRegular: '400',
   weightMedium: '500',
   weightStrong: '600',
 })
 
 export const motion = stylex.defineVars({
-  durationFast: '150ms',
-  durationModerate: '180ms',
-  easingStandard: 'ease',
+  durationFast: '140ms',
+  durationModerate: '200ms',
+  easingStandard: 'cubic-bezier(0.32, 0.72, 0, 1)',
+})
+
+export const shadows = stylex.defineVars({
+  raised:
+    '0 0 0 1px oklch(0 0 0 / 0.025), 0 1px 2px oklch(0 0 0 / 0.035), 0 6px 18px -10px oklch(0 0 0 / 0.12)',
+  overlay:
+    '0 0 0 1px oklch(0 0 0 / 0.04), 0 8px 24px -8px oklch(0 0 0 / 0.18), 0 24px 48px -20px oklch(0 0 0 / 0.24)',
 })

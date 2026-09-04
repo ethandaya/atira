@@ -3,6 +3,7 @@ import {
   colors,
   motion,
   radii,
+  shadows,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -123,7 +124,7 @@ const styles = stylex.create({
       default: 'transparent',
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
       },
     },
     borderColor: 'transparent',
@@ -159,7 +160,7 @@ const styles = stylex.create({
     whiteSpace: 'nowrap',
   },
   triggerOpen: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceHover,
     color: colors.text,
   },
   icon: {
@@ -173,12 +174,12 @@ const styles = stylex.create({
     zIndex: 20,
   },
   popup: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderColor: colors.borderStrong,
     borderRadius: radii.surface,
     borderStyle: 'solid',
     borderWidth: '1px',
-    boxShadow: '0 0.5rem 1.5rem oklch(0 0 0 / 0.12)',
+    boxShadow: shadows.overlay,
     color: colors.text,
     minInlineSize: 'max(10rem, var(--anchor-width))',
     outline: 'none',
@@ -207,9 +208,10 @@ const styles = stylex.create({
     userSelect: 'none',
   },
   itemHighlighted: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceHover,
   },
   itemSelected: {
+    backgroundColor: colors.surfaceSelected,
     color: colors.text,
     fontWeight: type.weightMedium,
   },

@@ -137,7 +137,7 @@ const styles = stylex.create({
       default: 'transparent',
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
       },
     },
     borderRadius: radii.control,

@@ -90,7 +90,7 @@ const styles = stylex.create({
   disabled: {
     backgroundColor: colors.surfaceMuted,
     borderColor: 'transparent',
-    color: colors.textMuted,
+    color: colors.textDisabled,
     cursor: 'not-allowed',
     opacity: 1,
     transform: 'none',
@@ -157,21 +157,21 @@ const variants = stylex.create({
       default: colors.surfaceMuted,
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.border,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
       },
-      ':active': colors.border,
+      ':active': colors.surfaceSelected,
     },
     borderColor: 'transparent',
     color: colors.text,
   },
   outline: {
     backgroundColor: {
-      default: colors.surface,
+      default: colors.surfaceRaised,
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
       },
-      ':active': colors.surfaceMuted,
+      ':active': colors.surfaceSelected,
     },
     borderColor: colors.border,
     color: colors.text,
@@ -181,9 +181,9 @@ const variants = stylex.create({
       default: 'transparent',
       ':hover': {
         default: null,
-        '@media (hover: hover) and (pointer: fine)': colors.surfaceMuted,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
       },
-      ':active': colors.surfaceMuted,
+      ':active': colors.surfaceSelected,
     },
     borderColor: 'transparent',
     color: colors.text,
