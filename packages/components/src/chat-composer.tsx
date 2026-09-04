@@ -27,9 +27,13 @@ import {
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
-  MoreHorizontal,
+  AtSign,
+  Bot,
+  Command,
   Paperclip,
+  Plus,
   SendHorizontal,
+  SlidersHorizontal,
   Square,
   Terminal,
 } from 'lucide-react'
@@ -73,7 +77,7 @@ type ActiveComposerMenu = Readonly<{
   end: number
   kind: 'command' | 'reference'
   query: string
-  source: 'text' | 'trigger'
+  source: 'menu' | 'text' | 'trigger'
   start: number
 }>
 
@@ -133,6 +137,22 @@ export function ChatComposer({
   const showStop =
     activity.status !== 'idle' && capabilities.canStop && !canSubmit
   const mobileActions = [
+    ...(commands.length > 0 && draft.mode === 'prompt'
+      ? [{
+          icon: <Command aria-hidden="true" size={15} strokeWidth={1.75} />,
+          id: 'commands',
+          label: 'Commands',
+          onSelect: () => requestAnimationFrame(() => openMenu('command', 'menu')),
+        }]
+      : []),
+    ...(references.length > 0 && capabilities.referenceTypes.length > 0
+      ? [{
+          icon: <AtSign aria-hidden="true" size={15} strokeWidth={1.75} />,
+          id: 'references',
+          label: 'References',
+          onSelect: () => requestAnimationFrame(() => openMenu('reference', 'menu')),
+        }]
+      : []),
     ...(capabilities.canAttach && onFilesAdd
       ? [{
           icon: <Paperclip aria-hidden="true" size={15} strokeWidth={1.75} />,
@@ -149,6 +169,35 @@ export function ChatComposer({
           onSelect: () => setMode(draft.mode === 'shell' ? 'prompt' : 'shell'),
         }]
       : []),
+    ...capabilities.agents.map((agent) => ({
+      description: draft.agent?.id === agent.id ? 'Current agent' : 'Agent',
+      disabled: draft.agent?.id === agent.id,
+      icon: <Bot aria-hidden="true" size={15} strokeWidth={1.75} />,
+      id: `agent-${agent.id}`,
+      label: agent.label,
+      onSelect: () =>
+        onDraftChange({
+          ...draft,
+          agent,
+          revision: draft.revision + 1,
+        }),
+    })),
+    ...capabilities.variants.map((variant) => ({
+      description:
+        variant.unavailableReason ??
+        (draft.variant === variant.id ? 'Current variant' : 'Variant'),
+      disabled:
+        variant.unavailableReason !== undefined || draft.variant === variant.id,
+      icon: <SlidersHorizontal aria-hidden="true" size={15} strokeWidth={1.75} />,
+      id: `variant-${variant.id}`,
+      label: variant.label,
+      onSelect: () =>
+        onDraftChange({
+          ...draft,
+          revision: draft.revision + 1,
+          variant: variant.id,
+        }),
+    })),
   ]
 
   function updateText(next: string) {
@@ -260,20 +309,23 @@ export function ChatComposer({
     addFiles(event.dataTransfer.files, 'drop')
   }
 
-  function openMenu(kind: ActiveComposerMenu['kind']) {
+  function openMenu(
+    kind: ActiveComposerMenu['kind'],
+    source: ActiveComposerMenu['source'] = 'trigger',
+  ) {
     const control = textareaRef.current
     const offset = control?.selectionEnd ?? value.length
     setActiveMenu({
       end: offset,
       kind,
       query: '',
-      source: 'trigger',
+      source,
       start: offset,
     })
   }
 
   function closeMenu() {
-    const returnToEditor = activeMenu?.source === 'text'
+    const returnToEditor = activeMenu?.source !== 'trigger'
     setActiveMenu(undefined)
     if (returnToEditor) {
       requestAnimationFrame(() => textareaRef.current?.focus())
@@ -283,7 +335,7 @@ export function ChatComposer({
   function selectCommand(command: ComposerCommand) {
     if (!activeMenu) return
     const needsSpace =
-      activeMenu.source === 'trigger' &&
+      activeMenu.source !== 'text' &&
       activeMenu.start > 0 &&
       !/\s/.test(value[activeMenu.start - 1] ?? '')
     const insertion = `${needsSpace ? ' ' : ''}${command.value} `
@@ -415,44 +467,48 @@ export function ChatComposer({
             </>
           )}
           {commands.length > 0 && draft.mode === 'prompt' && (
-            <FilterMenu
-              inputValue={activeMenu?.kind === 'command' ? activeMenu.query : ''}
-              items={commands}
-              label="Commands"
-              onInputValueChange={(query) =>
-                setActiveMenu((current) =>
-                  current?.kind === 'command' ? { ...current, query } : current,
-                )
-              }
-              onOpenChange={(open) =>
-                open ? openMenu('command') : closeMenu()
-              }
-              onSelect={selectCommand}
-              open={activeMenu?.kind === 'command'}
-              placeholder="Filter commands…"
-              triggerLabel="/"
-            />
+            <span {...stylex.props(styles.desktopOnly)}>
+              <FilterMenu
+                inputValue={activeMenu?.kind === 'command' ? activeMenu.query : ''}
+                items={commands}
+                label="Commands"
+                onInputValueChange={(query) =>
+                  setActiveMenu((current) =>
+                    current?.kind === 'command' ? { ...current, query } : current,
+                  )
+                }
+                onOpenChange={(open) =>
+                  open ? openMenu('command') : closeMenu()
+                }
+                onSelect={selectCommand}
+                open={activeMenu?.kind === 'command'}
+                placeholder="Filter commands…"
+                triggerLabel="/"
+              />
+            </span>
           )}
           {references.length > 0 && capabilities.referenceTypes.length > 0 && (
-            <FilterMenu
-              inputValue={activeMenu?.kind === 'reference' ? activeMenu.query : ''}
-              items={references.filter((reference) =>
-                capabilities.referenceTypes.includes(reference.referenceType),
-              )}
-              label="References"
-              onInputValueChange={(query) =>
-                setActiveMenu((current) =>
-                  current?.kind === 'reference' ? { ...current, query } : current,
-                )
-              }
-              onOpenChange={(open) =>
-                open ? openMenu('reference') : closeMenu()
-              }
-              onSelect={selectReference}
-              open={activeMenu?.kind === 'reference'}
-              placeholder="Filter references…"
-              triggerLabel="@"
-            />
+            <span {...stylex.props(styles.desktopOnly)}>
+              <FilterMenu
+                inputValue={activeMenu?.kind === 'reference' ? activeMenu.query : ''}
+                items={references.filter((reference) =>
+                  capabilities.referenceTypes.includes(reference.referenceType),
+                )}
+                label="References"
+                onInputValueChange={(query) =>
+                  setActiveMenu((current) =>
+                    current?.kind === 'reference' ? { ...current, query } : current,
+                  )
+                }
+                onOpenChange={(open) =>
+                  open ? openMenu('reference') : closeMenu()
+                }
+                onSelect={selectReference}
+                open={activeMenu?.kind === 'reference'}
+                placeholder="Filter references…"
+                triggerLabel="@"
+              />
+            </span>
           )}
           {capabilities.canUseShell && (
             <span {...stylex.props(styles.desktopOnly)}>
@@ -471,35 +527,36 @@ export function ChatComposer({
             <span {...stylex.props(styles.mobileOnly)}>
               <ActionMenu
                 items={mobileActions}
-                label="More composer actions"
+                label="Composer actions"
                 side="top"
-                trigger={<MoreHorizontal aria-hidden="true" size={18} strokeWidth={1.75} />}
+                trigger={<Plus aria-hidden="true" size={18} strokeWidth={1.75} />}
               />
             </span>
           )}
-          {actions}
           {hasModelControls && (
             <div data-slot="chat-composer-selectors" {...stylex.props(styles.selectors)}>
               {capabilities.agents.length > 0 && (
-                <SelectPicker
-                  label="Agent"
-                  onValueChange={(id) => {
-                    const agent = capabilities.agents.find((item) => item.id === id)
-                    if (agent) {
-                      onDraftChange({
-                        ...draft,
-                        agent,
-                        revision: draft.revision + 1,
-                      })
-                    }
-                  }}
-                  options={capabilities.agents.map((agent) => ({
-                    label: agent.label,
-                    value: agent.id,
-                  }))}
-                  placeholder="Agent"
-                  {...(draft.agent === undefined ? {} : { value: draft.agent.id })}
-                />
+                <span {...stylex.props(styles.desktopOnly)}>
+                  <SelectPicker
+                    label="Agent"
+                    onValueChange={(id) => {
+                      const agent = capabilities.agents.find((item) => item.id === id)
+                      if (agent) {
+                        onDraftChange({
+                          ...draft,
+                          agent,
+                          revision: draft.revision + 1,
+                        })
+                      }
+                    }}
+                    options={capabilities.agents.map((agent) => ({
+                      label: agent.label,
+                      value: agent.id,
+                    }))}
+                    placeholder="Agent"
+                    {...(draft.agent === undefined ? {} : { value: draft.agent.id })}
+                  />
+                </span>
               )}
               {capabilities.models.length > 0 && (
                 <SelectPicker
@@ -527,29 +584,32 @@ export function ChatComposer({
                 />
               )}
               {capabilities.variants.length > 0 && (
-                <SelectPicker
-                  label="Variant"
-                  onValueChange={(variant) =>
-                    onDraftChange({
-                      ...draft,
-                      revision: draft.revision + 1,
-                      variant,
-                    })
-                  }
-                  options={capabilities.variants.map((variant) => ({
-                    ...(variant.unavailableReason === undefined
-                      ? {}
-                      : { description: variant.unavailableReason }),
-                    disabled: variant.unavailableReason !== undefined,
-                    label: variant.label,
-                    value: variant.id,
-                  }))}
-                  placeholder="Variant"
-                  {...(draft.variant === undefined ? {} : { value: draft.variant })}
-                />
+                <span {...stylex.props(styles.desktopOnly)}>
+                  <SelectPicker
+                    label="Variant"
+                    onValueChange={(variant) =>
+                      onDraftChange({
+                        ...draft,
+                        revision: draft.revision + 1,
+                        variant,
+                      })
+                    }
+                    options={capabilities.variants.map((variant) => ({
+                      ...(variant.unavailableReason === undefined
+                        ? {}
+                        : { description: variant.unavailableReason }),
+                      disabled: variant.unavailableReason !== undefined,
+                      label: variant.label,
+                      value: variant.id,
+                    }))}
+                    placeholder="Variant"
+                    {...(draft.variant === undefined ? {} : { value: draft.variant })}
+                  />
+                </span>
               )}
             </div>
           )}
+          {actions}
         </div>
 
         <div
@@ -944,14 +1004,17 @@ const styles = stylex.create({
       '@media (hover: none)': '3.25rem',
     },
     paddingBlock: space.x1,
-    paddingInline: space.x2,
+    paddingInline: space.x4,
   },
   leading: {
     alignItems: 'center',
     display: 'flex',
     gap: space.x1,
     minInlineSize: 0,
-    overflowX: 'auto',
+    overflowX: {
+      default: 'hidden',
+      '@media (min-width: 40rem)': 'auto',
+    },
     overscrollBehaviorInline: 'contain',
     scrollbarWidth: 'none',
   },

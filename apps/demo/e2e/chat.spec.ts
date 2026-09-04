@@ -394,8 +394,32 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
   const secondCenter = (toolbarChildren[1]!.top + toolbarChildren[1]!.bottom) / 2
   expect(Math.abs(firstCenter - secondCenter)).toBeLessThanOrEqual(1)
 
-  await page.getByRole('button', { name: 'More composer actions' }).click()
+  const model = page.getByRole('combobox', { name: 'Model' })
+  await expect(model).toContainText('Fixture 1')
+  const leading = page.locator('[data-slot="chat-composer-context-actions"]')
+  const [leadingBounds, modelBounds] = await Promise.all([
+    elementBounds(leading),
+    elementBounds(model),
+  ])
+  expect(modelBounds.left).toBeGreaterThanOrEqual(leadingBounds.left)
+  expect(modelBounds.left + modelBounds.width).toBeLessThanOrEqual(
+    leadingBounds.left + leadingBounds.width,
+  )
+  await expect(page.getByRole('combobox', { name: 'Commands' })).toBeHidden()
+  await expect(page.getByRole('combobox', { name: 'References' })).toBeHidden()
+
+  const composerActions = page.getByRole('button', { name: 'Composer actions' })
+  await composerActions.click()
+  await expect(page.getByRole('menuitem', { name: 'Commands' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'References' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'Attach files' })).toBeVisible()
+  await expect(page.getByText('Plan', { exact: true })).toBeVisible()
+  await page.getByRole('menuitem', { name: 'Commands' }).click()
+  await expect(page.locator('[data-slot="filter-menu-popup"] input')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('textbox', { name: 'Message' })).toBeFocused()
+
+  await composerActions.click()
   await page.getByRole('menuitem', { name: 'Use shell mode' }).click()
   await expect(page.getByRole('textbox', { name: 'Shell command' })).toBeVisible()
   await expectComposerInViewport(page)

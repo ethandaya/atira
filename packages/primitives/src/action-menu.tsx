@@ -155,8 +155,11 @@ const styles = stylex.create({
     boxShadow: shadows.overlay,
     boxSizing: 'border-box',
     color: colors.text,
+    maxBlockSize: 'min(24rem, var(--available-height))',
     minInlineSize: '12rem',
     outline: 'none',
+    overflowY: 'auto',
+    overscrollBehaviorY: 'contain',
     padding: space.x1,
     transformOrigin: 'var(--transform-origin)',
     transitionDuration: {
