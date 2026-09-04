@@ -6,7 +6,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Shimmer, VisuallyHidden } from '@pretty-amped/primitives'
+import { Shimmer, Spinner, VisuallyHidden } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
@@ -36,7 +36,9 @@ export function Turn({
   ...props
 }: TurnProps) {
   const active =
-    turn.state.status === 'running' || turn.state.status === 'retrying'
+    turn.state.status === 'queued' ||
+    turn.state.status === 'running' ||
+    turn.state.status === 'retrying'
   const assistant = turn.assistant.filter((message) =>
     message.parts.some(isRenderableAssistantPart),
   )
@@ -104,7 +106,10 @@ export function Turn({
 
 export function TurnStatus({ state }: { state: TurnState }) {
   const label = turnStateLabel(state)
-  const active = state.status === 'running' || state.status === 'retrying'
+  const active =
+    state.status === 'queued' ||
+    state.status === 'running' ||
+    state.status === 'retrying'
 
   if (state.status === 'complete') {
     return <VisuallyHidden>Response complete.</VisuallyHidden>
@@ -117,10 +122,19 @@ export function TurnStatus({ state }: { state: TurnState }) {
       data-state={state.status}
       {...stylex.props(
         styles.status,
+        active && styles.statusActive,
         state.status === 'failed' && styles.statusDanger,
       )}
     >
-      {active ? <Shimmer>{label}</Shimmer> : label}
+      {active ? (
+        <>
+          <Spinner size="small" />
+          <Shimmer>{label}</Shimmer>
+          <span aria-hidden="true" {...stylex.props(styles.statusEnd)} />
+        </>
+      ) : (
+        label
+      )}
       {state.status === 'failed' && (
         <span {...stylex.props(styles.error)}>{state.error.message}</span>
       )}
@@ -229,6 +243,27 @@ const styles = stylex.create({
       default: '2rem',
     },
     justifyContent: 'center',
+  },
+  statusActive: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    borderRadius: radii.inset,
+    borderStyle: 'solid',
+    borderWidth: '1px',
+    display: 'grid',
+    gap: space.x2,
+    gridTemplateColumns: '0.875rem minmax(0, 1fr) 1rem',
+    justifyContent: 'normal',
+    minBlockSize: {
+      default: '2.625rem',
+      '@media (hover: none)': '3.375rem',
+    },
+    paddingBlock: space.x1,
+    paddingInline: space.x3,
+  },
+  statusEnd: {
+    blockSize: '1rem',
+    inlineSize: '1rem',
   },
   statusDanger: {
     color: colors.danger,

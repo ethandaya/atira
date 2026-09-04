@@ -129,18 +129,22 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
 
   const turn = page.locator('[data-slot="turn"]').last()
   const status = turn.locator('[data-slot="turn-status"]')
-  await expect(status).toBeVisible()
+  await expect(status.locator('[data-slot="spinner"]')).toBeVisible()
   await settleLayout(page)
   const statusBounds = await elementBounds(status)
 
   const reasoning = turn.locator('[data-slot="reasoning"]')
   await expect(reasoning).toHaveAttribute('data-state', 'thinking')
+  await expect(reasoning.locator('[data-slot="spinner"]')).toBeVisible()
   await settleLayout(page)
-  const reasoningBounds = await elementBounds(reasoning)
-  expect(Math.abs(reasoningBounds.height - statusBounds.height)).toBeLessThanOrEqual(1)
+  const activityBounds = await elementBounds(
+    turn.locator('[data-slot="activity-sequence"]'),
+  )
+  expect(Math.abs(activityBounds.height - statusBounds.height)).toBeLessThanOrEqual(1)
 
   const tool = turn.locator('[data-slot="tool-activity"]')
   await expect(tool).toHaveAttribute('data-state', 'running')
+  await expect(tool.locator('[data-slot="spinner"]')).toBeVisible()
   await settleLayout(page)
   const runningBounds = await elementBounds(tool)
   const composerTop = (await elementBounds(composer)).top
@@ -166,6 +170,10 @@ test('removes nonessential lifecycle motion when reduced motion is requested', a
     'thinking',
   )
   await expect(turn.locator('[data-slot="turn-assistant-message"]')).toHaveCSS(
+    'animation-name',
+    'none',
+  )
+  await expect(turn.locator('[data-slot="spinner"]')).toHaveCSS(
     'animation-name',
     'none',
   )

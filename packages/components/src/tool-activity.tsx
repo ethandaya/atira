@@ -6,7 +6,12 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import type { ToolProgress } from '@pretty-amped/foundations/chat'
-import { Disclosure, Shimmer, VisuallyHidden } from '@pretty-amped/primitives'
+import {
+  Disclosure,
+  Shimmer,
+  Spinner,
+  VisuallyHidden,
+} from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Minus, X } from 'lucide-react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
@@ -155,6 +160,10 @@ function toolStateLabel(state: ToolActivityState) {
 
 function toolStateMark(state: ToolActivityState) {
   switch (state.status) {
+    case 'receiving-input':
+    case 'queued':
+    case 'running':
+      return <Spinner size="small" />
     case 'succeeded':
       return (
         <Check

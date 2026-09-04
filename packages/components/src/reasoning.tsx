@@ -6,6 +6,7 @@ import {
 import {
   Disclosure,
   Shimmer,
+  Spinner,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
@@ -61,7 +62,11 @@ export function Reasoning({
         variant="plain"
         summary={(
           <span data-slot="reasoning-summary" {...stylex.props(styles.summary)}>
-            <span aria-hidden="true" {...stylex.props(styles.railAnchor)} />
+            {isThinking ? (
+              <Spinner size="small" />
+            ) : (
+              <span aria-hidden="true" {...stylex.props(styles.railAnchor)} />
+            )}
             <span>
               {isThinking && typeof summary === 'string' ? (
                 <Shimmer>{summary}</Shimmer>

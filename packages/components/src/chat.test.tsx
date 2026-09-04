@@ -136,6 +136,7 @@ describe('chat components', () => {
 
     expect(container.querySelector('[data-slot="turn-status"]')).toBeNull()
     expect(container.querySelector('[data-slot="tool-activity"]')).not.toBeNull()
+    expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
   })
 
   it('does not mount empty assistant rows before content arrives', () => {
@@ -175,6 +176,7 @@ describe('chat components', () => {
     expect(container.querySelector('[data-slot="turn-status"]')?.textContent).toBe(
       'Thinking',
     )
+    expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
   })
 
   it('uses one primary composer control while a turn is active', () => {
