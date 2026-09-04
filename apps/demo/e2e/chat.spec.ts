@@ -3,6 +3,56 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+test('preserves and resumes conversations and drafts across reloads', async ({ page }) => {
+  const contexts = new Map<string, string[]>()
+  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test runtime' } }))
+  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
+  await page.route('**/api/chat', async route => {
+    const id = route.request().headers()['x-conversation-id']!
+    const { input, resume } = route.request().postDataJSON()
+    if (resume && !contexts.has(id)) {
+      await route.fulfill({ status: 409, json: { error: 'Runtime context expired. Start a new conversation.' } })
+      return
+    }
+    const history = [...(contexts.get(id) ?? []), input]
+    contexts.set(id, history)
+    await route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'completed', message: history.join(' / '), durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }) })
+  })
+  await page.goto('/')
+  const editor = page.getByRole('textbox', { name: 'Message', exact: true })
+  const send = async (text: string) => {
+    await editor.fill(text)
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(page.locator('[data-slot="turn"]').last()).toHaveAttribute('data-state', 'complete')
+  }
+  await send('Remember alpha')
+  await editor.fill('Alpha draft')
+  await page.reload()
+  await expect(editor).toHaveValue('Alpha draft')
+  await expect(page.locator('[data-slot="turn"]')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Conversations', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'New conversation', exact: true }).click()
+  await expect(page.locator('[data-slot="turn"]')).toHaveCount(0)
+  await send('Remember beta')
+  await editor.fill('Beta draft')
+  await page.getByRole('button', { name: 'Conversations', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Remember alpha', exact: true }).click()
+  await expect(editor).toHaveValue('Alpha draft')
+  await send('Continue alpha')
+  await expect(page.locator('[data-slot="turn"]').last()).toContainText('Remember alpha / Continue alpha')
+  await page.reload()
+  await page.getByRole('button', { name: 'Conversations', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Remember beta', exact: true }).click()
+  await expect(editor).toHaveValue('Beta draft')
+  await expect(page.locator('[data-slot="turn"]')).toHaveCount(1)
+  contexts.clear()
+  await editor.fill('Resume expired conversation')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect(page.getByText('Runtime context expired. Start a new conversation.')).toBeVisible()
+  await expect(editor).toHaveValue('Resume expired conversation')
+  await expect(page.locator('[data-slot="turn"]')).toHaveCount(1)
+})
+
 test('fades only overflowing tool labels and follows reading direction', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/?fixture=workflow')
@@ -117,7 +167,7 @@ test('presents an accessible ChatGPT device sign-in flow', async ({ page }) => {
   await page.route('**/api/runtime', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
-      json: { available: true, model: 'test-model', runtime: 'Anthropic' },
+      json: { conversationSessions: true, available: true, model: 'test-model', runtime: 'Anthropic' },
     })
   })
   await page.route('**/api/auth/chatgpt**', async (route) => {

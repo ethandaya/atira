@@ -14,6 +14,75 @@ describe('NanocodexChatStore', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
+  it('restores conversations and drafts and resumes their original runtime IDs', async () => {
+    let saved: string | null = null
+    const storage = { getItem: () => saved, setItem: (_key: string, value: string) => { saved = value } }
+    const fetch = vi.fn<typeof globalThis.fetch>(async (url) => url === '/api/runtime'
+      ? runtimeResponse()
+      : streamResponse([{ type: 'completed', message: 'Remembered.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }]))
+    vi.stubGlobal('fetch', fetch)
+    const store = new NanocodexChatStore(storage)
+    await store.initialize()
+    const firstId = store.getSnapshot().sessionId
+    await store.submit(createDraft('Remember alpha'), 'send')
+    store.updateDraft(createDraft('First draft'))
+    store.newConversation()
+    const secondId = store.getSnapshot().sessionId
+    expect(secondId).not.toBe(firstId)
+    await store.submit(createDraft('Remember beta'), 'send')
+    store.updateDraft(createDraft('Second draft'))
+    store.selectConversation(firstId)
+    expect(store.getSnapshot().composer.segments[0]).toMatchObject({ text: 'First draft' })
+    store.dispose()
+
+    const restored = new NanocodexChatStore(storage)
+    await restored.initialize()
+    expect(restored.getSnapshot().sessionId).toBe(firstId)
+    expect(restored.getSnapshot().turns).toHaveLength(1)
+    await restored.submit(createDraft('Continue alpha'), 'send')
+    const request = fetch.mock.calls.at(-1)?.[1]
+    expect(request?.headers).toMatchObject({ 'X-Conversation-Id': firstId })
+    expect(JSON.parse(request?.body as string)).toMatchObject({ resume: true })
+    restored.selectConversation(secondId)
+    expect(restored.getSnapshot().turns).toHaveLength(1)
+    expect(restored.getSnapshot().composer.segments[0]).toMatchObject({ text: 'Second draft' })
+    restored.dispose()
+  })
+
+  it('restores an unfinished stream as interrupted and blocks switching while busy', async () => {
+    let saved: string | null = null
+    const storage = { getItem: () => saved, setItem: (_key: string, value: string) => { saved = value } }
+    let finish: () => void = () => undefined
+    vi.stubGlobal('fetch', vi.fn(async (url) => url === '/api/runtime' ? runtimeResponse() : new Response(new ReadableStream({
+      start(controller) { finish = () => controller.close() },
+    }))))
+    const store = new NanocodexChatStore(storage)
+    await store.initialize()
+    const originalId = store.getSnapshot().sessionId
+    const request = store.submit(createDraft('In flight'), 'send')
+    await Promise.resolve()
+    store.newConversation()
+    expect(store.getSnapshot().sessionId).toBe(originalId)
+    store.persist()
+    const restored = new NanocodexChatStore(storage)
+    expect(restored.getSnapshot().activity.status).toBe('idle')
+    expect(restored.getSnapshot().turns[0]?.state.status).toBe('interrupted')
+    finish()
+    await request
+    store.dispose()
+    restored.dispose()
+  })
+
+  it('reports unavailable browser storage without breaking the chat store', () => {
+    const storage = { getItem: () => '{broken', setItem: () => { throw new Error('Quota exceeded') } }
+    const store = new NanocodexChatStore(storage)
+    expect(store.getSnapshot().submissionError?.message).toContain('could not be restored')
+    store.persist()
+    expect(store.getSnapshot().submissionError?.message).toContain('could not be saved')
+    expect(store.getSnapshot().turns).toEqual([])
+    store.dispose()
+  })
+
   it('projects the playground stream through the protocol-neutral chat store', async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
@@ -240,7 +309,7 @@ describe('NanocodexChatStore', () => {
 })
 
 function runtimeResponse() {
-  return Response.json({ available: true, model: 'test-model', runtime: 'Nanocodex' })
+  return Response.json({ conversationSessions: true, available: true, model: 'test-model', runtime: 'Nanocodex' })
 }
 
 function streamResponse(events: readonly object[]) {

@@ -6,9 +6,9 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, Dialog, IconButton } from '@pretty-amped/primitives'
+import { ActionMenu, Button, Dialog, IconButton } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import { Library, MessageSquare, Moon, Sun, Trash2 } from 'lucide-react'
+import { Check, History, Library, MessageSquare, Moon, Plus, Sun } from 'lucide-react'
 import { Profiler, useEffect, useState, useSyncExternalStore } from 'react'
 
 import { ComponentGallery } from './component-gallery'
@@ -94,6 +94,7 @@ function DemoApp() {
   const [view, setView] = useState<View>('playground')
   const [store] = useState(() => new NanocodexChatStore())
   const snapshot = useChatStore(store)
+  const conversations = useSyncExternalStore(store.subscribe, store.getConversations, store.getConversations)
   const runtime = useSyncExternalStore(
     store.subscribe,
     store.getRuntimeSnapshot,
@@ -102,7 +103,11 @@ function DemoApp() {
 
   useEffect(() => {
     void store.initialize()
-    return () => store.dispose()
+    window.addEventListener('pagehide', store.persist)
+    return () => {
+      window.removeEventListener('pagehide', store.persist)
+      store.dispose()
+    }
   }, [store])
 
   function toggleTheme() {
@@ -126,7 +131,7 @@ function DemoApp() {
         : 'Runtime unavailable'
 
   async function refreshRuntime() {
-    await store.clear()
+    store.newConversation()
     await store.initialize()
   }
 
@@ -159,18 +164,22 @@ function DemoApp() {
                 onConnectionChange={refreshRuntime}
               />
             )}
-            {view === 'playground' &&
-              snapshot.turns.length > 0 &&
-              snapshot.activity.status === 'idle' && (
-                <IconButton
-                  aria-label="Clear"
-                  iconSize="small"
-                  onClick={() => void store.clear()}
-                  title="Clear conversation"
-                  variant="quiet"
-                >
-                  <Trash2 size={16} strokeWidth={1.75} />
-                </IconButton>
+            {view === 'playground' && (
+              <ActionMenu
+                label="Conversations"
+                disabled={snapshot.activity.status !== 'idle' || runtime.status === 'loading'}
+                trigger={<History size={16} strokeWidth={1.75} />}
+                items={[
+                  { id: 'new', label: 'New conversation', icon: <Plus size={16} />, onSelect: () => store.newConversation() },
+                  ...[...conversations].reverse().filter((conversation) => conversation.turns.length > 0 || conversation.title !== 'New conversation').map((conversation) => ({
+                    id: conversation.id,
+                    label: conversation.title,
+                    disabled: conversation.id === snapshot.sessionId,
+                    ...(conversation.id === snapshot.sessionId ? { icon: <Check size={16} /> } : {}),
+                    onSelect: () => store.selectConversation(conversation.id),
+                  })),
+                ]}
+              />
             )}
             <IconButton
               aria-label={view === 'playground' ? 'Catalog' : 'Playground'}
@@ -210,6 +219,7 @@ function DemoApp() {
       {view === 'playground' ? (
         <div {...stylex.props(styles.workspace)}>
           <ChatSession
+            key={snapshot.sessionId}
             composerActions={(
               <span
                 {...stylex.props(

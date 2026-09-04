@@ -23,6 +23,15 @@ uses Anthropic when `ANTHROPIC_API_KEY` is available and otherwise Nanocodex wit
 choose the fallback explicitly. The ChatGPT runtime can delegate bounded research,
 review, and planning tasks to isolated, non-recursive subagents.
 
+The **Conversations** menu starts a new chat without discarding earlier ones and
+reopens saved chats with their original runtime context. Transcripts and drafts
+are stored in browser `sessionStorage` (the current tab's session, not a durable
+or cross-device archive). Runtime contexts remain server-side and expire after
+30 minutes idle, a server restart, or a provider sign-in change. Expired chats
+remain readable; resuming them shows an explicit error rather than silently
+starting without context. Reloading during a response preserves the partial
+transcript and marks it interrupted; it does not reconnect the response stream.
+
 ## Workspace
 
 - `packages/foundations` — semantic StyleX tokens and scoped themes

@@ -279,6 +279,7 @@ async function handleRequest(request, response) {
     const id = sessionId(request, response)
     const runtime = await runtimeForSession(id)
     sendJson(response, 200, {
+      conversationSessions: true,
       available: Boolean(runtime),
       model: runtime?.model ?? nanocodexModel,
       runtime: runtime?.label ?? 'Unavailable',
@@ -301,7 +302,7 @@ async function handleRequest(request, response) {
   if (request.method === 'POST' && url.pathname === '/api/auth/chatgpt/poll') {
     const id = sessionId(request, response)
     const status = await chatGptSubscriptions.pollLogin(id)
-    if (status.state === 'authenticated') await resetRuntimeSession(id)
+    if (status.state === 'authenticated') await resetAccountSessions(id)
     sendJson(response, 200, status)
     return true
   }
@@ -309,7 +310,7 @@ async function handleRequest(request, response) {
   if (request.method === 'POST' && url.pathname === '/api/auth/chatgpt/logout') {
     const id = sessionId(request, response)
     await chatGptSubscriptions.logout(id)
-    await resetRuntimeSession(id)
+    await resetAccountSessions(id)
     sendJson(response, 200, { state: 'signed_out' })
     return true
   }
@@ -356,7 +357,13 @@ async function streamChat(request, response) {
     return
   }
 
-  const session = await getSession(id, runtime)
+  const key = conversationKey(request, id)
+  await pruneSessions()
+  if (body.resume === true && sessions.get(key)?.kind !== runtime.kind) {
+    sendJson(response, 409, { error: 'This conversation’s runtime context has expired or changed. Its transcript is saved, but you need to start a new conversation.' })
+    return
+  }
+  const session = await getSession(key, runtime)
 
   if (session.active) {
     sendJson(response, 409, { error: 'Wait for the current response to finish.' })
@@ -651,7 +658,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
 
 async function cancelTurn(request, response) {
   const id = existingSessionId(request)
-  const active = id ? sessions.get(id)?.active : undefined
+  const active = id ? sessions.get(conversationKey(request, id))?.active : undefined
 
   if (!active?.turn && !active?.abortController) {
     sendJson(response, 200, { cancelled: false })
@@ -669,10 +676,25 @@ async function cancelTurn(request, response) {
 
 async function resetSession(request, response) {
   const id = existingSessionId(request)
-  if (id) await resetRuntimeSession(id)
+  if (id) await resetRuntimeSession(conversationKey(request, id))
 
   response.writeHead(204)
   response.end()
+}
+
+function conversationKey(request, accountId) {
+  const conversation = request.headers['x-conversation-id']
+  if (conversation === undefined) return accountId
+  if (typeof conversation !== 'string' || !/^[0-9a-f-]{36}$/i.test(conversation)) {
+    throw new Error('Invalid conversation ID.')
+  }
+  return `${accountId}:${conversation}`
+}
+
+async function resetAccountSessions(id) {
+  await Promise.all([...sessions.keys()]
+    .filter((key) => key === id || key.startsWith(`${id}:`))
+    .map(resetRuntimeSession))
 }
 
 async function resetRuntimeSession(id) {
@@ -682,8 +704,6 @@ async function resetRuntimeSession(id) {
 }
 
 async function getSession(id, runtime) {
-  await pruneSessions()
-
   const existing = sessions.get(id)
   if (existing?.kind === runtime.kind) return existing
   if (existing) await resetRuntimeSession(id)

@@ -91,6 +91,16 @@ const unavailableCapabilities: ChatCapabilities = {
   variants: [],
 }
 
+type SavedConversation = {
+  id: string
+  title: string
+  composer: ComposerDraft
+  turns: readonly ChatTurn[]
+  hasContext: boolean
+}
+
+const conversationStorageKey = 'pretty-amped:conversations:v1'
+
 export class NanocodexChatStore implements ChatStore {
   readonly #listeners = new Set<() => void>()
   #activeController: AbortController | undefined
@@ -98,6 +108,10 @@ export class NanocodexChatStore implements ChatStore {
   #disposed = false
   #failedDraft: ComposerDraft | undefined
   #runtime: RuntimeState = { status: 'loading' }
+  #storage: Pick<Storage, 'getItem' | 'setItem'> | undefined
+  #conversations: SavedConversation[] = []
+  #hasContext = false
+  #saveTimer: ReturnType<typeof setTimeout> | undefined
   #snapshot: ChatSnapshot = {
     activity: { status: 'idle' },
     capabilities: unavailableCapabilities,
@@ -106,12 +120,94 @@ export class NanocodexChatStore implements ChatStore {
     history: { status: 'complete' },
     queue: [],
     requests: [],
-    sessionId: 'nanocodex-playground',
+    sessionId: crypto.randomUUID(),
     turns: [],
+  }
+
+  constructor(storage?: Pick<Storage, 'getItem' | 'setItem'>) {
+    try {
+      this.#storage = storage ?? (typeof window === 'undefined' ? undefined : window.sessionStorage)
+      const saved = this.#storage?.getItem(conversationStorageKey)
+      if (saved) {
+        const data = JSON.parse(saved)
+        if (!Array.isArray(data.conversations) || !data.conversations.every(isSavedConversation)) {
+          throw new Error('Invalid conversation history')
+        }
+        this.#conversations = data.conversations
+        const current = this.#conversations.find((item) => item.id === data.activeId)
+        if (current) this.#restore(current)
+      }
+    } catch {
+      this.#snapshot = { ...this.#snapshot, submissionError: chatError('Saved conversations could not be restored. Browser session storage may be unavailable.', false) }
+    }
+    this.#remember()
   }
 
   getSnapshot = () => this.#snapshot
   getRuntimeSnapshot = () => this.#runtime
+  getConversations = () => this.#conversations
+
+  newConversation() {
+    if (this.#snapshot.activity.status !== 'idle' || this.#runtime.status === 'loading') return
+    if (this.#snapshot.turns.length === 0 && !composerDraftText(this.#snapshot.composer).trim()) return
+    this.#remember()
+    this.#hasContext = false
+    this.#failedDraft = undefined
+    const { submissionError: _, ...snapshot } = this.#snapshot
+    this.#snapshot = { ...snapshot, sessionId: crypto.randomUUID(), turns: [], composer: createDraft() }
+    this.persist()
+    this.#commit()
+  }
+
+  selectConversation(id: string) {
+    if (this.#snapshot.activity.status !== 'idle' || this.#runtime.status === 'loading') return
+    this.#remember()
+    const conversation = this.#conversations.find((item) => item.id === id)
+    if (!conversation || id === this.#snapshot.sessionId) return
+    this.#restore(conversation)
+    this.persist()
+    this.#commit()
+  }
+
+  #restore(conversation: SavedConversation) {
+    this.#hasContext = conversation.hasContext
+    this.#failedDraft = undefined
+    const { submissionError: _, ...snapshot } = this.#snapshot
+    this.#snapshot = {
+      ...snapshot,
+      sessionId: conversation.id,
+      composer: conversation.composer,
+      turns: conversation.turns.map((turn) =>
+        ['queued', 'running', 'retrying'].includes(turn.state.status)
+          ? { ...turn, state: { status: 'interrupted', startedAt: turn.user.createdAt, endedAt: Date.now(), reason: 'The page closed before this response finished.' }, assistant: turn.assistant.map((message) => settleAssistantParts(message, { status: 'interrupted' })) }
+          : turn,
+      ),
+    }
+  }
+
+  #remember() {
+    const { sessionId, composer, turns } = this.#snapshot
+    const title = turns[0]?.user.parts.find((part) => part.type === 'text')
+    const current = { id: sessionId, composer, turns, hasContext: this.#hasContext, title: title?.type === 'text' ? title.markdown.slice(0, 64) : composerDraftText(composer).trim().slice(0, 64) || 'New conversation' }
+    const index = this.#conversations.findIndex((item) => item.id === sessionId)
+    this.#conversations = index < 0
+      ? [...this.#conversations, current]
+      : this.#conversations.map((item, position) => position === index ? current : item)
+  }
+
+  persist = () => {
+    clearTimeout(this.#saveTimer)
+    this.#remember()
+    try {
+      this.#storage?.setItem(conversationStorageKey, JSON.stringify({ activeId: this.#snapshot.sessionId, conversations: this.#conversations }))
+    } catch {
+      this.#snapshot = { ...this.#snapshot, submissionError: chatError('Conversation history could not be saved. Keep this tab open; browser session storage may be full or blocked.', false) }
+    }
+  }
+
+  #conversationHeaders() {
+    return { 'X-Conversation-Id': this.#snapshot.sessionId }
+  }
 
   subscribe = (listener: () => void) => {
     this.#listeners.add(listener)
@@ -129,7 +225,9 @@ export class NanocodexChatStore implements ChatStore {
       if (!response.ok || !isRecord(body)) throw new Error()
 
       this.#runtime =
-        body.available === true &&
+        body.conversationSessions !== true
+          ? { status: 'unavailable', message: 'Restart the demo server to enable resumable conversations.' }
+          : body.available === true &&
         typeof body.model === 'string' &&
         typeof body.runtime === 'string'
           ? { model: body.model, runtime: body.runtime, status: 'ready' }
@@ -156,25 +254,12 @@ export class NanocodexChatStore implements ChatStore {
 
   dispose() {
     if (this.#disposed) return
+    this.persist()
     this.#disposed = true
     this.#activeController?.abort()
     this.#cancelNotification?.()
     this.#cancelNotification = undefined
     this.#listeners.clear()
-  }
-
-  async clear() {
-    const response = await fetch('/api/session', { method: 'DELETE' })
-    if (!response.ok) return
-    this.#failedDraft = undefined
-    this.#snapshot = {
-      ...this.#snapshot,
-      activity: { status: 'idle' },
-      capabilities: capabilities(this.#runtime, false),
-      composer: createDraft(),
-      turns: [],
-    }
-    this.#commit()
   }
 
   async submit(draft: ComposerDraft, intent: SubmitIntent) {
@@ -230,14 +315,15 @@ export class NanocodexChatStore implements ChatStore {
 
     try {
       const response = await fetch('/api/chat', {
-        body: JSON.stringify({ input }),
-        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input, resume: this.#hasContext }),
+        headers: { 'Content-Type': 'application/json', ...this.#conversationHeaders() },
         method: 'POST',
         signal: controller.signal,
       })
       if (!response.ok) throw new Error(await responseError(response))
 
       accepted = true
+      this.#hasContext = true
       this.#updateTurn(turnId, (current) => ({
         ...current,
         assistant: [assistantMessage(assistantMessageId, turnId, now)],
@@ -303,7 +389,7 @@ export class NanocodexChatStore implements ChatStore {
 
   async stop(_turnId: string) {
     if (this.#snapshot.activity.status === 'idle') return
-    await fetch('/api/cancel', { method: 'POST' })
+    await fetch('/api/cancel', { method: 'POST', headers: this.#conversationHeaders() })
   }
 
   updateDraft(draft: ComposerDraft) {
@@ -456,9 +542,21 @@ export class NanocodexChatStore implements ChatStore {
     if (this.#disposed || this.#cancelNotification) return
     this.#cancelNotification = scheduleOnAnimationFrame(() => {
       this.#cancelNotification = undefined
+      this.#remember()
+      clearTimeout(this.#saveTimer)
+      if (this.#snapshot.activity.status === 'idle') this.persist()
+      else this.#saveTimer = setTimeout(this.persist, 250)
       for (const listener of this.#listeners) listener()
     })
   }
+}
+
+function isSavedConversation(value: unknown): value is SavedConversation {
+  return isRecord(value) && typeof value.id === 'string' && /^[0-9a-f-]{36}$/i.test(value.id)
+    && typeof value.title === 'string' && typeof value.hasContext === 'boolean'
+    && isRecord(value.composer) && Array.isArray(value.composer.segments)
+    && Array.isArray(value.composer.attachments) && Array.isArray(value.turns)
+    && value.turns.every((turn) => isRecord(turn) && isRecord(turn.state) && isRecord(turn.user) && Array.isArray(turn.user.parts) && Array.isArray(turn.assistant))
 }
 
 export function createDraft(text = '', revision = 0): ComposerDraft {
