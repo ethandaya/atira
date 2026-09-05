@@ -12,6 +12,7 @@ import {
   runChatGptTurn,
 } from './chatgpt-runtime.mjs'
 import { ChatGptSubscriptionStore } from './chatgpt-subscription.mjs'
+import { ModelCatalog } from './model-catalog.mjs'
 import { searchWeb } from './web-search.mjs'
 
 const openAiApiKey = process.env.OPENAI_API_KEY?.trim()
@@ -23,6 +24,7 @@ const root = fileURLToPath(new URL('.', import.meta.url))
 const port = Number(process.env.PORT ?? readArgument('--port') ?? 5173)
 const host = process.env.HOST ?? readArgument('--host') ?? '0.0.0.0'
 const sessions = new Map()
+const modelCatalog = new ModelCatalog()
 const chatGptSubscriptions = new ChatGptSubscriptionStore({
   directory: fileURLToPath(new URL('../../.amp/data/chatgpt-subscriptions/', import.meta.url)),
 })
@@ -281,9 +283,10 @@ async function handleRequest(request, response) {
     sendJson(response, 200, {
       conversationSessions: true,
       retryTurns: true,
-      available: Boolean(runtime),
+      available: Boolean(runtime) && !runtime.modelError,
+      message: runtime?.modelError,
       model: runtime?.model ?? nanocodexModel,
-      models: runtime ? modelsForRuntime(runtime) : [],
+      models: runtime?.models ?? [],
       runtime: runtime?.label ?? 'Unavailable',
     })
     return true
@@ -339,9 +342,9 @@ async function handleRequest(request, response) {
 async function streamChat(request, response) {
   const id = sessionId(request, response)
   const runtime = await runtimeForSession(id)
-  if (!runtime) {
+  if (!runtime || runtime.modelError) {
     sendJson(response, 503, {
-      error: 'No supported AI runtime is configured.',
+      error: runtime?.modelError ?? 'No supported AI runtime is configured.',
     })
     return
   }
@@ -350,7 +353,7 @@ async function streamChat(request, response) {
   const input = typeof body.input === 'string' ? body.input.trim() : ''
   const model = body.model === undefined
     ? runtime.model
-    : modelsForRuntime(runtime).find(option => option.modelId === body.model?.modelId && option.providerId === body.model?.providerId)?.modelId
+    : runtime.models.find(option => option.modelId === body.model?.modelId && option.providerId === body.model?.providerId)?.modelId
   if (!model) {
     sendJson(response, 400, { error: 'This model is not supported by the active provider. Choose a model from the picker.' })
     return
@@ -913,24 +916,28 @@ function isRecord(value) {
   return typeof value === 'object' && value !== null
 }
 
-function modelsForRuntime(runtime) {
-  const alternatives = runtime.kind === 'chatgpt'
-    ? ['gpt-5.4', 'gpt-5.3-codex']
-    : runtime.kind === 'anthropic'
-      ? ['claude-opus-4-6', 'claude-haiku-4-5']
-      : []
-  return [...new Set([runtime.model, ...alternatives])].map(modelId => ({
-    label: modelId,
-    modelId,
-    providerId: runtime.kind,
-  }))
-}
-
 async function runtimeForSession(id) {
   const credential = await chatGptSubscriptions.credential(id)
-  return credential
+  const runtime = credential
     ? { kind: 'chatgpt', label: 'ChatGPT', model: nanocodexModel }
     : fallbackRuntime
+  if (!runtime) return undefined
+  try {
+    const discovered = await modelCatalog.list({
+      kind: runtime.kind,
+      credential,
+      apiKey: runtime.kind === 'anthropic' ? anthropicApiKey : runtime.kind === 'nanocodex' ? openAiApiKey : undefined,
+    })
+    // Nanocodex agents are currently bound to one model for their lifetime.
+    const models = runtime.kind === 'nanocodex'
+      ? discovered.filter(model => model.modelId === runtime.model)
+      : discovered
+    if (!models.length) throw new Error('No compatible models.')
+    const model = models.find(model => model.modelId === runtime.model) ?? models[0]
+    return { ...runtime, model: model.modelId, models }
+  } catch {
+    return { ...runtime, models: [], modelError: 'Could not load available models from your provider. Refresh to try again.' }
+  }
 }
 
 function selectFallbackRuntime() {

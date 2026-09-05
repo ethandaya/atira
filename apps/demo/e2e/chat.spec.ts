@@ -3,6 +3,27 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+test('shows discovery failure instead of invented models and recovers on refresh', async ({ page }) => {
+  let available = false
+  const message = 'Could not load available models from your provider. Refresh to try again.'
+  await page.route('**/api/runtime', route => route.fulfill({ json: {
+    conversationSessions: true, available, runtime: 'ChatGPT', model: 'discovered-model',
+    models: available ? [{ label: 'Discovered model', modelId: 'discovered-model', providerId: 'chatgpt' }] : [],
+    ...(!available ? { message } : {}),
+  } }))
+  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
+  await page.goto('/')
+  await expect(page.getByText(message, { exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Keep this draft')
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
+  available = true
+  await page.reload()
+  await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toContainText('Discovered model')
+  await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Keep this draft')
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
+})
+
 test('selects a real composer model and preserves it across send, reload, and retry', async ({ page }) => {
   const models = [
     { label: 'GPT-5.6 Sol', modelId: 'gpt-5.6-sol', providerId: 'chatgpt' },

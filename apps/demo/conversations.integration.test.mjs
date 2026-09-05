@@ -17,6 +17,9 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     import { setTimeout as delay } from 'node:timers/promises';
     let failedOnce = false;
     globalThis.fetch = async (url, options) => {
+      if (url === 'https://api.anthropic.com/v1/models?limit=1000') return Response.json({
+        data: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5'].map(id => ({ id, display_name: id })), has_more: false,
+      });
       if (url !== 'https://api.anthropic.com/v1/messages') throw new Error('Unexpected outbound request');
       const { messages, model } = JSON.parse(options.body);
       const inputs = messages.filter(m => m.role === 'user').map(m => m.content);

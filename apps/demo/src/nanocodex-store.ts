@@ -235,7 +235,7 @@ export class NanocodexChatStore implements ChatStore {
                 isRecord(model) && typeof model.modelId === 'string' && typeof model.providerId === 'string' && typeof model.label === 'string') : [],
             }
           : {
-              message: 'Add a supported server-side provider key to run the playground.',
+              message: typeof body.message === 'string' ? body.message : 'Add a supported server-side provider key to run the playground.',
               status: 'unavailable',
             }
     } catch (error) {
@@ -253,9 +253,10 @@ export class NanocodexChatStore implements ChatStore {
       capabilities: capabilities(this.#runtime, false),
     }
     const models = this.#snapshot.capabilities.models
-    const selected = models.find(model => model.modelId === this.#snapshot.composer.model?.modelId && model.providerId === this.#snapshot.composer.model?.providerId) ?? models[0]
-    const { model: _, ...composer } = this.#snapshot.composer
-    this.#snapshot = { ...this.#snapshot, composer: { ...composer, ...(selected ? { model: selected } : {}) } }
+    const defaultModel = this.#runtime.status === 'ready' ? this.#runtime.model : undefined
+    const selected = models.find(model => model.modelId === this.#snapshot.composer.model?.modelId && model.providerId === this.#snapshot.composer.model?.providerId)
+      ?? models.find(model => model.modelId === defaultModel) ?? models[0]
+    if (selected) this.#snapshot = { ...this.#snapshot, composer: { ...this.#snapshot.composer, model: selected } }
     this.#commit()
   }
 

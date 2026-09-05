@@ -26,9 +26,12 @@ review, and planning tasks to isolated, non-recursive subagents.
 The composer's **Model** picker selects the model for the next message without
 resetting conversation history. Selection persists with the draft; retries use
 the original turn's model, and ChatGPT subagents inherit that model. Options are
-a server-validated, curated list for the active provider, not an account-entitlement
-lookup; provider access errors still apply. The Nanocodex fallback currently offers
-only its configured model because its agent is created once per conversation.
+discovered server-side from the authenticated provider and cached for five minutes
+per credential/account. ChatGPT uses Codex's model-discovery endpoint (not a public
+API contract); Anthropic and OpenAI API keys use their Models APIs. Discovery failures
+show an error instead of guessed options; refresh to retry. The Nanocodex fallback
+filters discovery to its configured model because its agent is created once per
+conversation. Provider access and generation-capability errors can still apply.
 
 The **Conversations** menu starts a new chat without discarding earlier ones and
 reopens saved chats with their original runtime context. Transcripts and drafts
