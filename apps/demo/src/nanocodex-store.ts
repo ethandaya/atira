@@ -297,11 +297,16 @@ export class NanocodexChatStore implements ChatStore {
     const userMessageId = retry?.user.id ?? createId('message')
     const assistantMessageId = createId('message')
     const model = retry?.model ?? draft.model ?? this.#snapshot.capabilities.models[0]
-    const clearedDraft = retry ? this.#snapshot.composer : { ...createDraft('', draft.revision + 1), ...(model ? { model } : {}) }
+    const requestedEffort = retry ? retry.reasoningEffort : draft.reasoningEffort
+    const reasoningEffort = requestedEffort && model?.reasoningEfforts?.includes(requestedEffort)
+      ? requestedEffort : model?.defaultReasoningEffort
+    const effort = reasoningEffort ? { reasoningEffort } : {}
+    const clearedDraft = retry ? this.#snapshot.composer : { ...createDraft('', draft.revision + 1), ...(model ? { model } : {}), ...effort }
     const turn: ChatTurn = {
       assistant: [],
       id: turnId,
       ...(model ? { model } : {}),
+      ...effort,
       state: { status: 'queued' },
       user: {
         createdAt: now,
@@ -338,7 +343,7 @@ export class NanocodexChatStore implements ChatStore {
 
     try {
       const response = await fetch('/api/chat', {
-        body: JSON.stringify({ input, model, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
+        body: JSON.stringify({ input, model, reasoningEffort, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
         headers: { 'Content-Type': 'application/json', ...this.#conversationHeaders() },
         method: 'POST',
         signal: controller.signal,

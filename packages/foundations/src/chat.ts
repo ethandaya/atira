@@ -34,9 +34,11 @@ export type HistoryState =
   | { status: 'failed'; canRetry: boolean; error: ChatError }
 
 export type ModelIdentity = Readonly<{
+  defaultReasoningEffort?: string
   label: string
   modelId: string
   providerId: string
+  reasoningEfforts?: readonly string[]
 }>
 
 export type AgentIdentity = Readonly<{
@@ -334,6 +336,7 @@ export type ChatTurn = Readonly<{
   assistant: readonly ChatMessage[]
   id: string
   model?: ModelIdentity
+  reasoningEffort?: string
   state: TurnState
   user: ChatMessage
 }>
@@ -469,6 +472,7 @@ export type ComposerDraft = Readonly<{
   attachments: readonly DraftAttachment[]
   mode: 'prompt' | 'shell'
   model?: ModelIdentity
+  reasoningEffort?: string
   revision: number
   segments: readonly DraftSegment[]
   selection: Readonly<{

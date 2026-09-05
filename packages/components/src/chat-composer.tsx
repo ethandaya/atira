@@ -510,9 +510,11 @@ export function ChatComposer({
                   (item) => modelOptionValue(item) === id,
                 )
                 if (model) {
+                  const { reasoningEffort, ...rest } = draft
                   onDraftChange({
-                    ...draft,
+                    ...rest,
                     model,
+                    ...(reasoningEffort && model.reasoningEfforts?.includes(reasoningEffort) ? { reasoningEffort } : {}),
                     revision: draft.revision + 1,
                   })
                 }
@@ -525,6 +527,19 @@ export function ChatComposer({
               {...(draft.model === undefined
                 ? {}
                 : { value: modelOptionValue(draft.model) })}
+            />
+          )}
+          {draft.model?.reasoningEfforts && draft.model.reasoningEfforts.length > 0 && (
+            <SelectPicker
+              label="Reasoning effort"
+              onValueChange={(reasoningEffort) => onDraftChange({ ...draft, reasoningEffort, revision: draft.revision + 1 })}
+              options={draft.model.reasoningEfforts.map(value => ({
+                label: value === 'xhigh' ? 'Extra high' : value.charAt(0).toUpperCase() + value.slice(1),
+                value,
+              }))}
+              value={draft.reasoningEffort && draft.model.reasoningEfforts.includes(draft.reasoningEffort)
+                ? draft.reasoningEffort : draft.model.defaultReasoningEffort ?? draft.model.reasoningEfforts[0] ?? ''}
+              placeholder="Reasoning effort"
             />
           )}
           {actions}

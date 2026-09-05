@@ -33,6 +33,11 @@ show an error instead of guessed options; refresh to retry. The Nanocodex fallba
 filters discovery to its configured model because its agent is created once per
 conversation. Provider access and generation-capability errors can still apply.
 
+ChatGPT models that advertise reasoning levels also show a **Reasoning effort**
+picker. It starts at the model's advertised default, persists with the draft,
+and is retained for retries and inherited by subagents. Unsupported effort choices
+are rejected server-side; providers without effort metadata do not show the control.
+
 The **Conversations** menu starts a new chat without discarding earlier ones and
 reopens saved chats with their original runtime context. Transcripts and drafts
 are stored in browser `sessionStorage` (the current tab's session, not a durable

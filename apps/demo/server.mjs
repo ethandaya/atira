@@ -358,6 +358,12 @@ async function streamChat(request, response) {
     sendJson(response, 400, { error: 'This model is not supported by the active provider. Choose a model from the picker.' })
     return
   }
+  const modelInfo = runtime.models.find(option => option.modelId === model)
+  if (body.reasoningEffort !== undefined && !modelInfo.reasoningEfforts?.includes(body.reasoningEffort)) {
+    sendJson(response, 400, { error: 'This reasoning effort is not supported by the selected model.' })
+    return
+  }
+  const reasoningEffort = body.reasoningEffort ?? modelInfo.defaultReasoningEffort
 
   if (!input) {
     sendJson(response, 400, { error: 'Enter a message to continue.' })
@@ -403,7 +409,12 @@ async function streamChat(request, response) {
   if (previous?.id === turnId && session.history) {
     session.history.length = previous.historyStart
   }
-  session.lastTurn = { id: turnId, input, model: previous?.id === turnId ? previous.model : model, historyStart: session.history?.length }
+  session.lastTurn = {
+    id: turnId, input,
+    model: previous?.id === turnId ? previous.model : model,
+    reasoningEffort: previous?.id === turnId ? previous.reasoningEffort : reasoningEffort,
+    historyStart: session.history?.length,
+  }
 
   const control = {
     cancelRequested: false,
@@ -648,6 +659,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
       getCredential,
       input,
       model: session.lastTurn.model,
+      reasoningEffort: session.lastTurn.reasoningEffort,
       onEvent: (event) => writeEvent(response, event),
       session,
       sessionId: id,
@@ -657,6 +669,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
         run_subagent: createChatGptSubagentTool({
           getCredential,
           model: session.lastTurn.model,
+          reasoningEffort: session.lastTurn.reasoningEffort,
           tools: childTools,
         }),
       },

@@ -24,10 +24,10 @@ test('shows discovery failure instead of invented models and recovers on refresh
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
 })
 
-test('selects a real composer model and preserves it across send, reload, and retry', async ({ page }) => {
+test('preserves model and reasoning effort across send, reload, and retry', async ({ page }) => {
   const models = [
-    { label: 'GPT-5.6 Sol', modelId: 'gpt-5.6-sol', providerId: 'chatgpt' },
-    { label: 'GPT-5.4', modelId: 'gpt-5.4', providerId: 'chatgpt' },
+    { label: 'GPT-5.6 Sol', modelId: 'gpt-5.6-sol', providerId: 'chatgpt', reasoningEfforts: ['low', 'medium'], defaultReasoningEffort: 'medium' },
+    { label: 'GPT-5.4', modelId: 'gpt-5.4', providerId: 'chatgpt', reasoningEfforts: ['low', 'medium', 'high'], defaultReasoningEffort: 'medium' },
   ]
   const requests: { model: typeof models[number]; retry: boolean }[] = []
   await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: models[0]!.modelId, models, runtime: 'ChatGPT' } }))
@@ -40,21 +40,28 @@ test('selects a real composer model and preserves it across send, reload, and re
   })
   await page.goto('/')
   const picker = page.getByRole('combobox', { name: 'Model', exact: true })
+  const effort = page.getByRole('combobox', { name: 'Reasoning effort', exact: true })
+  await expect(effort).toContainText('Medium')
   await expect(picker).toContainText('GPT-5.6 Sol')
   await picker.click()
   await page.getByRole('option', { name: 'GPT-5.4', exact: true }).click()
+  await effort.click()
+  await page.getByRole('option', { name: 'High', exact: true }).click()
   await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test the selected model')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
   await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'failed')
   expect(requests[0]?.model).toEqual(models[1])
+  expect(requests[0]).toMatchObject({ reasoningEffort: 'high' })
   await expect(picker).toContainText('GPT-5.4')
   await page.reload()
   await expect(picker).toContainText('GPT-5.4')
+  await expect(effort).toContainText('High')
   await picker.click()
   await page.getByRole('option', { name: 'GPT-5.6 Sol', exact: true }).click()
+  await expect(effort).toContainText('Medium')
   await page.getByRole('button', { name: 'Retry response', exact: true }).click()
   await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'complete')
-  expect(requests[1]).toMatchObject({ model: models[1], retry: true })
+  expect(requests[1]).toMatchObject({ model: models[1], reasoningEffort: 'high', retry: true })
   await expect(picker).toContainText('GPT-5.6 Sol')
 })
 

@@ -19,6 +19,7 @@ export function createChatGptSession() {
 export function createChatGptSubagentTool({
   getCredential,
   model,
+  reasoningEffort,
   request = globalThis.fetch,
   tools,
 }) {
@@ -41,6 +42,7 @@ export function createChatGptSubagentTool({
         input: task,
         instructions: subagentInstructions(role),
         model,
+        reasoningEffort,
         onEvent(event) {
           if (!transcript.onEvent(event)) return
           const activity = transcript.activity()
@@ -93,6 +95,7 @@ export async function runChatGptTurn({
   input,
   instructions = defaultInstructions,
   model,
+  reasoningEffort,
   onEvent = () => undefined,
   request = globalThis.fetch,
   session,
@@ -123,6 +126,7 @@ export async function runChatGptTurn({
         ...turnItems,
       ],
       model,
+      reasoningEffort,
       onEvent(event) {
         if (event.type === 'assistant-delta') {
           responseText.push(event.text)
@@ -235,6 +239,7 @@ async function requestResponse({
   getCredential,
   input,
   model,
+  reasoningEffort,
   onEvent,
   request,
   sessionId,
@@ -248,6 +253,7 @@ async function requestResponse({
     credential,
     input,
     model,
+    reasoningEffort,
     request,
     sessionId,
     signal,
@@ -260,6 +266,7 @@ async function requestResponse({
       credential,
       input,
       model,
+      reasoningEffort,
       request,
       sessionId,
       signal,
@@ -326,7 +333,7 @@ async function requestResponse({
   }
 }
 
-function send({ credential, input, model, request, sessionId, signal, threadId }) {
+function send({ credential, input, model, reasoningEffort, request, sessionId, signal, threadId }) {
   const headers = {
     Accept: 'text/event-stream',
     Authorization: `Bearer ${credential.accessToken}`,
@@ -348,7 +355,7 @@ function send({ credential, input, model, request, sessionId, signal, threadId }
       model,
       parallel_tool_calls: false,
       prompt_cache_key: threadId,
-      reasoning: { context: 'all_turns', effort: 'low', summary: 'auto' },
+      reasoning: { context: 'all_turns', ...(reasoningEffort ? { effort: reasoningEffort } : {}), summary: 'auto' },
       store: false,
       stream: true,
       text: { verbosity: 'low' },

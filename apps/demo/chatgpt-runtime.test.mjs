@@ -15,6 +15,19 @@ const credential = {
 }
 
 describe('runChatGptTurn', () => {
+  it('forwards selected effort through authentication refresh and to subagents', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockImplementation(async () => sseResponse([completed([messageOutput('Done.')])]))
+    const getCredential = vi.fn(async () => credential)
+    await runChatGptTurn({ getCredential, input: 'Think carefully', model: 'test', reasoningEffort: 'high', request, session: createChatGptSession(), sessionId: 'test', tools: {} })
+    const child = createChatGptSubagentTool({ getCredential, model: 'test', reasoningEffort: 'high', request, tools: {} })
+    await child.handler({ task: 'Review this', role: 'review' })
+    expect(request).toHaveBeenCalledTimes(3)
+    for (const call of request.mock.calls) expect(JSON.parse(call[1].body).reasoning.effort).toBe('high')
+    expect(getCredential).toHaveBeenCalledWith({ forceRefresh: true })
+  })
+
   it('keeps a failed request and partial reply for continue without leaking tool protocol items', async () => {
     const session = createChatGptSession()
     const request = vi.fn()

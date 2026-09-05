@@ -98,6 +98,7 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     const d = randomUUID()
     expect((await chat(d, 'invalid', false, cookie, { model: { modelId: 'made-up', providerId: 'anthropic' } })).status).toBe(400)
     expect((await chat(d, 'invalid', false, cookie, { model: { ...haiku, providerId: 'chatgpt' } })).status).toBe(400)
+    expect((await chat(d, 'invalid effort', false, cookie, { model: haiku, reasoningEffort: 'high' })).status).toBe(400)
     expect(await final(await chat(d, 'which model', false, cookie, { model: haiku }))).toBe('claude-haiku-4-5: which model')
     expect(await final(await chat(d, 'which model', true, cookie, { model: opus }))).toBe('claude-opus-4-6: which model / which model')
   } finally {

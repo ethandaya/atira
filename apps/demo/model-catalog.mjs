@@ -63,7 +63,16 @@ export class ModelCatalog {
         const modelId = kind === 'chatgpt' ? item?.slug : item?.id
         const label = kind === 'chatgpt' ? item?.display_name : item?.display_name ?? modelId
         if (typeof modelId !== 'string' || !modelId || typeof label !== 'string' || !label) continue
-        models.set(modelId, { modelId, label, providerId: kind })
+        const reasoningEfforts = kind === 'chatgpt' && Array.isArray(item.supported_reasoning_levels)
+          ? [...new Set(item.supported_reasoning_levels.map(level => level?.effort).filter(effort => typeof effort === 'string' && effort.length > 0))]
+          : []
+        models.set(modelId, {
+          modelId, label, providerId: kind,
+          ...(reasoningEfforts.length ? {
+            reasoningEfforts,
+            defaultReasoningEffort: reasoningEfforts.includes(item.default_reasoning_level) ? item.default_reasoning_level : reasoningEfforts[0],
+          } : {}),
+        })
       }
       if (kind !== 'anthropic' || body.has_more !== true) break
       if (typeof body.last_id !== 'string' || !body.last_id || cursors.has(body.last_id)) {
