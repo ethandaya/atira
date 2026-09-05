@@ -39,6 +39,8 @@ type StreamToolPresentation = Readonly<{
 
 type StreamEvent =
   | { type: 'started' }
+  | { type: 'provider-started' }
+  | { type: 'provider-retry'; attempt: number }
   | { text: string; type: 'assistant-delta' }
   | { text: string; type: 'assistant-message' }
   | { text: string; type: 'reasoning-delta' }
@@ -376,8 +378,19 @@ export class NanocodexChatStore implements ChatStore {
             state: { startedAt: now, status: 'running' },
             user: { ...current.user, delivery: { status: 'confirmed' } },
           }))
+          let providerBaseline: ChatMessage | undefined
           await readEvents(response, (event) => {
             if (event.type === 'started') return
+            if (event.type === 'provider-started') {
+              providerBaseline = this.#snapshot.turns.find(turn => turn.id === turnId)?.assistant[0]
+              this.#updateTurn(turnId, turn => ({ ...turn, state: { status: 'running', startedAt: now } }))
+              return
+            }
+            if (event.type === 'provider-retry') {
+              if (providerBaseline) this.#updateAssistant(turnId, assistantMessageId, () => providerBaseline!)
+              this.#updateTurn(turnId, turn => ({ ...turn, state: { status: 'retrying', attempt: event.attempt, error: chatError('Temporary provider failure.', true) } }))
+              return
+            }
             if (event.type === 'completed') {
               terminal = true
               this.#completeTurn(turnId, assistantMessageId, event, now)
@@ -641,7 +654,7 @@ function applyStreamEvent(
   message: ChatMessage,
   event: Exclude<
     StreamEvent,
-    { type: 'started' | 'completed' | 'cancelled' | 'error' }
+    { type: 'started' | 'completed' | 'cancelled' | 'error' | 'provider-started' | 'provider-retry' }
   >,
   startedAt: number,
 ) {
@@ -948,7 +961,8 @@ function parseEvent(line: string): StreamEvent | null {
     return null
   }
   if (!isRecord(value) || typeof value.type !== 'string') return null
-  if (value.type === 'started' || value.type === 'cancelled') return { type: value.type }
+  if (value.type === 'started' || value.type === 'cancelled' || value.type === 'provider-started') return { type: value.type }
+  if (value.type === 'provider-retry' && Number.isInteger(value.attempt) && (value.attempt as number) >= 2 && (value.attempt as number) <= 3) return { type: 'provider-retry', attempt: value.attempt as number }
   if (
     (value.type === 'assistant-delta' ||
       value.type === 'assistant-message' ||

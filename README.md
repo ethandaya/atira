@@ -23,6 +23,15 @@ uses Anthropic when `ANTHROPIC_API_KEY` is available and otherwise Nanocodex wit
 choose the fallback explicitly. The ChatGPT runtime can delegate bounded research,
 review, and planning tasks to isolated, non-recursive subagents.
 
+ChatGPT retries transient provider failures up to three attempts per request,
+with cancellable backoff (500ms, then 1s; provider Retry-After overrides, capped
+at 30s). Successful tool results are checkpointed in server memory. **Retry
+response** resumes the failed provider request or subagent checkpoint instead
+of rerunning completed searches or images. Partial output from a retried request
+is replaced, not appended twice. Invalid requests, cancellation, and step limits
+are not automatically retried. This execution recovery is ChatGPT-specific;
+checkpoints expire with their conversation and do not survive server restarts.
+
 The composer's **Model** picker selects the model for the next message without
 resetting conversation history. Selection persists with the draft; retries use
 the original turn's model, and ChatGPT subagents inherit that model. Options are

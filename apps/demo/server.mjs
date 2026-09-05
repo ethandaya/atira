@@ -434,13 +434,14 @@ async function streamChat(request, response) {
     return
   }
   // Retry replaces the failed attempt's safe fallback context, not its prompt.
-  if (previous?.id === turnId && session.history) {
+  if (previous?.id === turnId && session.history && session.kind !== 'chatgpt') {
     session.history.length = previous.historyStart
   }
   session.lastTurn = {
     id: turnId, input,
     model: previous?.id === turnId ? previous.model : model,
     reasoningEffort: previous?.id === turnId ? previous.reasoningEffort : reasoningEffort,
+    checkpoint: previous?.id === turnId ? previous.checkpoint : {},
     imageGeneration: runtime.imageGeneration && (previous?.id === turnId ? previous.imageGeneration : modelInfo.supportsImages === true),
     historyStart: session.history?.length,
   }
@@ -695,6 +696,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
       input,
       model: session.lastTurn.model,
       reasoningEffort: session.lastTurn.reasoningEffort,
+      checkpoint: session.lastTurn.checkpoint,
       onEvent: (event) => writeEvent(response, event),
       session,
       sessionId: id,
@@ -1014,6 +1016,8 @@ function selectFallbackRuntime() {
 function publicError(error) {
   const message = error instanceof Error ? error.message : String(error)
 
+  if (/agent step limit/.test(message)) return 'The agent reached its step limit. Start a narrower follow-up; retrying will not repeat completed work.'
+  if (/ChatGPT request failed with HTTP 5\d\d/.test(message)) return 'ChatGPT is temporarily unavailable. Automatic retries were exhausted; retry to resume from the failed request.'
   if (message.includes('session limit')) return message
   if (/sign in with ChatGPT|sign-in has expired/i.test(message)) return message
   if (/credit|billing|insufficient_quota/i.test(message)) {

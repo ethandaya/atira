@@ -15,6 +15,81 @@ const credential = {
 }
 
 describe('runChatGptTurn', () => {
+  it('retries only the failed provider request and resumes its checkpoint after exhaustion', async () => {
+    const tool = catalogTool()
+    const checkpoint = {}
+    const session = createChatGptSession()
+    const request = vi.fn()
+      .mockResolvedValueOnce(sseResponse([completed([{ type: 'function_call', call_id: 'saved', name: 'search_web', arguments: '{"query":"bike"}' }])]))
+      .mockImplementation(async () => new Response('', { status: 503, headers: { 'Retry-After': '0' } }))
+    const events = []
+    const options = { getCredential: async () => credential, input: 'Find a bike', model: 'test', request, session, sessionId: 'test', checkpoint, tools: { search_web: tool }, onEvent: event => events.push(event) }
+    await expect(runChatGptTurn(options)).rejects.toThrow('503')
+    expect(request).toHaveBeenCalledTimes(4)
+    expect(events.filter(event => event.type === 'provider-retry').map(event => event.attempt)).toEqual([2, 3])
+    expect(tool.handler).toHaveBeenCalledTimes(1)
+    request.mockImplementation(async () => sseResponse([completed([messageOutput('Found it.')])]))
+    events.length = 0
+    expect((await runChatGptTurn(options)).finalMessage).toBe('Found it.')
+    expect(tool.handler).toHaveBeenCalledTimes(1)
+    expect(request).toHaveBeenCalledTimes(5)
+    expect(JSON.parse(request.mock.calls[4][1].body).input).toContainEqual(expect.objectContaining({ type: 'function_call_output', call_id: 'saved' }))
+    expect(session.history.filter(item => item.role === 'user')).toHaveLength(1)
+    expect(events).toContainEqual(expect.objectContaining({ type: 'tool-completed', id: 'saved', status: 'succeeded' }))
+  })
+
+  it('resumes a failed child request without rerunning parent image generation or child searches', async () => {
+    const image = catalogTool()
+    const search = catalogTool()
+    const childRequest = vi.fn()
+      .mockResolvedValueOnce(sseResponse([completed([{ type: 'function_call', call_id: 'child-search', name: 'search_web', arguments: '{"query":"reference"}' }])]))
+      .mockImplementation(async () => new Response('', { status: 503, headers: { 'Retry-After': '0' } }))
+    const getCredential = async () => credential
+    const child = createChatGptSubagentTool({ getCredential, model: 'test', request: childRequest, tools: { search_web: search } })
+    const request = vi.fn()
+      .mockResolvedValueOnce(sseResponse([completed([
+        { type: 'function_call', call_id: 'image', name: 'generate_image', arguments: '{"query":"bike"}' },
+        { type: 'function_call', call_id: 'child', name: 'run_subagent', arguments: '{"task":"Research references","role":"research"}' },
+      ])]))
+      .mockImplementation(async () => sseResponse([completed([messageOutput('All done.')])]))
+    const checkpoint = {}
+    const options = { getCredential, input: 'Research and render', model: 'test', request, session: createChatGptSession(), sessionId: 'test', checkpoint, tools: { generate_image: image, run_subagent: child } }
+    await expect(runChatGptTurn(options)).rejects.toThrow('503')
+    const childId = checkpoint.executions.child.invocation.childSessionId
+    childRequest.mockImplementation(async () => sseResponse([completed([messageOutput('References ready.')])]))
+    expect((await runChatGptTurn(options)).finalMessage).toBe('All done.')
+    expect(image.handler).toHaveBeenCalledTimes(1)
+    expect(search.handler).toHaveBeenCalledTimes(1)
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(childRequest).toHaveBeenCalledTimes(5)
+    const task = checkpoint.events.findLast(event => event.id === 'child' && event.status === 'succeeded')
+    expect(task.childSessionId).toBe(childId)
+    expect(task.transcript.steps).toHaveLength(1)
+  })
+
+  it('discards partial failed-stream output and retries without duplicate text', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(sseResponse([{ type: 'response.output_text.delta', delta: 'Discard this' }]))
+      .mockResolvedValueOnce(sseResponse([{ type: 'response.output_text.delta', delta: 'Recovered' }, completed([messageOutput('Recovered')])]))
+    const checkpoint = {}
+    const result = await runChatGptTurn({ getCredential: async () => credential, input: 'Hello', model: 'test', request, session: createChatGptSession(), sessionId: 'test', checkpoint, tools: {} })
+    expect(result.finalMessage).toBe('Recovered')
+    expect(checkpoint.events).not.toContainEqual({ type: 'assistant-delta', text: 'Discard this' })
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry invalid requests or cancellation, including during backoff', async () => {
+    for (const status of [400, 403]) {
+      const request = vi.fn(async () => new Response('', { status }))
+      await expect(runChatGptTurn({ getCredential: async () => credential, input: 'Hello', model: 'test', request, session: createChatGptSession(), sessionId: 'test', tools: {} })).rejects.toThrow(String(status))
+      expect(request).toHaveBeenCalledTimes(1)
+    }
+    const controller = new AbortController()
+    const request = vi.fn(async () => new Response('', { status: 429, headers: { 'Retry-After': '10' } }))
+    await expect(runChatGptTurn({ getCredential: async () => credential, input: 'Hello', model: 'test', request, session: createChatGptSession(), sessionId: 'test', tools: {}, signal: controller.signal, onEvent: event => { if (event.type === 'provider-retry') controller.abort() } })).rejects.toMatchObject({ name: 'AbortError' })
+    expect(request).toHaveBeenCalledTimes(1)
+  })
+
   it('forwards selected effort through authentication refresh and to subagents', async () => {
     const request = vi.fn()
       .mockResolvedValueOnce(new Response('', { status: 401 }))

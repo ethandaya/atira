@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { setTimeout as delay } from 'node:timers/promises'
 
 const endpoint = 'https://chatgpt.com/backend-api/codex/responses'
 const maxAgentSteps = 4
@@ -31,7 +32,8 @@ export function createChatGptSubagentTool({
     formatInput: (value) => subagentTask(value),
     formatOutput: (value) =>
       isRecord(value) ? stringValue(value.result) || 'Subagent completed.' : 'Subagent completed.',
-    handler: async (input, { invocation, onProgress, signal } = {}) => {
+    resumable: true,
+    handler: async (input, { invocation, onProgress, signal, execution = {} } = {}) => {
       const task = subagentTask(input)
       if (!task) throw new Error('A subagent task is required.')
       const role = subagentRole(input)
@@ -44,6 +46,13 @@ export function createChatGptSubagentTool({
         model,
         reasoningEffort,
         onEvent(event) {
+          if (event.type === 'provider-retry') {
+            transcript.onEvent(event)
+            if (invocation) invocation.activity = { summary: `Retrying · attempt ${event.attempt} of 3` }
+            if (invocation) invocation.transcript = transcript.complete()
+            onProgress?.()
+            return
+          }
           if (!transcript.onEvent(event)) return
           const activity = transcript.activity()
           if (invocation && activity) invocation.activity = activity
@@ -51,7 +60,8 @@ export function createChatGptSubagentTool({
           onProgress?.()
         },
         request,
-        session: createChatGptSession(),
+        session: execution.session ??= createChatGptSession(),
+        checkpoint: execution.checkpoint ??= {},
         sessionId: childSessionId,
         signal,
         tools,
@@ -102,66 +112,93 @@ export async function runChatGptTurn({
   sessionId,
   signal,
   tools,
+  checkpoint = {},
 }) {
-  const turnItems = [messageItem('user', input)]
-  const historyStart = session.history.length
+  const resuming = Boolean(checkpoint.items)
+  const turnItems = checkpoint.items ??= [messageItem('user', input)]
+  const historyStart = checkpoint.historyStart ??= session.history.length
   // Preserve safe conversational context even if the provider stream fails.
-  // Tool protocol items remain attempt-local until the whole turn succeeds.
-  session.history.push(turnItems[0])
-  const responseText = []
+  // Tool protocol stays in the resumable checkpoint until the turn succeeds.
+  if (!resuming) session.history.push(turnItems[0])
+  const responseText = checkpoint.text ??= []
+  const events = checkpoint.events ??= []
+  if (resuming) for (const event of events) onEvent(event)
+  const emit = event => { events.push(structuredClone(event)); onEvent(event) }
   const preservePartial = () => {
     const text = responseText.join('').trim()
     if (text) session.history[historyStart + 1] = assistantMessageItem(`${text}\n\n[This response is incomplete.]`)
   }
-  let inputTokens = 0
-  let outputTokens = 0
+  checkpoint.inputTokens ??= 0
+  checkpoint.outputTokens ??= 0
   let completed = false
 
-  for (let step = 0; step < maxAgentSteps; step += 1) {
-    const result = await requestResponse({
-      getCredential,
-      input: [
-        ...requestPrefix(tools, session.prefixIds, instructions),
-        ...session.history.slice(0, historyStart),
-        ...turnItems,
-      ],
-      model,
-      reasoningEffort,
-      onEvent(event) {
-        if (event.type === 'assistant-delta') {
-          responseText.push(event.text)
-          preservePartial()
+  for (let step = checkpoint.step ?? 0; step < maxAgentSteps; step += 1) {
+    checkpoint.step = step
+    if (!checkpoint.calls) {
+      const textStart = responseText.length
+      const eventStart = events.length
+      let result
+      for (let attempt = 1; ; attempt++) {
+        emit({ type: 'provider-started' })
+        try {
+          result = await requestResponse({
+            getCredential,
+            input: [
+              ...requestPrefix(tools, session.prefixIds, instructions),
+              ...session.history.slice(0, historyStart),
+              ...turnItems,
+            ],
+            model,
+            reasoningEffort,
+            onEvent(event) {
+              if (event.type === 'assistant-delta') {
+                responseText.push(event.text)
+                preservePartial()
+              }
+              emit(event)
+            },
+            request,
+            sessionId,
+            signal,
+            threadId: session.threadId,
+          })
+          break
+        } catch (error) {
+          responseText.length = textStart
+          events.length = eventStart
+          if (signal?.aborted || !isTransientProviderError(error) || attempt >= 3) throw error
+          onEvent({ type: 'provider-retry', attempt: attempt + 1 })
+          await delay(Math.min(error.retryAfterMs ?? 500 * 2 ** (attempt - 1), 30000), undefined, { signal })
         }
-        onEvent(event)
-      },
-      request,
-      sessionId,
-      signal,
-      threadId: session.threadId,
-    })
+      }
 
-    const output = result.output
-    turnItems.push(...output)
-    inputTokens += result.usage.inputTokens
-    outputTokens += result.usage.outputTokens
-    if (result.text && !result.streamed) responseText.push(result.text)
-    preservePartial()
+      const output = result.output
+      turnItems.push(...output)
+      checkpoint.inputTokens += result.usage.inputTokens
+      checkpoint.outputTokens += result.usage.outputTokens
+      if (result.text && !result.streamed) responseText.push(result.text)
+      preservePartial()
 
-    const calls = output.filter((item) => isRecord(item) && item.type === 'function_call')
-    if (calls.length === 0) {
-      completed = true
-      break
+      checkpoint.calls = output.filter((item) => isRecord(item) && item.type === 'function_call')
+      checkpoint.callIndex = 0
+      checkpoint.executions = {}
+      if (checkpoint.calls.length === 0) {
+        completed = true
+        break
+      }
     }
 
-    for (const call of calls) {
+    for (; checkpoint.callIndex < checkpoint.calls.length; checkpoint.callIndex++) {
+      const call = checkpoint.calls[checkpoint.callIndex]
       const toolName = stringValue(call.name)
       const callId = stringValue(call.call_id)
       const tool = tools[toolName]
       const args = parseArguments(call.arguments)
       const id = callId || stringValue(call.id) || `call-${step}`
       const inputLabel = tool?.formatInput?.(args) || stringValue(call.arguments)
-      const invocation = tool?.invocation?.(args, { id })
-      onEvent({
+      const execution = checkpoint.executions[id] ??= {}
+      const invocation = execution.invocation ??= tool?.invocation?.(args, { id })
+      emit({
         id,
         input: inputLabel,
         ...invocation,
@@ -174,8 +211,9 @@ export async function runChatGptTurn({
         if (!tool || !callId) throw new Error('The requested tool is unavailable.')
         const value = await tool.handler(args, {
           invocation,
+          execution,
           onProgress: () =>
-            onEvent({
+            emit({
               id,
               ...invocation,
               summary: tool.startedSummary || `Running ${toolName}`,
@@ -189,7 +227,7 @@ export async function runChatGptTurn({
           output: tool.modelOutput?.(value) ?? JSON.stringify(value),
           type: 'function_call_output',
         })
-        onEvent({
+        emit({
           id,
           ...invocation,
           output: tool.formatOutput?.(value) || 'Tool completed.',
@@ -207,7 +245,7 @@ export async function runChatGptTurn({
             type: 'function_call_output',
           })
         }
-        onEvent({
+        emit({
           error: message,
           id,
           ...invocation,
@@ -216,8 +254,14 @@ export async function runChatGptTurn({
           tool: toolName || 'unknown',
           type: 'tool-completed',
         })
+        if (tool?.resumable) {
+          if (callId) turnItems.pop()
+          throw error
+        }
       }
     }
+    checkpoint.calls = undefined
+    checkpoint.step = step + 1
   }
 
   if (!completed) throw new Error('ChatGPT exceeded the agent step limit.')
@@ -229,10 +273,18 @@ export async function runChatGptTurn({
   return {
     finalMessage,
     usage: {
-      output_tokens: outputTokens,
-      total_tokens: inputTokens + outputTokens,
+      output_tokens: checkpoint.outputTokens,
+      total_tokens: checkpoint.inputTokens + checkpoint.outputTokens,
     },
   }
+}
+
+function isTransientProviderError(error) {
+  return error?.name !== 'AbortError' && (
+    error?.transient === true || error?.status === 429 || error?.status >= 500 ||
+    (error instanceof TypeError && /fetch|network|terminated/i.test(error.message)) ||
+    ['ECONNRESET', 'ETIMEDOUT', 'EPIPE'].includes(error?.cause?.code)
+  )
 }
 
 async function requestResponse({
@@ -276,7 +328,12 @@ async function requestResponse({
 
   if (!response.ok) {
     await response.body?.cancel().catch(() => {})
-    throw new Error(`ChatGPT request failed with HTTP ${response.status}.`)
+    const error = new Error(`ChatGPT request failed with HTTP ${response.status}.`)
+    error.status = response.status
+    const retryAfter = response.headers.get('retry-after')
+    const retryAfterMs = retryAfter && (Number.isFinite(Number(retryAfter)) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now())
+    if (Number.isFinite(retryAfterMs)) error.retryAfterMs = Math.max(0, retryAfterMs)
+    throw error
   }
 
   const outputItems = []
@@ -310,11 +367,12 @@ async function requestResponse({
       event.type === 'response.incomplete' ||
       event.type === 'error'
     ) {
-      throw new Error(responseEventError(event))
+      const code = event.error?.code ?? event.response?.error?.code
+      throw Object.assign(new Error(responseEventError(event)), { transient: ['server_error', 'rate_limit_exceeded'].includes(code) })
     }
   })
 
-  if (!completedResponse) throw new Error('The ChatGPT response stream ended early.')
+  if (!completedResponse) throw Object.assign(new Error('The ChatGPT response stream ended early.'), { transient: true })
   const output = Array.isArray(completedResponse.output) && completedResponse.output.length > 0
     ? completedResponse.output
     : outputItems.length > 0
@@ -413,6 +471,7 @@ function createTaskTranscript() {
   let currentActivity
   let reasoning = ''
   let response = ''
+  let baseline = { reasoning, response }
   const steps = []
   const stepsById = new Map()
 
@@ -429,6 +488,8 @@ function createTaskTranscript() {
     },
     onEvent(event) {
       if (!isRecord(event)) return
+      if (event.type === 'provider-started') { baseline = { reasoning, response }; return false }
+      if (event.type === 'provider-retry') { ({ reasoning, response } = baseline); return true }
       if (event.type === 'reasoning-delta') {
         reasoning += stringValue(event.text)
         currentActivity = {
@@ -499,20 +560,24 @@ async function readSse(response, onEvent) {
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    buffer += decoder.decode(value, { stream: !done })
-    let boundary = eventBoundary(buffer)
-    while (boundary) {
-      const block = buffer.slice(0, boundary.index)
-      buffer = buffer.slice(boundary.index + boundary.length)
-      dispatchSseBlock(block, onEvent)
-      boundary = eventBoundary(buffer)
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      buffer += decoder.decode(value, { stream: !done })
+      let boundary = eventBoundary(buffer)
+      while (boundary) {
+        const block = buffer.slice(0, boundary.index)
+        buffer = buffer.slice(boundary.index + boundary.length)
+        dispatchSseBlock(block, onEvent)
+        boundary = eventBoundary(buffer)
+      }
+      if (done) break
     }
-    if (done) break
+    if (buffer.trim()) dispatchSseBlock(buffer, onEvent)
+  } finally {
+    await reader.cancel().catch(() => {})
+    reader.releaseLock()
   }
-
-  if (buffer.trim()) dispatchSseBlock(buffer, onEvent)
 }
 
 function eventBoundary(value) {
