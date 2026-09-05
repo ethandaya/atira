@@ -101,7 +101,15 @@ export async function runChatGptTurn({
   tools,
 }) {
   const turnItems = [messageItem('user', input)]
+  const historyStart = session.history.length
+  // Preserve safe conversational context even if the provider stream fails.
+  // Tool protocol items remain attempt-local until the whole turn succeeds.
+  session.history.push(turnItems[0])
   const responseText = []
+  const preservePartial = () => {
+    const text = responseText.join('').trim()
+    if (text) session.history[historyStart + 1] = assistantMessageItem(`${text}\n\n[This response is incomplete.]`)
+  }
   let inputTokens = 0
   let outputTokens = 0
   let completed = false
@@ -111,12 +119,15 @@ export async function runChatGptTurn({
       getCredential,
       input: [
         ...requestPrefix(tools, session.prefixIds, instructions),
-        ...session.history,
+        ...session.history.slice(0, historyStart),
         ...turnItems,
       ],
       model,
       onEvent(event) {
-        if (event.type === 'assistant-delta') responseText.push(event.text)
+        if (event.type === 'assistant-delta') {
+          responseText.push(event.text)
+          preservePartial()
+        }
         onEvent(event)
       },
       request,
@@ -130,6 +141,7 @@ export async function runChatGptTurn({
     inputTokens += result.usage.inputTokens
     outputTokens += result.usage.outputTokens
     if (result.text && !result.streamed) responseText.push(result.text)
+    preservePartial()
 
     const calls = output.filter((item) => isRecord(item) && item.type === 'function_call')
     if (calls.length === 0) {
@@ -208,7 +220,7 @@ export async function runChatGptTurn({
 
   const finalMessage = responseText.join('').trim()
   if (!finalMessage) throw new Error('ChatGPT returned no readable response.')
-  session.history.push(...turnItems)
+  session.history.splice(historyStart, session.history.length - historyStart, ...turnItems)
 
   return {
     finalMessage,

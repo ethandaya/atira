@@ -17,6 +17,8 @@ export async function runAnthropicTurn({
   }
 
   const messages = [...history, { content: input, role: 'user' }]
+  const historyStart = history.length
+  history.push({ content: input, role: 'user' })
   const responseText = []
   const sources = []
   let inputTokens = 0
@@ -70,6 +72,10 @@ export async function runAnthropicTurn({
 
       if (block.type === 'text' && typeof block.text === 'string') {
         responseText.push(block.text)
+        history[historyStart + 1] = {
+          content: `${responseText.join('\n')}\n\n[This response is incomplete.]`,
+          role: 'assistant',
+        }
         continue
       }
 
@@ -184,7 +190,7 @@ export async function runAnthropicTurn({
   return {
     finalMessage,
     history: [
-      ...history,
+      ...history.slice(0, historyStart),
       { content: input, role: 'user' },
       { content: finalMessage, role: 'assistant' },
     ],

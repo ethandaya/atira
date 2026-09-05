@@ -21,6 +21,7 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
       const { messages } = JSON.parse(options.body);
       const inputs = messages.filter(m => m.role === 'user').map(m => m.content);
       if (inputs.at(-1) === 'retry me' && !failedOnce) { failedOnce = true; throw new Error('network error'); }
+      if (inputs.at(-1) === 'find bike parts') throw new Error('network error');
       if (inputs.at(-1) === 'wait') await delay(10000, undefined, { signal: options.signal });
       return Response.json({ content: [{ type: 'text', text: inputs.join(' / ') }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } });
     };
@@ -72,16 +73,19 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     const expired = await chat(a, 'resume without context', true)
     expect(expired.status).toBe(409)
     expect((await expired.json()).error).toContain('expired or changed')
-    expect(await final(await chat(b, 'still here', true))).toBe('beta / still here')
+    expect(await final(await chat(b, 'still here', true))).toBe('beta / wait / still here')
     const turnId = randomUUID()
     expect(await (await chat(b, 'retry me', true, cookie, { turnId })).text()).toContain('"error"')
     const recovered = await final(await chat(b, 'retry me', true, cookie, { turnId, retry: true }))
-    expect(recovered).toBe('beta / still here / retry me')
+    expect(recovered).toBe('beta / wait / still here / retry me')
     // If completion was lost in transit, retry replays it instead of calling tools again.
     expect(await final(await chat(b, 'retry me', true, cookie, { turnId, retry: true }))).toBe(recovered)
     expect((await chat(b, 'different input', true, cookie, { turnId, retry: true })).status).toBe(409)
-    expect(await final(await chat(b, 'next', true))).toBe('beta / still here / retry me / next')
+    expect(await final(await chat(b, 'next', true))).toBe('beta / wait / still here / retry me / next')
     expect((await chat(b, 'retry me', true, cookie, { turnId, retry: true })).status).toBe(409)
+    const c = randomUUID()
+    expect(await (await chat(c, 'find bike parts')).text()).toContain('"error"')
+    expect(await final(await chat(c, 'continue', true))).toBe('find bike parts / continue')
   } finally {
     if (child.exitCode === null) {
       const exited = once(child, 'exit')

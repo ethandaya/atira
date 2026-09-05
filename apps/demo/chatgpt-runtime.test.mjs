@@ -15,6 +15,31 @@ const credential = {
 }
 
 describe('runChatGptTurn', () => {
+  it('keeps a failed request and partial reply for continue without leaking tool protocol items', async () => {
+    const session = createChatGptSession()
+    const request = vi.fn()
+      .mockResolvedValueOnce(sseResponse([completed([
+        { type: 'function_call', call_id: 'catalog-call', name: 'inspect_component_catalog', arguments: '{"query":"bike"}' },
+      ])]))
+      .mockResolvedValueOnce(sseResponse([
+        { type: 'response.output_text.delta', delta: 'I found a possible supplier.' },
+        { type: 'error', error: { message: 'network error' } },
+      ]))
+      .mockResolvedValueOnce(sseResponse([completed([messageOutput('Continuing the bike search.')])]))
+    const options = { getCredential: async () => credential, model: 'test', request, session, sessionId: 'test-session', tools: { inspect_component_catalog: catalogTool() } }
+    await expect(runChatGptTurn({ ...options, input: 'Find bike parts shipping to Brooklyn' })).rejects.toThrow('network error')
+    expect(session.history).toEqual([
+      expect.objectContaining({ role: 'user', content: [{ type: 'input_text', text: 'Find bike parts shipping to Brooklyn' }] }),
+      expect.objectContaining({ role: 'assistant', content: [{ type: 'output_text', text: 'I found a possible supplier.\n\n[This response is incomplete.]' }] }),
+    ])
+    await runChatGptTurn({ ...options, input: 'continue' })
+    const sent = JSON.parse(request.mock.calls[2][1].body).input
+    expect(sent.filter(item => item.role === 'user').map(item => item.content[0].text))
+      .toEqual(['Find bike parts shipping to Brooklyn', 'continue'])
+    expect(sent.some(item => item.type === 'function_call' || item.type === 'function_call_output')).toBe(false)
+    expect(session.history.filter(item => item.role === 'user')).toHaveLength(2)
+  })
+
   it('publishes partial child transcripts before a network failure', async () => {
     const request = vi.fn(async () => sseResponse([
       { type: 'response.reasoning_summary_text.delta', delta: 'Checking ' },

@@ -388,7 +388,11 @@ async function streamChat(request, response) {
     session.lastUsed = Date.now()
     return
   }
-  session.lastTurn = { id: turnId, input }
+  // Retry replaces the failed attempt's safe fallback context, not its prompt.
+  if (previous?.id === turnId && session.history) {
+    session.history.length = previous.historyStart
+  }
+  session.lastTurn = { id: turnId, input, historyStart: session.history?.length }
 
   const control = {
     cancelRequested: false,
