@@ -77,6 +77,7 @@ export function Timeline({
   const initialized = useRef(false)
   const [follow, setFollow] = useState<FollowState>({ status: 'following' })
   const followRef = useRef<FollowState>(follow)
+  const [hasContentBelow, setHasContentBelow] = useState(false)
   const [measurementVersion, setMeasurementVersion] = useState(0)
   const [windowRange, setWindowRange] = useState<WindowRange>({
     end: 0,
@@ -166,6 +167,7 @@ export function Timeline({
       if (followRef.current.status === 'following' && !pendingAnchor.current) {
         viewport.scrollTop = viewport.scrollHeight
       }
+      setHasContentBelow(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight >= 48)
     })
     observer.observe(viewport)
     observer.observe(measure)
@@ -235,6 +237,7 @@ export function Timeline({
     const viewport = event.currentTarget
     const atBottom =
       viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 48
+    setHasContentBelow(!atBottom)
 
     if (atBottom && follow.status !== 'following') {
       changeFollow({ status: 'following' })
@@ -318,7 +321,7 @@ export function Timeline({
           )}
         </div>
       </div>
-      {follow.status === 'detached' && (
+      {follow.status === 'detached' && hasContentBelow && (
         <JumpToLatest
           onJump={jumpToLatest}
           pendingCount={follow.pendingCount}

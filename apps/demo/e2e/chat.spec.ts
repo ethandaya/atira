@@ -514,6 +514,22 @@ test('selects every built-in tool renderer and the generic fallback', async ({ p
   )
 })
 
+test('only offers jump to latest when detached content extends below the viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 16000 })
+  await page.goto('/?fixture=workflow')
+  const trigger = page.locator('[data-renderer="task"]').getByRole('button', { name: /Review agent · Review the chat surface/ })
+  await trigger.click()
+  await settleLayout(page)
+  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute('data-follow-state', 'detached')
+  expect(await page.locator(viewport).evaluate(element => element.scrollHeight - element.clientHeight)).toBe(0)
+  await expect(page.getByRole('button', { name: /Jump to latest/ })).toHaveCount(0)
+
+  await page.setViewportSize({ width: 1100, height: 720 })
+  await expect(page.getByRole('button', { name: /Jump to latest/ })).toBeVisible()
+  await page.setViewportSize({ width: 1100, height: 16000 })
+  await expect(page.getByRole('button', { name: /Jump to latest/ })).toHaveCount(0)
+})
+
 test('renders a readable subagent transcript with markdown', async ({ page }) => {
   await page.goto('/?fixture=workflow')
   const task = page.locator('[data-renderer="task"]')
