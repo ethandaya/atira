@@ -15,7 +15,7 @@ import type {
   ComponentPropsWithRef,
   JSX,
 } from 'react'
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 
 type NativeDivProps = Omit<
   ComponentPropsWithRef<'div'>,
@@ -302,12 +302,33 @@ function Table({
   style: _style,
   ...props
 }: ElementProps<'table'>) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [edges, setEdges] = useState({ start: false, end: false })
+  useEffect(() => {
+    const element = ref.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const offset = Math.abs(element.scrollLeft)
+      const start = offset > 1
+      const end = element.scrollWidth - element.clientWidth - offset > 1
+      setEdges(previous => previous.start === start && previous.end === end ? previous : { start, end })
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    if (element.firstElementChild) observer.observe(element.firstElementChild)
+    element.addEventListener('scroll', measure, { passive: true })
+    measure()
+    return () => { observer.disconnect(); element.removeEventListener('scroll', measure) }
+  }, [])
   return (
     <div
       aria-label="Scrollable table"
+      ref={ref}
       role="region"
       tabIndex={0}
-      {...stylex.props(styles.tableScroller)}
+      data-overflow-start={edges.start || undefined}
+      data-overflow-end={edges.end || undefined}
+      {...stylex.props(styles.tableScroller, edges.start && styles.tableFadeStart, edges.end && styles.tableFadeEnd, edges.start && edges.end && styles.tableFadeBoth)}
     >
       <table {...props} {...stylex.props(styles.table)} />
     </div>
@@ -482,10 +503,7 @@ const styles = stylex.create({
     whiteSpace: 'pre',
   },
   tableScroller: {
-    borderColor: colors.border,
-    borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: '1px',
+    borderRadius: radii.inset,
     maxInlineSize: '100%',
     outlineColor: {
       default: 'transparent',
@@ -495,27 +513,51 @@ const styles = stylex.create({
     outlineStyle: 'solid',
     outlineWidth: '3px',
     overflowX: 'auto',
+    paddingBlockEnd: space.x2,
+    scrollbarWidth: 'thin',
+    scrollbarColor: `${colors.border} transparent`,
   },
   table: {
     borderCollapse: 'collapse',
     fontVariantNumeric: 'tabular-nums',
     inlineSize: '100%',
+    lineHeight: 1.5,
+    overflowWrap: 'normal',
+  },
+  tableFadeStart: {
+    maskImage: {
+      default: 'linear-gradient(to right, transparent, black 20px)',
+      ':dir(rtl)': 'linear-gradient(to left, transparent, black 20px)',
+    },
+  },
+  tableFadeEnd: {
+    maskImage: {
+      default: 'linear-gradient(to left, transparent, black 20px)',
+      ':dir(rtl)': 'linear-gradient(to right, transparent, black 20px)',
+    },
+  },
+  tableFadeBoth: {
+    maskImage: 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)',
   },
   tableHead: {
-    backgroundColor: colors.surfaceInset,
+    backgroundColor: colors.surfaceMuted,
   },
   tableCell: {
     borderBlockEndColor: colors.border,
     borderBlockEndStyle: 'solid',
     borderBlockEndWidth: '1px',
-    paddingBlock: space.x2,
+    minInlineSize: '10rem',
+    maxInlineSize: '24rem',
+    overflowWrap: 'break-word',
+    paddingBlock: space.x3,
     paddingInline: space.x3,
     textAlign: 'start',
     verticalAlign: 'top',
   },
   tableHeader: {
     fontSize: type.sizeSmall,
-    fontWeight: type.weightStrong,
+    fontWeight: type.weightMedium,
+    color: colors.textMuted,
   },
   rule: {
     borderBlockEndWidth: 0,
