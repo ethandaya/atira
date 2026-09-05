@@ -1016,7 +1016,7 @@ function selectFallbackRuntime() {
 function publicError(error) {
   const message = error instanceof Error ? error.message : String(error)
 
-  if (/agent step limit/.test(message)) return 'The agent reached its step limit. Start a narrower follow-up; retrying will not repeat completed work.'
+  if (/time-budget summary/.test(message)) return 'Research is saved, but ChatGPT did not provide the requested summary. Retry to request the summary again.'
   if (/ChatGPT request failed with HTTP 5\d\d/.test(message)) return 'ChatGPT is temporarily unavailable. Automatic retries were exhausted; retry to resume from the failed request.'
   if (message.includes('session limit')) return message
   if (/sign in with ChatGPT|sign-in has expired/i.test(message)) return message

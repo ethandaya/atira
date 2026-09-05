@@ -15,6 +15,47 @@ const credential = {
 }
 
 describe('runChatGptTurn', () => {
+  it('allows research beyond four tool rounds before answering', async () => {
+    const tool = catalogTool()
+    let round = 0
+    const request = vi.fn(async () => sseResponse([completed(++round <= 7
+      ? [{ type: 'function_call', call_id: `search-${round}`, name: 'search_web', arguments: '{"query":"bike"}' }]
+      : [messageOutput('Here are the researched alternatives.')])]))
+    const result = await runChatGptTurn({ getCredential: async () => credential, input: 'Find alternatives', model: 'test', request, session: createChatGptSession(), sessionId: 'test', tools: { search_web: tool } })
+    expect(result.finalMessage).toBe('Here are the researched alternatives.')
+    expect(tool.handler).toHaveBeenCalledTimes(7)
+    expect(request).toHaveBeenCalledTimes(8)
+  })
+
+  it('uses collected tool results in an answer-only pass when the time budget expires', async () => {
+    let clock = 0
+    const tool = catalogTool()
+    tool.handler.mockImplementation(async () => { clock = 100; return { matches: [{ name: 'Evidence' }] } })
+    const request = vi.fn()
+      .mockResolvedValueOnce(sseResponse([completed([{ type: 'function_call', call_id: 'search', name: 'search_web', arguments: '{"query":"bike"}' }])]))
+      .mockResolvedValueOnce(sseResponse([completed([messageOutput('Based on the evidence collected…')])]))
+    const checkpoint = {}
+    const result = await runChatGptTurn({ getCredential: async () => credential, input: 'Research', model: 'test', request, session: createChatGptSession(), sessionId: 'test', checkpoint, tools: { search_web: tool }, now: () => clock, budgetMs: 100 })
+    expect(result.finalMessage).toBe('Based on the evidence collected…')
+    const finalInput = JSON.parse(request.mock.calls[1][1].body).input
+    expect(finalInput[0].tools).toEqual([])
+    expect(finalInput).toContainEqual(expect.objectContaining({ type: 'function_call_output', call_id: 'search' }))
+    expect(finalInput.at(-1).content[0].text).toContain('Give your best final answer')
+    expect(checkpoint.deadline).toBe(100)
+    expect(tool.handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('never executes extra tools from a rejected summary, even when retried', async () => {
+    const tool = catalogTool()
+    const checkpoint = {}
+    const request = vi.fn(async () => sseResponse([completed([{ type: 'function_call', call_id: 'extra', name: 'search_web', arguments: '{"query":"more"}' }])]))
+    const options = { getCredential: async () => credential, input: 'Research', model: 'test', request, session: createChatGptSession(), sessionId: 'test', checkpoint, tools: { search_web: tool }, budgetMs: 0 }
+    await expect(runChatGptTurn(options)).rejects.toThrow('time-budget summary')
+    await expect(runChatGptTurn(options)).rejects.toThrow('time-budget summary')
+    expect(tool.handler).not.toHaveBeenCalled()
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
   it('retries only the failed provider request and resumes its checkpoint after exhaustion', async () => {
     const tool = catalogTool()
     const checkpoint = {}

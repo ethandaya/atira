@@ -28,9 +28,15 @@ with cancellable backoff (500ms, then 1s; provider Retry-After overrides, capped
 at 30s). Successful tool results are checkpointed in server memory. **Retry
 response** resumes the failed provider request or subagent checkpoint instead
 of rerunning completed searches or images. Partial output from a retried request
-is replaced, not appended twice. Invalid requests, cancellation, and step limits
+is replaced, not appended twice. Invalid requests and cancellation
 are not automatically retried. This execution recovery is ChatGPT-specific;
 checkpoints expire with their conversation and do not survive server restarts.
+
+ChatGPT has no fixed tool-round limit. A soft research budget of 15 minutes for
+the main run and 5 minutes per subagent is checked between provider rounds.
+Once reached, the next request is answer-only, using collected results without
+offering tools. In-flight work is allowed to finish; **Stop** cancels immediately.
+The checkpoint retains its deadline across retries rather than restarting its budget.
 
 The composer's **Model** picker selects the model for the next message without
 resetting conversation history. Selection persists with the draft; retries use
