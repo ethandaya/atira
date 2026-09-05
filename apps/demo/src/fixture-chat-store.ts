@@ -543,6 +543,7 @@ export class FixtureChatStore implements ChatStore {
 
   updateDraft(draft: ComposerDraft) {
     this.#snapshot = { ...this.#snapshot, composer: draft }
+    for (const listener of this.#listeners) listener()
     this.#commit()
   }
 

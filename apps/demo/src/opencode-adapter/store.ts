@@ -555,6 +555,7 @@ export class OpenCodeChatStore implements ChatStore {
     this.#composer = draft
     this.#failedSubmission = undefined
     this.#commit()
+    for (const listener of this.#listeners) listener()
   }
 
   updateQueue(queue: readonly QueuedPrompt[]) {

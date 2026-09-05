@@ -430,6 +430,8 @@ export class NanocodexChatStore implements ChatStore {
     this.#failedDraft = undefined
     const { submissionError: _submissionError, ...snapshot } = this.#snapshot
     this.#snapshot = { ...snapshot, composer: draft }
+    // Controlled input edits must reach React before it restores the DOM value.
+    for (const listener of this.#listeners) listener()
     this.#commit()
   }
 

@@ -3,6 +3,29 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+for (const fixture of [false, true]) {
+  test(`keeps every typed character and the caret during mid-prompt edits (${fixture ? 'fixture' : 'live store'})`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test' } }))
+    await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
+    await page.goto(fixture ? '/?fixture=workflow' : '/')
+    const editor = page.getByRole('textbox', { name: 'Message', exact: true })
+    const text = 'Render a black bicycle with raised handlebars and gravel wheels. Use a plain background and photorealistic lighting.'
+    await editor.click()
+    await editor.pressSequentially(text, { delay: 2 })
+    await expect(editor).toHaveValue(text)
+    await editor.evaluate(element => element.setSelectionRange(9, 9))
+    await expect.poll(() => editor.evaluate(element => element.selectionStart)).toBe(9)
+    await editor.pressSequentially('beautiful ', { delay: 2 })
+    const edited = text.slice(0, 9) + 'beautiful ' + text.slice(9)
+    await expect(editor).toHaveValue(edited)
+    expect(await editor.evaluate(element => element.selectionStart)).toBe(19)
+    await editor.press('Enter')
+    await editor.pressSequentially('Next line', { delay: 2 })
+    await expect(editor).toHaveValue(edited.slice(0, 19) + '\nNext line' + edited.slice(19))
+  })
+}
+
 test('shows discovery failure instead of invented models and recovers on refresh', async ({ page }) => {
   let available = false
   const message = 'Could not load available models from your provider. Refresh to try again.'
