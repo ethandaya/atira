@@ -42,7 +42,9 @@ export function Turn({
   const assistant = turn.assistant.filter((message) =>
     message.parts.some(isRenderableAssistantPart),
   )
-  const hasAssistantContent = assistant.length > 0
+  const hasActiveAssistantIndicator = turn.assistant.some((message) =>
+    message.parts.some(isActiveAssistantIndicator),
+  )
 
   return (
     <li
@@ -100,7 +102,11 @@ export function Turn({
               />
             </section>
           ))}
-          {(!active || !hasAssistantContent) && <TurnStatus state={turn.state} />}
+          {assistant.length > 0 ? (
+            <div {...stylex.props(styles.pendingSlot)}>
+              {(!active || !hasActiveAssistantIndicator) && <TurnStatus state={turn.state} compact />}
+            </div>
+          ) : <TurnStatus state={turn.state} />}
         </div>
 
         {actions && (
@@ -115,7 +121,7 @@ export function Turn({
   )
 }
 
-export function TurnStatus({ state }: { state: TurnState }) {
+export function TurnStatus({ state, compact = false }: { state: TurnState; compact?: boolean }) {
   const label = turnStateLabel(state)
   const active =
     state.status === 'queued' ||
@@ -134,6 +140,7 @@ export function TurnStatus({ state }: { state: TurnState }) {
       {...stylex.props(
         styles.status,
         active && styles.statusActive,
+        active && compact && styles.statusCompact,
         state.status === 'failed' && styles.statusDanger,
       )}
     >
@@ -152,7 +159,7 @@ function turnStateLabel(state: TurnState) {
     case 'queued':
       return 'Queued'
     case 'running':
-      return 'Thinking'
+      return 'Working'
     case 'retrying':
       return `Retrying · attempt ${state.attempt}`
     case 'complete':
@@ -171,6 +178,18 @@ function isRenderableAssistantPart(
   if (part.type === 'tool') return part.presentation.kind !== 'todo'
   if (part.type === 'reasoning') return true
   return true
+}
+
+function isActiveAssistantIndicator(
+  part: ChatTurn['assistant'][number]['parts'][number],
+) {
+  if (part.type === 'reasoning') return part.state.status === 'streaming'
+  if (part.type !== 'tool' || part.presentation.kind === 'todo') return false
+  return (
+    part.state.status === 'receiving-input' ||
+    part.state.status === 'queued' ||
+    part.state.status === 'running'
+  )
 }
 
 const fadeIn = stylex.keyframes({
@@ -288,6 +307,15 @@ const styles = stylex.create({
   statusEnd: {
     blockSize: '1rem',
     inlineSize: '1rem',
+  },
+  pendingSlot: {
+    minBlockSize: '2rem',
+  },
+  statusCompact: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    minBlockSize: '2rem',
+    padding: 0,
   },
   statusDanger: {
     color: colors.danger,

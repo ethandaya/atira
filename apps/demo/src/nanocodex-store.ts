@@ -182,11 +182,7 @@ export class NanocodexChatStore implements ChatStore {
       ...snapshot,
       sessionId: conversation.id,
       composer: conversation.composer,
-      turns: conversation.turns.map((turn) =>
-        ['queued', 'running', 'retrying'].includes(turn.state.status)
-          ? { ...turn, state: { status: 'interrupted', startedAt: turn.user.createdAt, endedAt: Date.now(), reason: 'The page closed before this response finished.' }, assistant: turn.assistant.map((message) => settleAssistantParts(message, { status: 'interrupted' })) }
-          : turn,
-      ),
+      turns: conversation.turns,
     }
   }
 
@@ -263,6 +259,11 @@ export class NanocodexChatStore implements ChatStore {
       ?? models.find(model => model.modelId === defaultModel) ?? models[0]
     if (selected) this.#snapshot = { ...this.#snapshot, composer: { ...this.#snapshot.composer, model: selected } }
     this.#commit()
+    const pending = this.#snapshot.turns.at(-1)
+    if (pending && ['queued', 'running', 'retrying'].includes(pending.state.status)) {
+      const input = pending.user.parts.filter(part => part.type === 'text').map(part => part.markdown).join('\n')
+      await this.#send(createDraft(input), pending, true)
+    }
   }
 
   dispose() {
@@ -287,7 +288,7 @@ export class NanocodexChatStore implements ChatStore {
     await this.#send(createDraft(input), turn)
   }
 
-  async #send(draft: ComposerDraft, retry?: ChatTurn) {
+  async #send(draft: ComposerDraft, retry?: ChatTurn, reconnect = false) {
     const input = composerDraftText(draft).trim()
     if (
       !input ||
@@ -297,10 +298,10 @@ export class NanocodexChatStore implements ChatStore {
       return
     }
 
-    const now = Date.now()
+    const now = reconnect && retry ? retry.user.createdAt : Date.now()
     const turnId = retry?.id ?? createId('turn')
     const userMessageId = retry?.user.id ?? createId('message')
-    const assistantMessageId = createId('message')
+    const assistantMessageId = (reconnect ? retry?.assistant[0]?.id : undefined) ?? createId('message')
     const model = retry?.model ?? draft.model ?? this.#snapshot.capabilities.models[0]
     const requestedEffort = retry ? retry.reasoningEffort : draft.reasoningEffort
     const reasoningEffort = requestedEffort && model?.reasoningEfforts?.includes(requestedEffort)
@@ -341,60 +342,71 @@ export class NanocodexChatStore implements ChatStore {
       capabilities: capabilities(this.#runtime, true),
       composer: clearedDraft,
       turns: retry
-        ? this.#snapshot.turns.map((item) => item.id === turnId ? { ...turn, user: retry.user } : item)
+        ? this.#snapshot.turns.map((item) => item.id === turnId ? reconnect ? retry : { ...turn, user: retry.user } : item)
         : [...this.#snapshot.turns, turn],
     }
     this.#commit()
 
     try {
-      const response = await fetch('/api/chat', {
-        body: JSON.stringify({ input, model, reasoningEffort, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
+      let response = await fetch(reconnect ? `/api/chat?turnId=${encodeURIComponent(turnId)}` : '/api/chat', {
+        ...(reconnect ? {} : {
+          body: JSON.stringify({ input, model, reasoningEffort, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
+        }),
         headers: { 'Content-Type': 'application/json', ...this.#conversationHeaders() },
-        method: 'POST',
+        method: reconnect ? 'GET' : 'POST',
         signal: controller.signal,
       })
       if (!response.ok) throw new Error(await responseError(response))
 
       accepted = true
       this.#hasContext = true
-      this.#updateTurn(turnId, (current) => ({
-        ...current,
-        assistant: [assistantMessage(assistantMessageId, turnId, now)],
-        state: { startedAt: now, status: 'running' },
-        user: { ...current.user, delivery: { status: 'confirmed' } },
-      }))
-
-      await readEvents(response, (event) => {
-        if (event.type === 'started') return
-        if (event.type === 'completed') {
-          terminal = true
-          this.#completeTurn(turnId, assistantMessageId, event, now)
-          return
+      for (let attempt = 0; ; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+            response = await fetch(`/api/chat?turnId=${encodeURIComponent(turnId)}`, {
+              headers: this.#conversationHeaders(), signal: controller.signal,
+            })
+            if (!response.ok) throw new Error(await responseError(response))
+          }
+          // Rebuild from the server's full replay so text and tool events cannot duplicate.
+          this.#updateTurn(turnId, (current) => ({
+            ...current,
+            assistant: [assistantMessage(assistantMessageId, turnId, now)],
+            state: { startedAt: now, status: 'running' },
+            user: { ...current.user, delivery: { status: 'confirmed' } },
+          }))
+          await readEvents(response, (event) => {
+            if (event.type === 'started') return
+            if (event.type === 'completed') {
+              terminal = true
+              this.#completeTurn(turnId, assistantMessageId, event, now)
+              return
+            }
+            if (event.type === 'cancelled') {
+              terminal = true
+              this.#interruptTurn(turnId, assistantMessageId, now)
+              return
+            }
+            if (event.type === 'error') {
+              terminal = true
+              this.#failTurn(turnId, assistantMessageId, event.message, now)
+              return
+            }
+            this.#updateAssistant(turnId, assistantMessageId, (message) => applyStreamEvent(message, event, now))
+          })
+          if (!terminal) throw new Error('The response stream ended before it completed.')
+          break
+        } catch (error) {
+          if (isAbort(error) || attempt >= 3) throw error
         }
-        if (event.type === 'cancelled') {
-          terminal = true
-          this.#interruptTurn(turnId, assistantMessageId, now)
-          return
-        }
-        if (event.type === 'error') {
-          terminal = true
-          this.#failTurn(turnId, assistantMessageId, event.message, now)
-          return
-        }
-        this.#updateAssistant(turnId, assistantMessageId, (message) =>
-          applyStreamEvent(message, event, now),
-        )
-      })
-
-      if (!terminal) {
-        throw new Error('The response stream ended before it completed.')
       }
     } catch (error) {
       if (isAbort(error)) return
       const failure = error instanceof Error
         ? error.message
         : 'The response could not be completed.'
-      if (accepted) {
+      if (accepted || reconnect) {
         this.#failTurn(turnId, assistantMessageId, failure, now)
       } else if (retry) {
         this.#snapshot = {

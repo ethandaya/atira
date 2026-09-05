@@ -262,6 +262,9 @@ function Part({
           data-renderer={renderer?.id ?? 'generic'}
           data-slot="tool-renderer"
           data-tool-kind={part.presentation.kind}
+          {...stylex.props(
+            part.presentation.kind === 'image' && styles.imageOutput,
+          )}
         >
           {(renderer ?? genericRenderer).render(part, toolActions)}
         </div>
@@ -425,6 +428,9 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     gap: 0,
+  },
+  imageOutput: {
+    marginBlockStart: space.x4,
   },
   attachment: {
     alignItems: 'center',

@@ -13,6 +13,7 @@ import {
 } from './chatgpt-runtime.mjs'
 import { ChatGptSubscriptionStore } from './chatgpt-subscription.mjs'
 import { ModelCatalog } from './model-catalog.mjs'
+import { RunStream } from './run-stream.mjs'
 import { createImageGenerationTool, GeneratedImageStore, hasImageGenerationPlan } from './image-generation.mjs'
 import { searchWeb } from './web-search.mjs'
 
@@ -340,6 +341,18 @@ async function handleRequest(request, response) {
     return true
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/chat') {
+    const id = sessionId(request, response)
+    const session = sessions.get(conversationKey(request, id))
+    if (!session?.lastTurn?.stream || session.lastTurn.id !== url.searchParams.get('turnId')) {
+      sendJson(response, 404, { error: 'This run is no longer available. Start a new conversation if the server restarted.' })
+      return true
+    }
+    session.lastUsed = Date.now()
+    session.lastTurn.stream.attach(response)
+    return true
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/cancel') {
     await cancelTurn(request, response)
     return true
@@ -438,6 +451,10 @@ async function streamChat(request, response) {
   }
   session.active = control
   session.lastUsed = Date.now()
+  const stream = new RunStream()
+  session.lastTurn.stream = stream
+  stream.attach(response)
+  response = stream
 
   if (session.kind === 'anthropic') {
     await streamAnthropicChat({ control, input, response, session })
@@ -454,7 +471,9 @@ async function streamChat(request, response) {
     agent = await session.agent
   } catch (error) {
     if (session.active === control) session.active = undefined
-    throw error
+    writeEvent(response, { type: 'error', message: publicError(error) })
+    response.end()
+    return
   }
 
   response.writeHead(200, {

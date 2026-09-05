@@ -82,12 +82,12 @@ describe('NanocodexChatStore', () => {
     restored.dispose()
   })
 
-  it('restores an unfinished stream as interrupted and blocks switching while busy', async () => {
+  it('preserves an unfinished stream for replay and blocks switching while busy', async () => {
     let saved: string | null = null
     const storage = { getItem: () => saved, setItem: (_key: string, value: string) => { saved = value } }
     let finish: () => void = () => undefined
     vi.stubGlobal('fetch', vi.fn(async (url) => url === '/api/runtime' ? runtimeResponse() : new Response(new ReadableStream({
-      start(controller) { finish = () => controller.close() },
+      start(controller) { finish = () => { controller.enqueue(new TextEncoder().encode('{"type":"cancelled"}\n')); controller.close() } },
     }))))
     const store = new NanocodexChatStore(storage)
     await store.initialize()
@@ -99,7 +99,7 @@ describe('NanocodexChatStore', () => {
     store.persist()
     const restored = new NanocodexChatStore(storage)
     expect(restored.getSnapshot().activity.status).toBe('idle')
-    expect(restored.getSnapshot().turns[0]?.state.status).toBe('interrupted')
+    expect(restored.getSnapshot().turns[0]?.state.status).toBe('running')
     finish()
     await request
     store.dispose()

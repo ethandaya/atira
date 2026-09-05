@@ -200,6 +200,44 @@ describe('chat components', () => {
     expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
   })
 
+  it('keeps a working indicator after assistant text while the turn remains active', () => {
+    const turn = runningTurnWithParts([
+      {
+        id: 'assistant-text',
+        markdown: 'I prepared the image prompt.',
+        state: { status: 'complete' as const },
+        type: 'text' as const,
+      },
+    ])
+
+    const { container, rerender } = render(<Turn turn={turn} />)
+
+    expect(screen.getByText('I prepared the image prompt.')).not.toBeNull()
+    expect(container.querySelector('[data-slot="turn-status"]')?.textContent).toBe(
+      'Working',
+    )
+    expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
+
+    rerender(
+      <Turn
+        turn={runningTurnWithParts([
+          ...turn.assistant[0]!.parts,
+          {
+            ...toolPart('image', { kind: 'image' }),
+            state: {
+              input: { prompt: 'A test image' },
+              startedAt: 2,
+              status: 'running',
+            },
+          },
+        ])}
+      />,
+    )
+    expect(container.querySelector('[data-slot="turn-status"]')).toBeNull()
+    expect(screen.getByText('Generating image…')).not.toBeNull()
+    expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
+  })
+
   it('does not mount empty assistant rows before content arrives', () => {
     const turn: ChatTurn = {
       agent: { id: 'research', label: 'Research agent' },
@@ -241,7 +279,7 @@ describe('chat components', () => {
 
     expect(container.querySelector('[data-slot="turn-assistant-message"]')).toBeNull()
     expect(container.querySelector('[data-slot="turn-status"]')?.textContent).toBe(
-      'Thinking',
+      'Working',
     )
     expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
     rerender(<Turn turn={{ ...turn, state: { status: 'complete', startedAt: 1, endedAt: 2 } }} actions={<button>Copy response</button>} />)
@@ -749,6 +787,31 @@ const draft: ComposerDraft = {
     anchor: { offset: 5, segmentId: 'text' },
     focus: { offset: 5, segmentId: 'text' },
   },
+}
+
+function runningTurnWithParts(parts: ChatMessage['parts']): ChatTurn {
+  return {
+    assistant: [
+      {
+        createdAt: 2,
+        delivery: { status: 'confirmed' },
+        id: 'assistant',
+        parts,
+        role: 'assistant',
+        turnId: 'turn',
+      },
+    ],
+    id: 'turn',
+    state: { startedAt: 1, status: 'running' },
+    user: {
+      createdAt: 1,
+      delivery: { status: 'confirmed' },
+      id: 'user',
+      parts: [],
+      role: 'user',
+      turnId: 'turn',
+    },
+  }
 }
 
 function toolPart(

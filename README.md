@@ -54,8 +54,12 @@ are stored in browser `sessionStorage` (the current tab's session, not a durable
 or cross-device archive). Runtime contexts remain server-side and expire after
 30 minutes idle, a server restart, or a provider sign-in change. Expired chats
 remain readable; resuming them shows an explicit error rather than silently
-starting without context. Reloading during a response preserves the partial
-transcript and marks it interrupted; it does not reconnect the response stream.
+starting without context. Runs continue server-side when a browser disconnects.
+Reloading an unfinished response reconnects and replays the latest run's events
+without resubmitting the prompt or tools. Stream interruptions reconnect automatically
+up to three times; **Stop** still explicitly cancels the run. Replay is private to
+the browser session and conversation, retained in server memory for the latest
+turn only, and does not survive a server restart.
 
 ## Workspace
 

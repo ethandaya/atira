@@ -30,6 +30,7 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
       if (inputs.at(-1) === 'retry me' && model !== 'claude-haiku-4-5') throw new Error('Retry used the wrong model');
       if (inputs.at(-1) === 'retry me' && !failedOnce) { failedOnce = true; throw new Error('network error'); }
       if (inputs.at(-1) === 'find bike parts') throw new Error('network error');
+      if (inputs.at(-1) === 'disconnect') await delay(300, undefined, { signal: options.signal });
       if (inputs.at(-1) === 'wait') await delay(10000, undefined, { signal: options.signal });
       return Response.json({ content: [{ type: 'text', text: inputs.join(' / ') }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } });
     };
@@ -84,6 +85,17 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     expect(await final(await chat(a, 'continue', true))).toBe('alpha / continue')
     const stranger = `pretty_amped_session=${randomUUID()}`
     expect((await chat(a, 'steal context', true, stranger)).status).toBe(409)
+
+    const reconnectId = randomUUID()
+    const reconnectTurn = randomUUID()
+    const detached = await chat(reconnectId, 'disconnect', false, cookie, { turnId: reconnectTurn })
+    await detached.body.cancel()
+    const replayUrl = `${base}/api/chat?turnId=${reconnectTurn}`
+    expect((await fetch(replayUrl, { headers: headers(reconnectId, stranger) })).status).toBe(404)
+    const replay = await fetch(replayUrl, { headers: headers(reconnectId) })
+    expect(await final(replay)).toBe('disconnect')
+    expect(await final(await fetch(replayUrl, { headers: headers(reconnectId) }))).toBe('disconnect')
+    expect(await final(await chat(reconnectId, 'next', true))).toBe('disconnect / next')
 
     const running = await chat(b, 'wait', true)
     const wrongCancel = await fetch(`${base}/api/cancel`, { method: 'POST', headers: headers(a) })
