@@ -13,6 +13,7 @@ import {
 } from './chatgpt-runtime.mjs'
 import { ChatGptSubscriptionStore } from './chatgpt-subscription.mjs'
 import { ModelCatalog } from './model-catalog.mjs'
+import { createImageGenerationTool, GeneratedImageStore, hasImageGenerationPlan } from './image-generation.mjs'
 import { searchWeb } from './web-search.mjs'
 
 const openAiApiKey = process.env.OPENAI_API_KEY?.trim()
@@ -25,6 +26,7 @@ const port = Number(process.env.PORT ?? readArgument('--port') ?? 5173)
 const host = process.env.HOST ?? readArgument('--host') ?? '0.0.0.0'
 const sessions = new Map()
 const modelCatalog = new ModelCatalog()
+const generatedImages = new GeneratedImageStore(fileURLToPath(new URL('../../.amp/data/generated-images/', import.meta.url)))
 const chatGptSubscriptions = new ChatGptSubscriptionStore({
   directory: fileURLToPath(new URL('../../.amp/data/chatgpt-subscriptions/', import.meta.url)),
 })
@@ -277,6 +279,19 @@ async function handleRequest(request, response) {
 
   setApiHeaders(response)
 
+  if (request.method === 'GET' && url.pathname.startsWith('/api/images/')) {
+    const owner = sessionId(request, response)
+    const bytes = await generatedImages.read(owner, url.pathname.slice('/api/images/'.length))
+    if (!bytes) { sendJson(response, 404, { error: 'Image not found or no longer available in this browser session.' }); return true }
+    response.writeHead(200, {
+      'Content-Type': 'image/png', 'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Disposition': `${url.searchParams.has('download') ? 'attachment' : 'inline'}; filename="generated-image.png"`,
+    })
+    response.end(bytes)
+    return true
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/runtime') {
     const id = sessionId(request, response)
     const runtime = await runtimeForSession(id)
@@ -413,6 +428,7 @@ async function streamChat(request, response) {
     id: turnId, input,
     model: previous?.id === turnId ? previous.model : model,
     reasoningEffort: previous?.id === turnId ? previous.reasoningEffort : reasoningEffort,
+    imageGeneration: runtime.imageGeneration && (previous?.id === turnId ? previous.imageGeneration : modelInfo.supportsImages === true),
     historyStart: session.history?.length,
   }
 
@@ -666,6 +682,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
       signal: abortController.signal,
       tools: {
         ...childTools,
+        ...(session.lastTurn.imageGeneration ? { generate_image: createImageGenerationTool({ getCredential, owner: id, images: generatedImages }) } : {}),
         run_subagent: createChatGptSubagentTool({
           getCredential,
           model: session.lastTurn.model,
@@ -947,7 +964,7 @@ async function runtimeForSession(id) {
       : discovered
     if (!models.length) throw new Error('No compatible models.')
     const model = models.find(model => model.modelId === runtime.model) ?? models[0]
-    return { ...runtime, model: model.modelId, models }
+    return { ...runtime, model: model.modelId, models, imageGeneration: runtime.kind === 'chatgpt' && hasImageGenerationPlan(credential) }
   } catch {
     return { ...runtime, models: [], modelError: 'Could not load available models from your provider. Refresh to try again.' }
   }

@@ -186,7 +186,7 @@ export async function runChatGptTurn({
         })
         turnItems.push({
           call_id: callId,
-          output: JSON.stringify(value),
+          output: tool.modelOutput?.(value) ?? JSON.stringify(value),
           type: 'function_call_output',
         })
         onEvent({
@@ -198,8 +198,8 @@ export async function runChatGptTurn({
           tool: toolName,
           type: 'tool-completed',
         })
-      } catch {
-        const message = `The ${toolName || 'requested'} tool failed.`
+      } catch (error) {
+        const message = tool?.formatError?.(error) ?? `The ${toolName || 'requested'} tool failed.`
         if (callId) {
           turnItems.push({
             call_id: callId,

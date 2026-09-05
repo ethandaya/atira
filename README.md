@@ -38,6 +38,16 @@ picker. It starts at the model's advertised default, persists with the draft,
 and is retained for retries and inherited by subagents. Unsupported effort choices
 are rejected server-side; providers without effort metadata do not show the control.
 
+Paid ChatGPT subscriptions with an image-capable model can use `generate_image`
+when explicitly asked to create an image. This uses Codex's subscription image
+proxy, not a stable public API; there is no paid API-key fallback. New image
+generation is supported, not reference-image editing. The reusable `GeneratedImage`
+component handles generation, preview, load retry, opening, and downloading.
+PNG files are private to the browser session and stored under
+`.amp/data/generated-images/` until that directory or the orb is removed; there
+is no automatic retention cleanup. Files survive server restarts, but losing the
+session cookie loses access. Browser transcripts store URLs, never image payloads.
+
 The **Conversations** menu starts a new chat without discarding earlier ones and
 reopens saved chats with their original runtime context. Transcripts and drafts
 are stored in browser `sessionStorage` (the current tab's session, not a durable

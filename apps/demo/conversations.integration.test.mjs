@@ -1,9 +1,12 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
+import { rm } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { createServer } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 import { expect, it } from 'vitest'
+import { GeneratedImageStore } from './image-generation.mjs'
 
 it('resumes isolated runtime histories, scopes cancellation, and rejects lost context over HTTP', { timeout: 30_000 }, async () => {
   const reservation = createServer()
@@ -40,6 +43,7 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
   child.stdout.on('data', chunk => { output += chunk })
   child.stderr.on('data', chunk => { output += chunk })
   const base = `http://127.0.0.1:${port}`
+  let imageDirectory
   try {
     let ready
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -54,6 +58,16 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     const opus = runtime.models.find(model => model.modelId === 'claude-opus-4-6')
     expect(haiku).toMatchObject({ providerId: 'anthropic' })
     const cookie = ready.headers.get('set-cookie').split(';')[0]
+    const owner = cookie.split('=')[1]
+    imageDirectory = new URL(`../../.amp/data/generated-images/${owner}/`, import.meta.url)
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='
+    const image = await new GeneratedImageStore(fileURLToPath(new URL('../../.amp/data/generated-images/', import.meta.url))).save(owner, png, 'Test image')
+    const ownImage = await fetch(`${base}${image.url}?download=1`, { headers: { Cookie: cookie } })
+    expect(ownImage.status).toBe(200)
+    expect(ownImage.headers.get('content-type')).toBe('image/png')
+    expect(ownImage.headers.get('content-disposition')).toContain('attachment')
+    expect(Buffer.from(await ownImage.arrayBuffer())).toEqual(Buffer.from(png, 'base64'))
+    expect((await fetch(`${base}${image.url}`, { headers: { Cookie: `pretty_amped_session=${randomUUID()}` } })).status).toBe(404)
     const a = randomUUID()
     const b = randomUUID()
     const headers = (id, owner = cookie) => ({ Cookie: owner, 'X-Conversation-Id': id, 'Content-Type': 'application/json' })
@@ -109,5 +123,6 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
       await exited
       clearTimeout(forceExit)
     }
+    if (imageDirectory) await rm(imageDirectory, { recursive: true, force: true })
   }
 })

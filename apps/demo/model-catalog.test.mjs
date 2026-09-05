@@ -6,7 +6,7 @@ describe('ModelCatalog', () => {
     const request = vi.fn(async () => Response.json({ models: [
       { slug: 'hidden', display_name: 'Hidden', visibility: 'hide' },
       { slug: 'second', display_name: 'Second', visibility: 'list', priority: 2 },
-      { slug: 'first', display_name: 'First', visibility: 'list', priority: 1, supported_in_api: false,
+      { slug: 'first', display_name: 'First', visibility: 'list', priority: 1, supported_in_api: false, input_modalities: ['text', 'image'],
         supported_reasoning_levels: [{ effort: 'low' }, { effort: 'high' }, { effort: 'high' }, { effort: 42 }], default_reasoning_level: 'high' },
     ] }))
     let now = 0
@@ -14,8 +14,8 @@ describe('ModelCatalog', () => {
     const options = { kind: 'chatgpt', credential: { accessToken: 'test-token', accountId: 'account-a', fedramp: true } }
     const results = await Promise.all([catalog.list(options), catalog.list(options)])
     expect(results[0]).toEqual([
-      { modelId: 'first', label: 'First', providerId: 'chatgpt', reasoningEfforts: ['low', 'high'], defaultReasoningEffort: 'high' },
-      { modelId: 'second', label: 'Second', providerId: 'chatgpt' },
+      { modelId: 'first', label: 'First', providerId: 'chatgpt', reasoningEfforts: ['low', 'high'], defaultReasoningEffort: 'high', supportsImages: true },
+      { modelId: 'second', label: 'Second', providerId: 'chatgpt', supportsImages: false },
     ])
     expect(request).toHaveBeenCalledTimes(1)
     expect(request.mock.calls[0][0]).toBe('https://chatgpt.com/backend-api/codex/models?client_version=0.0.0')

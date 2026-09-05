@@ -280,7 +280,16 @@ export type ToolState =
       reason?: string
     }
 
+export type GeneratedImageDescriptor = Readonly<{
+  id: string
+  url: string
+  alt: string
+  width: number
+  height: number
+}>
+
 export type ToolPresentation =
+  | { kind: 'image'; image?: GeneratedImageDescriptor }
   | { kind: 'context'; operation: 'read' | 'list' | 'glob' | 'grep' }
   | { kind: 'shell' }
   | {

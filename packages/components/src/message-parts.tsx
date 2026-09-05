@@ -18,6 +18,7 @@ import {
   ContextToolGroup,
   FileChangeTool,
   GenericTool,
+  ImageGenerationTool,
   ShellTool,
   SkillTool,
   TaskTool,
@@ -336,6 +337,7 @@ function Part({
 }
 
 const defaultToolRenderers: readonly ToolRenderer[] = [
+  renderer('image', (part) => part.presentation.kind === 'image', ImageGenerationTool),
   renderer('shell', (part) => part.presentation.kind === 'shell', ShellTool),
   renderer(
     'file-change',
@@ -383,7 +385,7 @@ function formatDuration(durationMs: number) {
 }
 
 function isActivityPart(part: MessagePart) {
-  return part.type === 'reasoning' || part.type === 'tool'
+  return part.type === 'reasoning' || (part.type === 'tool' && part.presentation.kind !== 'image')
 }
 
 function isActiveActivityPart(part: MessagePart) {

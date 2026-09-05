@@ -6,6 +6,7 @@ import type {
   ChatStore,
   ChatTurn,
   ComposerDraft,
+  GeneratedImageDescriptor,
   PermissionDecision,
   QuestionResponse,
   QueuedPrompt,
@@ -31,7 +32,8 @@ type StreamToolPresentation = Readonly<{
   activity?: TaskActivity | undefined
   agent?: Readonly<{ id: string; label: string }> | undefined
   childSessionId?: string | undefined
-  kind?: 'task' | undefined
+  image?: GeneratedImageDescriptor | undefined
+  kind?: 'task' | 'image' | undefined
   transcript?: TaskTranscript | undefined
 }>
 
@@ -46,7 +48,8 @@ type StreamEvent =
       childSessionId?: string | undefined
       id: string
       input?: string
-      kind?: 'task' | undefined
+      image?: GeneratedImageDescriptor | undefined
+      kind?: 'task' | 'image' | undefined
       summary: string
       tool: string
       type: 'tool-started'
@@ -56,7 +59,8 @@ type StreamEvent =
       agent?: StreamToolPresentation['agent']
       childSessionId?: string | undefined
       id: string
-      kind?: 'task' | undefined
+      image?: GeneratedImageDescriptor | undefined
+      kind?: 'task' | 'image' | undefined
       summary: string
       tool: string
       type: 'tool-progress'
@@ -67,7 +71,8 @@ type StreamEvent =
       childSessionId?: string | undefined
       error?: string
       id: string
-      kind?: 'task' | undefined
+      image?: GeneratedImageDescriptor | undefined
+      kind?: 'task' | 'image' | undefined
       output?: string
       status: 'succeeded' | 'failed'
       summary: string
@@ -834,6 +839,9 @@ function toolPresentation(
   event?: StreamToolPresentation,
 ): ToolPart['presentation'] {
   const value = tool.toLowerCase()
+  if (event?.kind === 'image' || value === 'generate_image') {
+    return { kind: 'image', ...(event?.image ? { image: event.image } : {}) }
+  }
   if (event?.kind === 'task' || value === 'run_subagent') {
     return {
       ...(event?.activity === undefined ? {} : { activity: event.activity }),
@@ -865,6 +873,7 @@ function mergeToolPresentation(
   existing: ToolPart['presentation'],
   next: ToolPart['presentation'],
 ): ToolPart['presentation'] {
+  if (existing.kind === 'image' && next.kind === 'image') return { ...existing, ...next }
   return existing.kind === 'task' && next.kind === 'task'
     ? { ...existing, ...next }
     : existing
@@ -1012,13 +1021,22 @@ function streamToolPresentation(
       : undefined
   const activity = taskActivity(value.activity)
   const transcript = taskTranscript(value.transcript)
+  const image = isRecord(value.image) &&
+    typeof value.image.id === 'string' &&
+    typeof value.image.url === 'string' && /^\/api\/images\/[a-zA-Z0-9-]+$/.test(value.image.url) &&
+    typeof value.image.alt === 'string' &&
+    typeof value.image.width === 'number' && Number.isFinite(value.image.width) && value.image.width > 0 &&
+    typeof value.image.height === 'number' && Number.isFinite(value.image.height) && value.image.height > 0
+      ? { id: value.image.id, url: value.image.url, alt: value.image.alt, width: value.image.width, height: value.image.height }
+      : undefined
   return {
     ...(activity === undefined ? {} : { activity }),
     ...(agent === undefined ? {} : { agent }),
+    ...(image === undefined ? {} : { image }),
     ...(typeof value.childSessionId === 'string'
       ? { childSessionId: value.childSessionId }
       : {}),
-    ...(value.kind === 'task' ? { kind: value.kind } : {}),
+    ...(value.kind === 'task' || value.kind === 'image' ? { kind: value.kind } : {}),
     ...(transcript === undefined ? {} : { transcript }),
   }
 }

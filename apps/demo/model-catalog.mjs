@@ -68,6 +68,7 @@ export class ModelCatalog {
           : []
         models.set(modelId, {
           modelId, label, providerId: kind,
+          ...(kind === 'chatgpt' ? { supportsImages: Array.isArray(item.input_modalities) && item.input_modalities.includes('image') } : {}),
           ...(reasoningEfforts.length ? {
             reasoningEfforts,
             defaultReasoningEffort: reasoningEfforts.includes(item.default_reasoning_level) ? item.default_reasoning_level : reasoningEfforts[0],

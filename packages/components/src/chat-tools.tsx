@@ -18,12 +18,25 @@ import { useState, type ReactNode } from 'react'
 import { CodeBlock } from './code-block'
 import { Diff, type DiffFile } from './diff'
 import { Markdown } from './markdown'
+import { GeneratedImage } from './generated-image'
 import { ToolActivity, type ToolActivityState } from './tool-activity'
 
 export type ChatToolProps = {
   defaultOpen?: boolean
   outputCharacterLimit?: number
   part: ToolPart
+}
+
+export function ImageGenerationTool({ part }: { part: ToolPart }) {
+  const image = part.presentation.kind === 'image' ? part.presentation.image : undefined
+  const state = part.state.status === 'succeeded'
+    ? image ? { status: 'ready' as const, image } : { status: 'failed' as const, error: 'The generated image is unavailable.' }
+    : part.state.status === 'failed'
+      ? { status: 'failed' as const, error: part.state.error.message }
+      : part.state.status === 'cancelled'
+        ? { status: 'failed' as const, error: 'Image generation stopped.' }
+        : { status: 'generating' as const }
+  return <GeneratedImage state={state} />
 }
 
 export function ContextTool(props: ChatToolProps) {

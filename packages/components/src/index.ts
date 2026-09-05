@@ -13,6 +13,8 @@ export type {
 export { Action, Actions } from './actions'
 export type { ActionProps, ActionsProps } from './actions'
 export { Artifact } from './artifact'
+export { GeneratedImage } from './generated-image'
+export type { GeneratedImageProps } from './generated-image'
 export type {
   ArtifactKind,
   ArtifactMetadata,
@@ -57,6 +59,7 @@ export {
   ContextToolGroup,
   FileChangeTool,
   GenericTool,
+  ImageGenerationTool,
   ShellTool,
   SkillTool,
   TaskTool,
