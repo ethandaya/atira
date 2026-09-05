@@ -68,6 +68,20 @@ export function Turn({
         </section>
 
         <div data-slot="turn-assistant" {...stylex.props(styles.assistant)}>
+          {(turn.agent || turn.model) && (
+            <div aria-label="Response author" role="group" data-slot="turn-identity" {...stylex.props(styles.identity)}>
+              {turn.agent && (
+                <span data-slot="turn-agent" {...stylex.props(styles.agentName)}>
+                  <VisuallyHidden>Agent: </VisuallyHidden>{turn.agent.label}
+                </span>
+              )}
+              {turn.model && (
+                <span data-slot="turn-model" {...stylex.props(styles.modelName)}>
+                  <VisuallyHidden>Model: </VisuallyHidden>{turn.model.label}
+                </span>
+              )}
+            </div>
+          )}
           {assistant.map((message) => (
             <section
               aria-label="Assistant message"
@@ -89,13 +103,8 @@ export function Turn({
           {(!active || !hasAssistantContent) && <TurnStatus state={turn.state} />}
         </div>
 
-        {(turn.agent || turn.model || actions) && (
+        {actions && (
           <footer data-slot="turn-meta" {...stylex.props(styles.meta)}>
-            <span>
-              {turn.agent?.label}
-              {turn.agent && turn.model ? ' · ' : ''}
-              {turn.model?.label}
-            </span>
             <AnimatePresence initial={false}>
               {actions && <PresenceSurface key="actions" kind="content">{actions}</PresenceSurface>}
             </AnimatePresence>
@@ -212,17 +221,36 @@ const styles = stylex.create({
     },
     animationTimingFunction: motion.easingStandard,
   },
-  meta: {
-    alignItems: 'center',
+  identity: {
+    alignItems: 'baseline',
     color: colors.textMuted,
     display: 'flex',
+    flexWrap: 'wrap',
     fontFamily: type.family,
-    fontSize: type.sizeCaption,
-    fontVariantNumeric: 'tabular-nums',
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineBody,
+    columnGap: space.x2,
+    rowGap: space.x1,
+    marginBlockEnd: space.x1,
+    minBlockSize: '1.25rem',
+    minInlineSize: 0,
+  },
+  agentName: {
+    color: colors.text,
+    fontWeight: type.weightMedium,
+    minInlineSize: 0,
+    overflowWrap: 'anywhere',
+  },
+  modelName: {
+    fontWeight: type.weightRegular,
+    minInlineSize: 0,
+    overflowWrap: 'anywhere',
+  },
+  meta: {
+    alignItems: 'center',
+    display: 'flex',
+    flexWrap: 'wrap',
     gap: space.x2,
-    justifyContent: 'flex-start',
-    lineHeight: type.lineCompact,
-    marginBlockStart: '-0.75rem',
   },
   status: {
     alignItems: 'center',

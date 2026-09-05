@@ -202,6 +202,8 @@ describe('chat components', () => {
 
   it('does not mount empty assistant rows before content arrives', () => {
     const turn: ChatTurn = {
+      agent: { id: 'research', label: 'Research agent' },
+      model: { modelId: 'model', providerId: 'provider', label: 'Research model' },
       assistant: [
         {
           createdAt: 2,
@@ -231,13 +233,20 @@ describe('chat components', () => {
       },
     }
 
-    const { container } = render(<Turn turn={turn} />)
+    const { container, rerender } = render(<Turn turn={turn} />)
+    const identity = screen.getByRole('group', { name: 'Response author' })
+    expect(identity.textContent).toBe('Agent: Research agentModel: Research model')
+    expect(container.querySelector('[data-slot="turn-assistant"]')?.firstElementChild).toBe(identity)
+    expect(container.querySelector('[data-slot="turn-meta"]')).toBeNull()
 
     expect(container.querySelector('[data-slot="turn-assistant-message"]')).toBeNull()
     expect(container.querySelector('[data-slot="turn-status"]')?.textContent).toBe(
       'Thinking',
     )
     expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
+    rerender(<Turn turn={{ ...turn, state: { status: 'complete', startedAt: 1, endedAt: 2 } }} actions={<button>Copy response</button>} />)
+    expect(screen.getByRole('group', { name: 'Response author' })).toBe(identity)
+    expect(container.querySelector('[data-slot="turn-meta"]')?.textContent).toBe('Copy response')
   })
 
   it('uses one primary composer control while a turn is active', () => {

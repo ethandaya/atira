@@ -63,6 +63,29 @@ test('preserves model and reasoning effort across send, reload, and retry', asyn
   await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'complete')
   expect(requests[1]).toMatchObject({ model: models[1], reasoningEffort: 'high', retry: true })
   await expect(picker).toContainText('GPT-5.6 Sol')
+  const identity = page.getByRole('group', { name: 'Response author' })
+  const answer = page.locator('[data-slot="turn-assistant-message"]')
+  const headerBox = (await identity.boundingBox())!
+  const answerBox = (await answer.boundingBox())!
+  expect(answerBox.y - headerBox.y - headerBox.height).toBeGreaterThanOrEqual(8)
+  expect(Math.abs(answerBox.x - headerBox.x)).toBeLessThanOrEqual(1)
+  await expect(page.locator('[data-slot="turn-meta"]')).toHaveCount(0)
+
+  await page.addInitScript(() => {
+    const key = 'pretty-amped:conversations:v1'
+    const saved = JSON.parse(sessionStorage.getItem(key)!)
+    const turn = saved.conversations.find((item: { id: string }) => item.id === saved.activeId).turns[0]
+    turn.agent = { id: 'research', label: 'Research and implementation review agent' }
+    turn.model.label = 'A model with an unusually long descriptive name'
+    sessionStorage.setItem(key, JSON.stringify(saved))
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.reload()
+  await expect(identity).toContainText('Research and implementation review agent')
+  const mobileIdentity = (await identity.boundingBox())!
+  expect(mobileIdentity.x).toBeGreaterThanOrEqual(0)
+  expect(mobileIdentity.x + mobileIdentity.width).toBeLessThanOrEqual(390)
+  expect(await identity.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
 })
 
 test('retains failed child evidence and retries the response in place', async ({ page }) => {
