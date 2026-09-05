@@ -23,6 +23,13 @@ uses Anthropic when `ANTHROPIC_API_KEY` is available and otherwise Nanocodex wit
 choose the fallback explicitly. The ChatGPT runtime can delegate bounded research,
 review, and planning tasks to isolated, non-recursive subagents.
 
+The composer's **Model** picker selects the model for the next message without
+resetting conversation history. Selection persists with the draft; retries use
+the original turn's model, and ChatGPT subagents inherit that model. Options are
+a server-validated, curated list for the active provider, not an account-entitlement
+lookup; provider access errors still apply. The Nanocodex fallback currently offers
+only its configured model because its agent is created once per conversation.
+
 The **Conversations** menu starts a new chat without discarding earlier ones and
 reopens saved chats with their original runtime context. Transcripts and drafts
 are stored in browser `sessionStorage` (the current tab's session, not a durable

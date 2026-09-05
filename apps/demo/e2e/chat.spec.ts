@@ -3,6 +3,40 @@ import { expect, test, type Page } from '@playwright/test'
 
 const viewport = '[data-slot="timeline-viewport"]'
 
+test('selects a real composer model and preserves it across send, reload, and retry', async ({ page }) => {
+  const models = [
+    { label: 'GPT-5.6 Sol', modelId: 'gpt-5.6-sol', providerId: 'chatgpt' },
+    { label: 'GPT-5.4', modelId: 'gpt-5.4', providerId: 'chatgpt' },
+  ]
+  const requests: { model: typeof models[number]; retry: boolean }[] = []
+  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: models[0]!.modelId, models, runtime: 'ChatGPT' } }))
+  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
+  await page.route('**/api/chat', route => {
+    requests.push(route.request().postDataJSON())
+    return route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify(requests.length === 1
+      ? { type: 'error', message: 'Temporary provider failure.' }
+      : { type: 'completed', message: 'Recovered with the original model.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }) })
+  })
+  await page.goto('/')
+  const picker = page.getByRole('combobox', { name: 'Model', exact: true })
+  await expect(picker).toContainText('GPT-5.6 Sol')
+  await picker.click()
+  await page.getByRole('option', { name: 'GPT-5.4', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test the selected model')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'failed')
+  expect(requests[0]?.model).toEqual(models[1])
+  await expect(picker).toContainText('GPT-5.4')
+  await page.reload()
+  await expect(picker).toContainText('GPT-5.4')
+  await picker.click()
+  await page.getByRole('option', { name: 'GPT-5.6 Sol', exact: true }).click()
+  await page.getByRole('button', { name: 'Retry response', exact: true }).click()
+  await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'complete')
+  expect(requests[1]).toMatchObject({ model: models[1], retry: true })
+  await expect(picker).toContainText('GPT-5.6 Sol')
+})
+
 test('retains failed child evidence and retries the response in place', async ({ page }) => {
   const requests: { input: string; turnId: string; retry: boolean }[] = []
   let releaseRetry: () => void = () => undefined

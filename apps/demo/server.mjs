@@ -283,6 +283,7 @@ async function handleRequest(request, response) {
       retryTurns: true,
       available: Boolean(runtime),
       model: runtime?.model ?? nanocodexModel,
+      models: runtime ? modelsForRuntime(runtime) : [],
       runtime: runtime?.label ?? 'Unavailable',
     })
     return true
@@ -347,6 +348,13 @@ async function streamChat(request, response) {
 
   const body = await readJson(request)
   const input = typeof body.input === 'string' ? body.input.trim() : ''
+  const model = body.model === undefined
+    ? runtime.model
+    : modelsForRuntime(runtime).find(option => option.modelId === body.model?.modelId && option.providerId === body.model?.providerId)?.modelId
+  if (!model) {
+    sendJson(response, 400, { error: 'This model is not supported by the active provider. Choose a model from the picker.' })
+    return
+  }
 
   if (!input) {
     sendJson(response, 400, { error: 'Enter a message to continue.' })
@@ -392,7 +400,7 @@ async function streamChat(request, response) {
   if (previous?.id === turnId && session.history) {
     session.history.length = previous.historyStart
   }
-  session.lastTurn = { id: turnId, input, historyStart: session.history?.length }
+  session.lastTurn = { id: turnId, input, model: previous?.id === turnId ? previous.model : model, historyStart: session.history?.length }
 
   const control = {
     cancelRequested: false,
@@ -572,7 +580,7 @@ async function streamAnthropicChat({ control, input, response, session }) {
       history: session.history,
       input,
       inspectComponentCatalog,
-      model: anthropicModel,
+      model: session.lastTurn.model,
       onEvent: (event) => writeEvent(response, event),
       signal: abortController.signal,
     })
@@ -636,7 +644,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
     const result = await runChatGptTurn({
       getCredential,
       input,
-      model: nanocodexModel,
+      model: session.lastTurn.model,
       onEvent: (event) => writeEvent(response, event),
       session,
       sessionId: id,
@@ -645,7 +653,7 @@ async function streamChatGptChat({ control, id, input, response, session }) {
         ...childTools,
         run_subagent: createChatGptSubagentTool({
           getCredential,
-          model: nanocodexModel,
+          model: session.lastTurn.model,
           tools: childTools,
         }),
       },
@@ -903,6 +911,19 @@ function webToolOutput(value) {
 
 function isRecord(value) {
   return typeof value === 'object' && value !== null
+}
+
+function modelsForRuntime(runtime) {
+  const alternatives = runtime.kind === 'chatgpt'
+    ? ['gpt-5.4', 'gpt-5.3-codex']
+    : runtime.kind === 'anthropic'
+      ? ['claude-opus-4-6', 'claude-haiku-4-5']
+      : []
+  return [...new Set([runtime.model, ...alternatives])].map(modelId => ({
+    label: modelId,
+    modelId,
+    providerId: runtime.kind,
+  }))
 }
 
 async function runtimeForSession(id) {

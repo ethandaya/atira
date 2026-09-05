@@ -18,8 +18,10 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     let failedOnce = false;
     globalThis.fetch = async (url, options) => {
       if (url !== 'https://api.anthropic.com/v1/messages') throw new Error('Unexpected outbound request');
-      const { messages } = JSON.parse(options.body);
+      const { messages, model } = JSON.parse(options.body);
       const inputs = messages.filter(m => m.role === 'user').map(m => m.content);
+      if (inputs.at(-1) === 'which model') return Response.json({ content: [{ type: 'text', text: model + ': ' + inputs.join(' / ') }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } });
+      if (inputs.at(-1) === 'retry me' && model !== 'claude-haiku-4-5') throw new Error('Retry used the wrong model');
       if (inputs.at(-1) === 'retry me' && !failedOnce) { failedOnce = true; throw new Error('network error'); }
       if (inputs.at(-1) === 'find bike parts') throw new Error('network error');
       if (inputs.at(-1) === 'wait') await delay(10000, undefined, { signal: options.signal });
@@ -44,6 +46,10 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
       await delay(100)
     }
     expect(ready?.ok).toBe(true)
+    const runtime = await ready.json()
+    const haiku = runtime.models.find(model => model.modelId === 'claude-haiku-4-5')
+    const opus = runtime.models.find(model => model.modelId === 'claude-opus-4-6')
+    expect(haiku).toMatchObject({ providerId: 'anthropic' })
     const cookie = ready.headers.get('set-cookie').split(';')[0]
     const a = randomUUID()
     const b = randomUUID()
@@ -75,8 +81,8 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     expect((await expired.json()).error).toContain('expired or changed')
     expect(await final(await chat(b, 'still here', true))).toBe('beta / wait / still here')
     const turnId = randomUUID()
-    expect(await (await chat(b, 'retry me', true, cookie, { turnId })).text()).toContain('"error"')
-    const recovered = await final(await chat(b, 'retry me', true, cookie, { turnId, retry: true }))
+    expect(await (await chat(b, 'retry me', true, cookie, { turnId, model: haiku })).text()).toContain('"error"')
+    const recovered = await final(await chat(b, 'retry me', true, cookie, { turnId, retry: true, model: opus }))
     expect(recovered).toBe('beta / wait / still here / retry me')
     // If completion was lost in transit, retry replays it instead of calling tools again.
     expect(await final(await chat(b, 'retry me', true, cookie, { turnId, retry: true }))).toBe(recovered)
@@ -86,6 +92,11 @@ it('resumes isolated runtime histories, scopes cancellation, and rejects lost co
     const c = randomUUID()
     expect(await (await chat(c, 'find bike parts')).text()).toContain('"error"')
     expect(await final(await chat(c, 'continue', true))).toBe('find bike parts / continue')
+    const d = randomUUID()
+    expect((await chat(d, 'invalid', false, cookie, { model: { modelId: 'made-up', providerId: 'anthropic' } })).status).toBe(400)
+    expect((await chat(d, 'invalid', false, cookie, { model: { ...haiku, providerId: 'chatgpt' } })).status).toBe(400)
+    expect(await final(await chat(d, 'which model', false, cookie, { model: haiku }))).toBe('claude-haiku-4-5: which model')
+    expect(await final(await chat(d, 'which model', true, cookie, { model: opus }))).toBe('claude-opus-4-6: which model / which model')
   } finally {
     if (child.exitCode === null) {
       const exited = once(child, 'exit')

@@ -19,7 +19,7 @@ import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
 
 export type RuntimeState =
   | { status: 'loading' }
-  | { model: string; runtime: string; status: 'ready'; retryTurns?: boolean }
+  | { model: string; runtime: string; status: 'ready'; retryTurns?: boolean; models?: ChatCapabilities['models'] }
   | { message: string; status: 'unavailable' }
 
 type Usage = Readonly<{
@@ -154,7 +154,7 @@ export class NanocodexChatStore implements ChatStore {
     this.#hasContext = false
     this.#failedDraft = undefined
     const { submissionError: _, ...snapshot } = this.#snapshot
-    this.#snapshot = { ...snapshot, sessionId: crypto.randomUUID(), turns: [], composer: createDraft() }
+    this.#snapshot = { ...snapshot, sessionId: crypto.randomUUID(), turns: [], composer: { ...createDraft(), ...(snapshot.composer.model ? { model: snapshot.composer.model } : {}) } }
     this.persist()
     this.#commit()
   }
@@ -230,7 +230,10 @@ export class NanocodexChatStore implements ChatStore {
           : body.available === true &&
         typeof body.model === 'string' &&
         typeof body.runtime === 'string'
-          ? { model: body.model, runtime: body.runtime, status: 'ready', retryTurns: body.retryTurns === true }
+          ? { model: body.model, runtime: body.runtime, status: 'ready', retryTurns: body.retryTurns === true,
+              models: Array.isArray(body.models) ? body.models.filter((model): model is ChatCapabilities['models'][number] =>
+                isRecord(model) && typeof model.modelId === 'string' && typeof model.providerId === 'string' && typeof model.label === 'string') : [],
+            }
           : {
               message: 'Add a supported server-side provider key to run the playground.',
               status: 'unavailable',
@@ -249,6 +252,10 @@ export class NanocodexChatStore implements ChatStore {
       ...this.#snapshot,
       capabilities: capabilities(this.#runtime, false),
     }
+    const models = this.#snapshot.capabilities.models
+    const selected = models.find(model => model.modelId === this.#snapshot.composer.model?.modelId && model.providerId === this.#snapshot.composer.model?.providerId) ?? models[0]
+    const { model: _, ...composer } = this.#snapshot.composer
+    this.#snapshot = { ...this.#snapshot, composer: { ...composer, ...(selected ? { model: selected } : {}) } }
     this.#commit()
   }
 
@@ -288,10 +295,12 @@ export class NanocodexChatStore implements ChatStore {
     const turnId = retry?.id ?? createId('turn')
     const userMessageId = retry?.user.id ?? createId('message')
     const assistantMessageId = createId('message')
-    const clearedDraft = retry ? this.#snapshot.composer : createDraft('', draft.revision + 1)
+    const model = retry?.model ?? draft.model ?? this.#snapshot.capabilities.models[0]
+    const clearedDraft = retry ? this.#snapshot.composer : { ...createDraft('', draft.revision + 1), ...(model ? { model } : {}) }
     const turn: ChatTurn = {
       assistant: [],
       id: turnId,
+      ...(model ? { model } : {}),
       state: { status: 'queued' },
       user: {
         createdAt: now,
@@ -328,7 +337,7 @@ export class NanocodexChatStore implements ChatStore {
 
     try {
       const response = await fetch('/api/chat', {
-        body: JSON.stringify({ input, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
+        body: JSON.stringify({ input, model, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
         headers: { 'Content-Type': 'application/json', ...this.#conversationHeaders() },
         method: 'POST',
         signal: controller.signal,
@@ -866,6 +875,7 @@ function toolEventInput(
 function capabilities(runtime: RuntimeState, busy: boolean): ChatCapabilities {
   return {
     ...unavailableCapabilities,
+    models: runtime.status === 'ready' ? runtime.models ?? [] : [],
     canStop: busy,
     canSubmit: runtime.status === 'ready' && !busy,
     canRetryTurn: runtime.status === 'ready' && runtime.retryTurns === true,

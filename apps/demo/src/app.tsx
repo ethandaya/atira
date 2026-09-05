@@ -220,7 +220,7 @@ function DemoApp() {
         <div {...stylex.props(styles.workspace)}>
           <ChatSession
             key={snapshot.sessionId}
-            composerActions={(
+            composerActions={snapshot.capabilities.models.length === 0 && (
               <span
                 {...stylex.props(
                   styles.runtimeMeta,
