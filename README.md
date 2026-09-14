@@ -84,6 +84,10 @@ turn only, and does not survive a server restart.
 
 ## Workspace
 
+For private use in another application without publishing, see
+[private source consumption](docs/private-consumption.md):
+`node scripts/export-library.mjs /path/to/nanosentry/vendor/pretty-amped`.
+
 - `packages/foundations` — semantic StyleX tokens and scoped themes
 - `packages/primitives` — owned React APIs backed by Base UI and styled with StyleX
 - `packages/components` — agent-interface components built only on owned primitives

@@ -8,9 +8,10 @@
   },
   "scripts": {
     "build": "pnpm --filter @pretty-amped/demo build",
+    "export:library": "node scripts/export-library.mjs",
     "check": "pnpm test && pnpm typecheck && pnpm build && pnpm test:browser",
     "dev": "pnpm --filter @pretty-amped/demo dev",
-    "test": "vitest run",
+    "test": "node --test scripts/export-library.test.mjs && vitest run",
     "test:browser": "playwright test",
     "typecheck": "pnpm --recursive --if-present typecheck"
   },
