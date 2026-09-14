@@ -15,6 +15,12 @@ pnpm install
 pnpm dev
 ```
 
+The dev-only Lapse inspector is opt-in: add `?lapse` to the demo URL.
+Its panel appears at the bottom left; **Shift+S** cycles playback speed.
+Normal demo pages and production builds do not load its clock patches.
+Installing `@aiforui/lapse` requires access to the private `aiforui.dev` registry;
+keep its auth token in your user-level npm configuration, never this repository.
+
 The playground keeps provider credentials server-side. Use **Sign in** to connect
 a ChatGPT subscription through OpenAI's device flow; credentials are encrypted
 per browser session and never exposed to client code. Without a subscription it

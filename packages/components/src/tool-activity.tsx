@@ -1,6 +1,5 @@
 import {
   colors,
-  motion,
   radii,
   space,
   type,
@@ -8,20 +7,19 @@ import {
 import type { ToolProgress } from '@pretty-amped/foundations/chat'
 import {
   Disclosure,
-  Shimmer,
   Spinner,
   StateTransition,
   TextTransition,
   VisuallyHidden,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import { Check, Minus, X } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type ComponentPropsWithRef, type ReactNode } from 'react'
+import { Check, Minus, ShieldAlert, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentPropsWithRef, type ReactNode } from 'react'
 
 export type ToolActivityState =
   | { status: 'receiving-input' }
   | { status: 'queued' }
-  | { progress?: ToolProgress; status: 'running' }
+  | { progress?: ToolProgress; startedAt?: number; status: 'running' }
   | { status: 'awaiting-permission' }
   | { status: 'awaiting-approval' }
   | { status: 'succeeded' }
@@ -39,6 +37,8 @@ export type ToolActivityProps = NativeDivProps & {
   id: string
   state: ToolActivityState
   summary: string
+  /** Discrete activity changes, not streamed argument or timer updates. */
+  summaryTransitionKey?: string
   tool: string
 }
 
@@ -59,6 +59,7 @@ export function ToolActivity({
   id,
   state,
   summary,
+  summaryTransitionKey,
   tool,
   ...props
 }: ToolActivityProps) {
@@ -67,13 +68,18 @@ export function ToolActivity({
   useLayoutEffect(() => {
     const element = summaryRef.current
     if (!element) return
-    const measure = () => setOverflowing(element.scrollWidth > element.clientWidth + 1)
+    const measure = () => {
+      const current = element.querySelector<HTMLElement>('[data-text-state]:not([aria-hidden="true"])')
+      setOverflowing((current ?? element).scrollWidth > element.clientWidth + 1)
+    }
     measure()
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
     observer.observe(element)
     if (element.firstElementChild) observer.observe(element.firstElementChild)
-    return () => observer.disconnect()
+    const changes = new MutationObserver(measure)
+    changes.observe(element, { childList: true, characterData: true, subtree: true })
+    return () => { observer.disconnect(); changes.disconnect() }
   }, [summary])
   const stateLabel = toolStateLabel(state)
   const terminalMark = toolStateMark(state)
@@ -81,11 +87,8 @@ export function ToolActivity({
     state.status === 'receiving-input' ||
     state.status === 'queued' ||
     state.status === 'running'
-  const canDisclose =
-    Boolean(children) &&
-    (state.status === 'succeeded' ||
-      state.status === 'failed' ||
-      state.status === 'cancelled')
+  // Evidence is inspectable as soon as it exists, and stays mounted when work settles.
+  const canDisclose = Boolean(children)
   const header = (
     <span data-slot="tool-activity-header" {...stylex.props(styles.header)}>
       <span
@@ -95,10 +98,10 @@ export function ToolActivity({
           state.status === 'failed' && styles.stateDanger,
         )}
       >
-        <StateTransition state={active ? 'active' : state.status}>
+        <StateTransition state={state.status}>
           {terminalMark}
         </StateTransition>
-        {!active && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
+        {state.status === 'succeeded' && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
       </span>
       <span {...stylex.props(styles.heading)}>
         <span
@@ -112,8 +115,19 @@ export function ToolActivity({
             state.status === 'failed' && styles.summaryFailed,
           )}
         >
-          <TextTransition state={`${state.status}:${summary}`}>{active ? <Shimmer>{summary}</Shimmer> : summary}</TextTransition>
+          {summaryTransitionKey === undefined ? summary : <TextTransition state={summaryTransitionKey}>{summary}</TextTransition>}
         </span>
+      </span>
+      <span data-slot="tool-activity-status" {...stylex.props(styles.statusLabel)}>
+        <TextTransition state={state.status}>
+          {state.status !== 'succeeded' && <span {...stylex.props(styles.statusLabel)}>
+            {state.status === 'running' ? <>
+              <VisuallyHidden>Running</VisuallyHidden>
+              {state.progress && stateLabel !== 'Running' && stateLabel.replace(/^Running · /, '')}
+            </> : stateLabel}
+            {state.status === 'running' && state.startedAt !== undefined && <ElapsedTime startedAt={state.startedAt} />}
+          </span>}
+        </TextTransition>
       </span>
     </span>
   )
@@ -176,8 +190,12 @@ function toolStateMark(state: ToolActivityState) {
   switch (state.status) {
     case 'receiving-input':
     case 'queued':
+      return <Minus aria-hidden="true" size={14} />
     case 'running':
       return <Spinner size="small" />
+    case 'awaiting-permission':
+    case 'awaiting-approval':
+      return <ShieldAlert aria-hidden="true" size={14} />
     case 'succeeded':
       return (
         <Check
@@ -210,10 +228,14 @@ function toolStateMark(state: ToolActivityState) {
   }
 }
 
-const fadeIn = stylex.keyframes({
-  from: { opacity: 0 },
-  to: { opacity: 1 },
-})
+function ElapsedTime({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return <span aria-label="Elapsed time">{Math.max(0, Math.floor((now - startedAt) / 1000))}s</span>
+}
 
 const styles = stylex.create({
   root: {
@@ -225,7 +247,7 @@ const styles = stylex.create({
     alignItems: 'center',
     display: 'grid',
     gap: space.x2,
-    gridTemplateColumns: '1rem minmax(0, 1fr)',
+    gridTemplateColumns: '1rem minmax(0, 1fr) auto',
     maxInlineSize: '100%',
     minInlineSize: 0,
   },
@@ -239,6 +261,7 @@ const styles = stylex.create({
   },
   summary: {
     color: colors.text,
+    flexGrow: 1,
     fontSize: type.sizeSmall,
     fontWeight: type.weightRegular,
     lineHeight: type.lineBody,
@@ -248,8 +271,8 @@ const styles = stylex.create({
   },
   summaryFade: {
     maskImage: {
-      default: 'linear-gradient(to right, #000 calc(100% - 2rem), rgb(0 0 0 / 0.85) calc(100% - 1.4rem), rgb(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
-      ':is([dir="rtl"] *)': 'linear-gradient(to left, #000 calc(100% - 2rem), rgb(0 0 0 / 0.85) calc(100% - 1.4rem), rgb(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
+      default: 'linear-gradient(to right, oklch(0 0 0) calc(100% - 2rem), oklch(0 0 0 / 0.85) calc(100% - 1.4rem), oklch(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
+      ':is([dir="rtl"] *)': 'linear-gradient(to left, oklch(0 0 0) calc(100% - 2rem), oklch(0 0 0 / 0.85) calc(100% - 1.4rem), oklch(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
     },
   },
   summaryComplete: {
@@ -272,30 +295,28 @@ const styles = stylex.create({
     minInlineSize: '0.875rem',
   },
   stateIcon: {
-    animationDuration: {
-      default: motion.durationFast,
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    animationName: {
-      default: fadeIn,
-      '@media (prefers-reduced-motion: reduce)': 'none',
-    },
-    animationTimingFunction: motion.easingStandard,
     blockSize: '0.875rem',
     inlineSize: '0.875rem',
+  },
+  statusLabel: {
+    color: colors.textMuted,
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: space.x1,
+    fontSize: type.sizeCaption,
+    fontVariantNumeric: 'tabular-nums',
+    justifyContent: 'flex-end',
+    maxInlineSize: '12ch',
   },
   stateDanger: {
     color: colors.danger,
   },
   evidence: {
-    borderInlineStartColor: colors.border,
-    borderInlineStartStyle: 'solid',
-    borderInlineStartWidth: '1px',
     color: colors.textMuted,
-    marginInlineStart: '0.4375rem',
+    marginInlineStart: space.x2,
     overflow: 'auto',
-    paddingBlock: space.x2,
-    paddingInlineEnd: space.x2,
+    paddingBlock: space.x1,
+    paddingInlineEnd: 0,
     paddingInlineStart: space.x4,
   },
   error: {

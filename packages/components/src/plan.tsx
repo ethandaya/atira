@@ -168,15 +168,16 @@ const styles = stylex.create({
     paddingInlineStart: space.x8,
   },
   step: {
-    alignItems: 'start',
+    alignItems: 'baseline',
     display: 'grid',
     gap: space.x3,
     gridTemplateColumns: 'minmax(0, 1fr) auto',
-    paddingBlock: space.x2,
+    paddingBlock: space.x3,
   },
   stepContent: {
     display: 'flex',
     flexDirection: 'column',
+    gap: space.x1,
     minInlineSize: 0,
   },
   stepTitle: {

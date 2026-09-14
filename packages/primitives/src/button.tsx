@@ -3,6 +3,7 @@ import {
   colors,
   motion,
   radii,
+  shadows,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
@@ -35,8 +36,10 @@ export function Button({
     <BaseButton
       render={<animate.button
         initial={false}
-        animate={{ transform: pressed && !disabled && !reduced && variant !== 'quiet' ? 'scale(0.97)' : 'scale(1)' }}
-        transition={reduced ? { duration: 0 } : { type: 'spring', duration: 0.2, bounce: 0 }}
+        animate={{ transform: pressed && !disabled && !reduced && variant !== 'quiet'
+          ? size === 'icon' ? 'translateY(0px) scale(0.98)' : 'translateY(1px) scale(1)'
+          : 'translateY(0px) scale(1)' }}
+        transition={{ duration: reduced ? 0 : 0.1, ease: 'easeOut' }}
         onPointerDown={(event) => {
           if (event.button === 0) setPressed(true)
         }}
@@ -84,7 +87,7 @@ const styles = stylex.create({
       default: 'transparent',
       ':focus-visible': colors.focus,
     },
-    outlineOffset: 0,
+    outlineOffset: '2px',
     outlineStyle: 'solid',
     outlineWidth: '3px',
     textDecoration: 'none',
@@ -100,6 +103,7 @@ const styles = stylex.create({
   disabled: {
     backgroundColor: colors.surfaceMuted,
     borderColor: 'transparent',
+    boxShadow: 'none',
     color: colors.textDisabled,
     cursor: 'not-allowed',
     opacity: 1,
@@ -150,6 +154,7 @@ const sizes = stylex.create({
 
 const variants = stylex.create({
   primary: {
+    boxShadow: shadows.control,
     backgroundColor: {
       default: colors.accent,
       ':hover': {
@@ -174,6 +179,7 @@ const variants = stylex.create({
     color: colors.text,
   },
   outline: {
+    boxShadow: shadows.control,
     backgroundColor: {
       default: colors.surfaceRaised,
       ':hover': {

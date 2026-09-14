@@ -10,7 +10,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, Disclosure } from '@pretty-amped/primitives'
+import { ActivityPresence, AnimatePresence, Button, Disclosure, PresenceSurface } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -289,23 +289,28 @@ export function TaskTool({
         id={part.id}
         state={activityState(part.state)}
         summary={summary}
+        summaryTransitionKey={`${part.state.status}:${running ? activity?.summary ?? '' : ''}`}
         title={summary}
         tool={part.toolName}
       >
-        {transcript ? (
-          <TaskTranscriptEvidence
-            description={description}
-            part={part}
-            transcript={transcript}
-          />
-        ) : (
-          <ToolEvidence
-            part={part}
-            {...(outputCharacterLimit === undefined
-              ? {}
-              : { outputCharacterLimit })}
-          />
-        )}
+        <AnimatePresence initial={false} mode="wait">
+          <PresenceSurface key={transcript ? 'transcript' : 'output'} kind="overlay">
+            {transcript ? (
+              <TaskTranscriptEvidence
+                description={description}
+                part={part}
+                transcript={transcript}
+              />
+            ) : (
+              <ToolEvidence
+                part={part}
+                {...(outputCharacterLimit === undefined
+                  ? {}
+                  : { outputCharacterLimit })}
+              />
+            )}
+          </PresenceSurface>
+        </AnimatePresence>
         {blockers.length > 0 && (
           <section aria-label="Task blockers" {...stylex.props(styles.diagnostics)}>
             <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
@@ -377,41 +382,48 @@ function TaskTranscriptEvidence({
         >
           <p {...stylex.props(styles.taskLabel)}>Activity</p>
           <div {...stylex.props(styles.taskSteps)}>
-            {transcript.steps.map((step) => (
-              <ToolActivity
-                id={`${part.id}:${step.id}`}
-                key={step.id}
-                state={
-                  step.status === 'succeeded'
-                    ? { status: 'succeeded' }
-                    : {
-                        error: step.error ?? 'The tool failed.',
-                        status: 'failed',
-                      }
-                }
-                summary={step.summary}
-                tool={step.tool}
-              >
-                {(step.input || step.output || step.error) && (
-                  <dl {...stylex.props(styles.evidence)}>
-                    {step.input && <EvidenceRow label="Input" value={step.input} />}
-                    {step.output && <EvidenceRow label="Result" value={step.output} />}
-                    {step.error && (
-                      <EvidenceRow danger label="Error" value={step.error} />
+            <AnimatePresence initial={false}>
+              {transcript.steps.map((step) => (
+                <ActivityPresence key={step.id} layoutDependency={transcript.steps.length}>
+                  <ToolActivity
+                    id={`${part.id}:${step.id}`}
+                    state={
+                      step.status === 'succeeded'
+                        ? { status: 'succeeded' }
+                        : {
+                            error: step.error ?? 'The tool failed.',
+                            status: 'failed',
+                          }
+                    }
+                    summary={step.summary}
+                    tool={step.tool}
+                  >
+                    {(step.input || step.output || step.error) && (
+                      <dl {...stylex.props(styles.evidence)}>
+                        {step.input && <EvidenceRow label="Input" value={step.input} />}
+                        {step.output && <EvidenceRow label="Result" value={step.output} />}
+                        {step.error && (
+                          <EvidenceRow danger label="Error" value={step.error} />
+                        )}
+                      </dl>
                     )}
-                  </dl>
-                )}
-              </ToolActivity>
-            ))}
+                  </ToolActivity>
+                </ActivityPresence>
+              ))}
+            </AnimatePresence>
           </div>
         </section>
       )}
-      <section aria-label="Subagent result" {...stylex.props(styles.taskSection)}>
-        <p {...stylex.props(styles.taskLabel)}>{part.state.status === 'failed' ? 'Partial response' : 'Result'}</p>
-        {transcript.result
-          ? <Markdown status="complete">{transcript.result}</Markdown>
-          : <p {...stylex.props(styles.taskCopy)}>No response text was received.</p>}
-      </section>
+      <AnimatePresence initial={false}>
+        {(transcript.result || isTerminal(part.state)) && <ActivityPresence key="result" layoutDependency={transcript.steps.length}>
+          <section aria-label="Subagent result" {...stylex.props(styles.taskSection)}>
+            <p {...stylex.props(styles.taskLabel)}>{part.state.status === 'failed' ? 'Partial response' : 'Result'}</p>
+            {transcript.result
+              ? <Markdown status="complete">{transcript.result}</Markdown>
+              : <p {...stylex.props(styles.taskCopy)}>No response text was received.</p>}
+          </section>
+        </ActivityPresence>}
+      </AnimatePresence>
       <dl {...stylex.props(styles.evidence)}>
         <ToolTiming state={part.state} />
       </dl>
@@ -504,21 +516,24 @@ function ToolEvidence({
       {state.status === 'receiving-input' && state.rawInput && (
         <EvidenceRow label="Input" value={state.rawInput} />
       )}
-      {input !== undefined && <BoundedEvidenceRow label="Input" value={input} />}
-      {output !== undefined && (
-        <BoundedEvidenceRow
-          label="Result"
-          value={output}
-          {...(outputCharacterLimit !== undefined
-            ? { characterLimit: outputCharacterLimit }
-            : part.presentation.kind === 'context'
-            ? { characterLimit: 20_000 }
-            : {})}
-        />
-      )}
-      {part.metadata && Object.keys(part.metadata).length > 0 && (
-        <BoundedEvidenceRow label="Metadata" value={part.metadata} />
-      )}
+      <AnimatePresence initial={false}>
+        {input !== undefined && <BoundedEvidenceRow key="input" label="Input" value={input} />}
+        {output !== undefined && (
+          <BoundedEvidenceRow
+            key="result"
+            label="Result"
+            value={output}
+            {...(outputCharacterLimit !== undefined
+              ? { characterLimit: outputCharacterLimit }
+              : part.presentation.kind === 'context'
+              ? { characterLimit: 20_000 }
+              : {})}
+          />
+        )}
+        {part.metadata && Object.keys(part.metadata).length > 0 && (
+          <BoundedEvidenceRow key="metadata" label="Metadata" value={part.metadata} />
+        )}
+      </AnimatePresence>
       {state.status === 'failed' && (
         <EvidenceRow label="Error" value={state.error.message} danger />
       )}
@@ -543,7 +558,7 @@ function BoundedEvidenceRow({
   const visible = truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
 
   return (
-    <div {...stylex.props(styles.evidenceRow)}>
+    <PresenceSurface kind="overlay" {...stylex.props(styles.evidenceRow)}>
       <dt {...stylex.props(styles.term)}>{label}</dt>
       <dd {...stylex.props(styles.boundedValue)}>
         <span dir="ltr" {...stylex.props(styles.value)}>
@@ -560,7 +575,7 @@ function BoundedEvidenceRow({
           </Button>
         )}
       </dd>
-    </div>
+    </PresenceSurface>
   )
 }
 
@@ -643,6 +658,7 @@ function activityState(state: ToolState): ToolActivityState {
     case 'running':
       return {
         ...(state.progress === undefined ? {} : { progress: state.progress }),
+        startedAt: state.startedAt,
         status: 'running',
       }
     case 'awaiting-permission':
@@ -831,14 +847,11 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   groupItems: {
-    borderInlineStartColor: colors.border,
-    borderInlineStartStyle: 'solid',
-    borderInlineStartWidth: '1px',
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x1,
+    gap: space.x2,
     marginInlineStart: '0.4375rem',
-    paddingInlineStart: space.x4,
+    paddingInlineStart: '1.0625rem',
   },
   muted: {
     color: colors.textMuted,

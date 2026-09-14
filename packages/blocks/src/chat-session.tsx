@@ -28,6 +28,7 @@ import { useChatStore } from './chat-store'
 import { Timeline } from './timeline'
 
 export type ChatSessionProps = {
+  activityPresentation?: 'expanded' | 'summary'
   accept?: string
   commands?: readonly ComposerCommand[]
   composerActions?: ReactNode
@@ -49,6 +50,7 @@ export type ChatSessionProps = {
 }
 
 export function ChatSession({
+  activityPresentation = 'expanded',
   accept,
   commands,
   composerActions,
@@ -251,6 +253,7 @@ export function ChatSession({
       />
       <div data-slot="chat-session-timeline" {...stylex.props(styles.timeline)}>
         <Timeline
+          activityPresentation={activityPresentation}
           activity={snapshot.activity}
           {...(empty === undefined ? {} : { empty })}
           history={snapshot.history}
@@ -287,6 +290,7 @@ const styles = stylex.create({
   },
   timeline: {
     gridRow: 2,
+    isolation: 'isolate',
     minBlockSize: 0,
   },
   dock: {

@@ -1,19 +1,10 @@
-import '@fontsource-variable/geist/wght.css'
-import '@fontsource-variable/geist-mono/wght.css'
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-
-import { App } from './app'
-import './global.css'
-
-const root = document.getElementById('root')
-
-if (!root) {
-  throw new Error('Missing root element')
+// Install the clock before importing the app or Motion can cache native timing.
+// Vite removes this branch and the inspector dependency from production builds.
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('lapse')) {
+  const { mountLapse } = await import('@aiforui/lapse/panel')
+  mountLapse()
 }
 
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+await import('./bootstrap')
+
+export {}

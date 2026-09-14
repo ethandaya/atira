@@ -153,10 +153,7 @@ function getCopyAnnouncement(status: CopyState['status']): ReactNode {
 const styles = stylex.create({
   root: {
     backgroundColor: colors.surfaceInset,
-    borderColor: colors.border,
     borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: '1px',
     boxSizing: 'border-box',
     color: colors.text,
     fontFamily: type.family,
@@ -166,22 +163,19 @@ const styles = stylex.create({
   },
   header: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceRaised,
-    borderBlockEndColor: colors.border,
-    borderBlockEndStyle: 'solid',
-    borderBlockEndWidth: '1px',
     display: 'flex',
     gap: space.x3,
     justifyContent: 'space-between',
     minBlockSize: '2.75rem',
-    paddingBlock: space.x1,
-    paddingInline: space.x3,
+    paddingBlock: space.x2,
+    paddingInline: space.x4,
   },
   metadata: {
     alignItems: 'baseline',
     display: 'flex',
     flexWrap: 'wrap',
-    gap: space.x2,
+    columnGap: space.x2,
+    rowGap: space.x1,
     minInlineSize: 0,
   },
   filename: {

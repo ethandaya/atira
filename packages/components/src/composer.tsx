@@ -1,4 +1,5 @@
 import {
+  chatAppearance,
   colors,
   motion,
   radii,
@@ -121,28 +122,19 @@ export function Composer({
         >
           {actions}
         </div>
-        {active ? (
-          <IconButton
-            aria-label="Stop"
-            iconSize="small"
-            onClick={onStop}
-            title="Stop response"
-            variant="primary"
-          >
-            <Square fill="currentColor" size={16} strokeWidth={1.75} />
-          </IconButton>
-        ) : (
-          <IconButton
-            aria-label={sendLabel}
-            disabled={!canSubmit}
-            iconSize="small"
-            title={sendLabel}
-            type="submit"
-            variant="primary"
-          >
-            <SendHorizontal size={16} strokeWidth={1.75} />
-          </IconButton>
-        )}
+        <IconButton
+          aria-label={active ? 'Stop' : sendLabel}
+          disabled={!active && !canSubmit}
+          iconSize="small"
+          onClick={active ? onStop : undefined}
+          title={active ? 'Stop response' : sendLabel}
+          type={active ? 'button' : 'submit'}
+          variant="primary"
+        >
+          {active
+            ? <Square fill="currentColor" size={16} strokeWidth={1.75} />
+            : <SendHorizontal size={16} strokeWidth={1.75} />}
+        </IconButton>
       </div>
     </form>
   )
@@ -150,11 +142,12 @@ export function Composer({
 
 const styles = stylex.create({
   root: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.surface,
+    backgroundColor: colors.surfaceRaised,
+    borderColor: 'transparent',
+    borderRadius: radii.panel,
     borderStyle: 'solid',
     borderWidth: '1px',
+    boxShadow: chatAppearance.composerShadow,
     boxSizing: 'border-box',
     display: 'flex',
     alignItems: 'stretch',
@@ -165,7 +158,7 @@ const styles = stylex.create({
       default: 'transparent',
       ':focus-within': colors.focus,
     },
-    outlineOffset: 0,
+    outlineOffset: chatAppearance.composerFocusOffset,
     outlineStyle: 'solid',
     outlineWidth: '3px',
     padding: 0,
@@ -178,12 +171,14 @@ const styles = stylex.create({
   },
   footer: {
     alignItems: 'center',
+    backgroundColor: chatAppearance.composerToolbarSurface,
+    margin: '0 6px 6px',
     display: 'flex',
     flexShrink: 0,
     gap: space.x2,
     justifyContent: 'space-between',
     minBlockSize: '2.5rem',
-    paddingBlockEnd: space.x2,
+    paddingBlock: space.x1,
     paddingInline: space.x2,
   },
   actions: {

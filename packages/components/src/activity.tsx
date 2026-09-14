@@ -77,16 +77,17 @@ export function Activity({
 
 const styles = stylex.create({
   root: {
-    alignItems: 'center',
+    alignItems: 'baseline',
     color: colors.textMuted,
     display: 'grid',
     fontFamily: type.family,
     fontSize: type.sizeSmall,
-    gap: space.x2,
+    columnGap: space.x3,
+    rowGap: space.x1,
     gridTemplateColumns: 'minmax(0, 1fr) auto',
     lineHeight: type.lineBody,
     minBlockSize: '2rem',
-    paddingBlock: space.x1,
+    paddingBlock: space.x2,
   },
   label: {
     color: colors.text,

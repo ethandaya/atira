@@ -44,7 +44,8 @@ export function Disclosure({
       {...props}
       disabled={disabled}
       onOpenChange={(nextOpen, details) => {
-        setImmediate(details.event.type.startsWith('key'))
+        setImmediate(details.event.type.startsWith('key') ||
+          (details.event.type === 'click' && 'detail' in details.event && details.event.detail === 0))
         setLocalOpen(nextOpen)
         onOpenChange?.(nextOpen)
       }}
@@ -80,6 +81,7 @@ export function Disclosure({
               {...stylex.props(
                 styles.indicator,
                 state.open && styles.indicatorOpen,
+                immediate && styles.indicatorImmediate,
                 disabled && styles.indicatorDisabled,
               )}
             />
@@ -154,12 +156,15 @@ const styles = stylex.create({
       },
     },
     borderRadius: radii.control,
-    inlineSize: '100%',
+    borderWidth: 0,
+    boxSizing: 'border-box',
+    inlineSize: 'calc(100% + 1rem)',
     justifyContent: 'space-between',
-    maxInlineSize: '100%',
+    marginInline: '-0.5rem',
+    maxInlineSize: 'calc(100% + 1rem)',
     minBlockSize: {
-      default: '2rem',
-      '@media (hover: none)': '2.75rem',
+      default: '2.125rem',
+      '@media (hover: none)': '2.875rem',
     },
     paddingBlock: space.x1,
     paddingInline: space.x2,
@@ -178,6 +183,9 @@ const styles = stylex.create({
   },
   indicatorOpen: {
     transform: 'rotate(90deg)',
+  },
+  indicatorImmediate: {
+    transitionDuration: '0ms',
   },
   triggerDisabled: {
     cursor: 'default',
@@ -198,7 +206,8 @@ const styles = stylex.create({
   },
   panelPlain: {
     borderBlockStartStyle: 'none',
-    paddingBlock: space.x2,
-    paddingInline: space.x1,
+    paddingBlockStart: space.x1,
+    paddingBlockEnd: space.x3,
+    paddingInline: 0,
   },
 })

@@ -68,6 +68,13 @@ export function CitationList({
         <ol data-slot="citation-list-items" {...stylex.props(styles.list)}>
           {citations.map((citation) => {
             const hrefState = getHrefState(citation.href)
+            const content = <>
+              <span {...stylex.props(styles.heading)}>
+                <span data-slot="citation-title" {...stylex.props(styles.itemTitle)}>{citation.title}</span>
+                {citation.source && <span data-slot="citation-source" {...stylex.props(styles.source)}>{citation.source}</span>}
+              </span>
+              {citation.description && <span data-slot="citation-description" {...stylex.props(styles.description)}>{citation.description}</span>}
+            </>
             return (
               <li
                 key={citation.id}
@@ -76,37 +83,24 @@ export function CitationList({
                 data-slot="citation"
                 {...stylex.props(styles.item)}
               >
-                <div {...stylex.props(styles.heading)}>
                   {hrefState.status === 'valid' ? (
                     <a
+                      aria-label={citation.title}
                       href={hrefState.href}
                       rel="noreferrer noopener"
                       data-slot="citation-link"
                       {...stylex.props(styles.link)}
                     >
-                      {citation.title}
+                      {content}
                     </a>
                   ) : (
-                    <span data-slot="citation-title" {...stylex.props(styles.itemTitle)}>
-                      {citation.title}
+                    <span {...stylex.props(styles.entry)}>
+                      {content}
+                      <span data-slot="citation-link-status" {...stylex.props(styles.unavailable)}>
+                        {hrefState.status === 'invalid' ? 'Invalid link' : 'Link unavailable'}
+                      </span>
                     </span>
                   )}
-                  {citation.source && (
-                    <span data-slot="citation-source" {...stylex.props(styles.source)}>
-                      {citation.source}
-                    </span>
-                  )}
-                </div>
-                {citation.description && (
-                  <p data-slot="citation-description" {...stylex.props(styles.description)}>
-                    {citation.description}
-                  </p>
-                )}
-                {hrefState.status !== 'valid' && (
-                  <span data-slot="citation-link-status" {...stylex.props(styles.unavailable)}>
-                    {hrefState.status === 'invalid' ? 'Invalid link' : 'Link unavailable'}
-                  </span>
-                )}
               </li>
             )
           })}
@@ -211,17 +205,40 @@ const styles = stylex.create({
     paddingInlineStart: space.x8,
   },
   item: {
-    paddingBlock: space.x3,
+    borderBlockEndColor: colors.border,
+    borderBlockEndStyle: 'solid',
+    borderBlockEndWidth: '1px',
+    ':last-child': { borderBlockEndWidth: 0 },
+    paddingBlock: space.x1,
     paddingInlineStart: space.x1,
   },
   heading: {
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: space.x2,
+    flexDirection: 'column',
+    gap: space.x1,
     minInlineSize: 0,
   },
+  entry: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
+    paddingBlock: space.x3,
+  },
   link: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
+    borderRadius: radii.control,
+    marginInline: '-0.5rem',
+    padding: '0.75rem 0.5rem',
+    backgroundColor: {
+      default: 'transparent',
+      ':hover': {
+        default: null,
+        '@media (hover: hover) and (pointer: fine)': colors.surfaceHover,
+      },
+    },
     color: colors.text,
     fontSize: type.sizeSmall,
     fontWeight: type.weightMedium,
@@ -234,8 +251,7 @@ const styles = stylex.create({
     outlineOffset: '2px',
     outlineStyle: 'solid',
     outlineWidth: '3px',
-    textDecorationColor: colors.borderStrong,
-    textUnderlineOffset: '0.15em',
+    textDecoration: 'none',
   },
   itemTitle: {
     fontSize: type.sizeSmall,
@@ -246,10 +262,13 @@ const styles = stylex.create({
   source: {
     color: colors.textMuted,
     fontSize: type.sizeCaption,
+    lineHeight: type.lineBody,
+    overflowWrap: 'anywhere',
   },
   description: {
     color: colors.textMuted,
     fontSize: type.sizeSmall,
+    fontWeight: type.weightRegular,
     lineHeight: type.lineBody,
     margin: 0,
     overflowWrap: 'anywhere',

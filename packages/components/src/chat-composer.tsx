@@ -10,7 +10,9 @@ import type {
 } from '@pretty-amped/foundations/chat'
 import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
 import {
+  chatAppearance,
   colors,
+  motion,
   radii,
   shadows,
   space,
@@ -549,28 +551,19 @@ export function ChatComposer({
           data-slot="chat-composer-submit-controls"
           {...stylex.props(styles.trailing)}
         >
-          {showStop ? (
-            <IconButton
-              aria-label="Stop"
-              iconSize="small"
-              onClick={onStop}
-              title="Stop response"
-              variant="primary"
-            >
-              <Square fill="currentColor" size={16} strokeWidth={1.75} />
-            </IconButton>
-          ) : (
-            <IconButton
-              aria-label={submitLabel(intent)}
-              disabled={!canSubmit}
-              iconSize="small"
-              title={submitLabel(intent)}
-              type="submit"
-              variant="primary"
-            >
-              <SendHorizontal size={16} strokeWidth={1.75} />
-            </IconButton>
-          )}
+          <IconButton
+            aria-label={showStop ? 'Stop' : submitLabel(intent)}
+            disabled={!showStop && !canSubmit}
+            iconSize="small"
+            onClick={showStop ? onStop : undefined}
+            title={showStop ? 'Stop response' : submitLabel(intent)}
+            type={showStop ? 'button' : 'submit'}
+            variant="primary"
+          >
+            {showStop
+              ? <Square fill="currentColor" size={16} strokeWidth={1.75} />
+              : <SendHorizontal size={16} strokeWidth={1.75} />}
+          </IconButton>
         </div>
       </div>
       <VisuallyHidden>Ctrl/⌘ + Enter to submit</VisuallyHidden>
@@ -614,7 +607,7 @@ export function AttachmentTray({
             />
           )}
           <span {...stylex.props(styles.attachmentCopy)}>
-            <span dir="auto" {...stylex.props(styles.trayLabel)}>
+            <span dir="auto" title={item.attachment.name} {...stylex.props(styles.trayLabel)}>
               {item.attachment.name}
             </span>
             <span {...stylex.props(styles.trayState)}>
@@ -721,9 +714,12 @@ export function QueueList({
             key={item.id}
             {...stylex.props(styles.queueItem)}
           >
-            <span {...stylex.props(styles.queueText)}>
-              {composerDraftText(item.draft) || 'Attachment prompt'}
-            </span>
+            <div {...stylex.props(styles.queueCopy)}>
+              <span {...stylex.props(styles.queueText)}>
+                {composerDraftText(item.draft) || 'Attachment prompt'}
+              </span>
+              {item.state === 'failed' && <span role="alert" {...stylex.props(styles.queueError)}>{item.error.message}</span>}
+            </div>
             <span
               {...stylex.props(
                 styles.trayState,
@@ -734,7 +730,7 @@ export function QueueList({
               {item.state}
             </span>
             <div {...stylex.props(styles.queueActions)}>
-              {item.state === 'failed' && onRetry && (
+              {item.state === 'failed' && item.error.retryable && onRetry && (
                 <Button onClick={() => onRetry(item)} size="compact" variant="primary">
                   Retry
                 </Button>
@@ -912,10 +908,13 @@ const styles = stylex.create({
   root: {
     backgroundColor: colors.surfaceRaised,
     borderColor: 'transparent',
-    borderRadius: radii.surface,
+    borderRadius: radii.panel,
     borderStyle: 'solid',
     borderWidth: '1px',
-    boxShadow: shadows.raised,
+    boxShadow: {
+      default: chatAppearance.composerShadow,
+      ':focus-within': stylex.firstThatWorks(chatAppearance.composerFocusShadow, chatAppearance.composerShadow),
+    },
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
@@ -924,9 +923,15 @@ const styles = stylex.create({
       default: 'transparent',
       ':focus-within': colors.focus,
     },
-    outlineOffset: '1px',
+    outlineOffset: chatAppearance.composerFocusOffset,
     outlineStyle: 'solid',
     outlineWidth: '2px',
+    transitionProperty: 'box-shadow',
+    transitionDuration: {
+      default: motion.durationFast,
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    transitionTimingFunction: motion.easingStandard,
   },
   shell: {
     borderColor: colors.warning,
@@ -940,6 +945,8 @@ const styles = stylex.create({
   },
   toolbar: {
     alignItems: 'center',
+    backgroundColor: chatAppearance.composerToolbarSurface,
+    margin: '0 6px 6px',
     display: 'grid',
     gap: space.x2,
     gridTemplateColumns: 'minmax(0, 1fr) auto',
@@ -956,10 +963,7 @@ const styles = stylex.create({
     display: 'flex',
     gap: space.x1,
     minInlineSize: 0,
-    overflowX: {
-      default: 'hidden',
-      '@media (min-width: 40rem)': 'auto',
-    },
+    overflowX: 'auto',
     overscrollBehaviorInline: 'contain',
     scrollbarWidth: 'none',
     position: 'relative',
@@ -1004,34 +1008,44 @@ const styles = stylex.create({
     gap: space.x2,
     listStyle: 'none',
     margin: 0,
-    paddingBlockStart: space.x2,
-    paddingInline: space.x2,
+    paddingBlockStart: space.x3,
+    paddingInline: space.x4,
   },
   trayItem: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surfaceInset,
     borderRadius: radii.control,
+    boxShadow: shadows.inset,
+    boxSizing: 'border-box',
     display: 'flex',
-    gap: space.x1,
+    flex: '1 1 18rem',
+    gap: space.x2,
+    maxInlineSize: '100%',
+    minInlineSize: 0,
     minBlockSize: '2.75rem',
-    paddingInlineStart: space.x2,
+    padding: space.x2,
   },
   attachmentPreview: {
     blockSize: '2rem',
-    borderRadius: radii.control,
+    borderRadius: '0.25rem',
+    flexShrink: 0,
     inlineSize: '2rem',
     objectFit: 'cover',
   },
   attachmentCopy: {
     display: 'flex',
+    flex: 1,
     flexDirection: 'column',
+    gap: space.x1,
     minInlineSize: 0,
   },
   attachmentError: {
     color: colors.danger,
     fontFamily: type.family,
     fontSize: type.sizeCaption,
+    lineHeight: type.lineBody,
     maxInlineSize: '18rem',
+    overflowWrap: 'anywhere',
   },
   reference: {
     alignItems: 'center',
@@ -1039,6 +1053,8 @@ const styles = stylex.create({
     borderRadius: radii.control,
     display: 'flex',
     gap: space.x1,
+    maxInlineSize: '100%',
+    minInlineSize: 0,
     minBlockSize: '2.75rem',
     paddingInlineStart: space.x2,
   },
@@ -1074,33 +1090,52 @@ const styles = stylex.create({
   queueItems: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x1,
+    gap: space.x2,
     listStyle: 'none',
     margin: 0,
     padding: 0,
   },
   queueItem: {
     alignItems: 'center',
+    backgroundColor: colors.surfaceInset,
+    borderRadius: radii.surface,
+    padding: space.x3,
     display: 'grid',
     gap: space.x2,
     gridTemplateColumns: {
       default: 'minmax(0, 1fr) auto',
-      '@media (min-width: 40rem)': 'minmax(0, 1fr) auto auto',
+      '@media (min-width: 40rem)': 'minmax(0, 1fr) 5rem auto',
     },
     minBlockSize: '2.75rem',
   },
-  queueText: {
-    fontSize: type.sizeSmall,
+  queueCopy: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x1,
     gridColumn: 1,
     gridRow: 1,
+    minInlineSize: 0,
+  },
+  queueText: {
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineBody,
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
     overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    overflowWrap: 'anywhere',
+  },
+  queueError: {
+    color: colors.danger,
+    fontSize: type.sizeCaption,
+    lineHeight: type.lineBody,
+    overflowWrap: 'anywhere',
   },
   queueActions: {
     alignItems: 'center',
     display: 'flex',
     gap: space.x1,
+    minInlineSize: { default: 0, '@media (min-width: 40rem)': '12rem' },
     gridColumn: {
       default: '1 / -1',
       '@media (min-width: 40rem)': 3,
@@ -1114,6 +1149,7 @@ const styles = stylex.create({
   queueState: {
     gridColumn: 2,
     gridRow: 1,
+    textAlign: 'end',
   },
   queueStateFailed: {
     color: colors.danger,

@@ -17,11 +17,13 @@ vi.mock('@stylexjs/stylex', () => ({
   create: <Styles,>(styles: Styles) => styles,
   createTheme: () => ({}),
   defineVars: <Vars,>(variables: Vars) => variables,
+  firstThatWorks: (...values: string[]) => values[0],
   keyframes: () => '',
   props: () => ({}),
 }))
 
-import { ChatComposer } from './chat-composer'
+import { ChatComposer, QueueList } from './chat-composer'
+import { CitationList } from './citation-list'
 import { FileChangeTool, ShellTool, TaskTool } from './chat-tools'
 import { MessageParts } from './message-parts'
 import {
@@ -32,11 +34,103 @@ import {
   RevertDock,
 } from './requests'
 import { Reasoning } from './reasoning'
+import { ToolActivity } from './tool-activity'
 import { Turn } from './turn'
 
 afterEach(cleanup)
 
 describe('chat components', () => {
+  it('shows queue failure reasons and only offers retry for recoverable errors', async () => {
+    const onRetry = vi.fn()
+    const item = { id: 'queued', draft, state: 'failed' as const, error: { kind: 'connection' as const, message: 'Connection lost. Try again.', retryable: true } }
+    const { rerender } = render(<QueueList items={[item]} onRetry={onRetry} />)
+    expect(screen.getByRole('alert').textContent).toBe(item.error.message)
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetry).toHaveBeenCalledWith(item)
+    rerender(<QueueList items={[{ ...item, error: { ...item.error, retryable: false } }]} onRetry={onRetry} />)
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.getByRole('alert').textContent).toBe(item.error.message)
+  })
+
+  it('links the complete source entry but leaves invalid sources noninteractive', () => {
+    render(<CitationList id="sources" citations={[
+      { id: 'valid', title: 'Source title', source: 'Example', description: 'Supporting evidence', href: 'https://example.com/source' },
+      { id: 'invalid', title: 'Unsafe source', href: 'javascript:alert(1)' },
+    ]} />)
+    const link = screen.getByRole('link', { name: 'Source title' })
+    expect(link.contains(screen.getByText('Supporting evidence'))).toBe(true)
+    expect(link.getAttribute('href')).toBe('https://example.com/source')
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByText('Invalid link')).not.toBeNull()
+  })
+
+  it('retains the tool, trigger and open evidence across progress, completion and retry', async () => {
+    const view = (state: React.ComponentProps<typeof ToolActivity>['state']) => (
+      <ToolActivity id="stable-tool" state={state} summary="Check types" tool="shell">
+        <code>Checking the interface</code>
+      </ToolActivity>
+    )
+    const { container, rerender } = render(view({ status: 'running', startedAt: Date.now(), progress: { current: 1, total: 3 } }))
+    const row = container.querySelector('[data-slot="tool-activity"]')
+    const trigger = screen.getByRole('button')
+    await userEvent.click(trigger)
+    const evidence = container.querySelector('[data-slot="tool-activity-evidence"]')
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('1/3')).not.toBeNull()
+    expect(screen.getByLabelText('Elapsed time')).not.toBeNull()
+    for (const state of [
+      { status: 'receiving-input' }, { status: 'queued' }, { status: 'running' },
+      { status: 'awaiting-permission' }, { status: 'awaiting-approval' },
+      { status: 'succeeded' }, { status: 'failed', error: 'Type mismatch' },
+      { status: 'cancelled' }, { status: 'running' },
+    ] as const) {
+      rerender(view(state))
+      expect(container.querySelector('[data-slot="tool-activity"]')).toBe(row)
+      expect(screen.getByRole('button')).toBe(trigger)
+      expect(container.querySelector('[data-slot="tool-activity-evidence"]')).toBe(evidence)
+      expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    }
+  })
+
+  it('keeps the permission scope and exact decision available after resolution', async () => {
+    const request = permissionRequest()
+    const view = (resolved: boolean) => <RequestRegion
+      onPermissionDecision={() => undefined}
+      onQuestionAnswer={() => undefined}
+      onQuestionReject={() => undefined}
+      requests={[{ ...request, scope: 'Only this workspace.', state: resolved ? { status: 'resolved', decision: 'once' } : request.state }]}
+    ><textarea aria-label="Retained draft" defaultValue="Do not lose this draft" /></RequestRegion>
+    const { rerender } = render(view(false))
+    rerender(view(true))
+    await userEvent.click(screen.getByRole('button', { name: /Allowed once/ }))
+    expect(screen.getByRole('list', { name: 'Decision history' }).textContent).toContain('Only this workspace.')
+    expect((screen.getByRole('textbox', { name: 'Retained draft' }) as HTMLTextAreaElement).value).toBe('Do not lose this draft')
+  })
+
+  it('summarizes successful work while keeping running, blocked, failed and cancelled tools visible', async () => {
+    const done = toolPart('read', { kind: 'context', operation: 'read' })
+    const running: ToolPart = { ...toolPart('shell', { kind: 'shell' }), state: { status: 'running', startedAt: Date.now() - 3000, input: { command: 'pnpm test' } } }
+    const failed: ToolPart = { ...toolPart('failed', { kind: 'generic' }), state: { status: 'failed', endedAt: 2, error: { message: 'Check failed', kind: 'tool', retryable: false } } }
+    const blocked: ToolPart = { ...toolPart('blocked', { kind: 'generic' }), state: { status: 'awaiting-permission', input: {}, requestId: 'permission' } }
+    const cancelled: ToolPart = { ...toolPart('cancelled', { kind: 'generic' }), state: { status: 'cancelled', endedAt: 2 } }
+    const message: ChatMessage = { createdAt: 1, delivery: { status: 'confirmed' }, id: 'summary', parts: [done, running, failed, blocked, cancelled], role: 'assistant', turnId: 'turn' }
+    const { container, rerender } = render(<MessageParts activityPresentation="summary" message={message} />)
+    expect(container.querySelectorAll('[data-slot="activity-current"]')).toHaveLength(4)
+    expect(screen.getByText('Check failed')).not.toBeNull()
+    expect(screen.getByLabelText('Elapsed time').textContent).toBe('3s')
+    expect(container.querySelector('[data-slot="activity-completed"]')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: '1 action completed' }))
+    await userEvent.click(screen.getByRole('button', { name: /Complete\s*Read \/workspace\/app.tsx/ }))
+    expect(screen.getByText('result')).not.toBeNull()
+    rerender(<MessageParts activityPresentation="summary" message={{ ...message, parts: [done, { ...running, state: { status: 'succeeded', input: { command: 'pnpm test' }, endedAt: Date.now(), output: 'All passed' } }, failed, blocked, cancelled] }} />)
+    expect(container.querySelectorAll('[data-slot="activity-current"]')).toHaveLength(3)
+    expect(screen.queryByLabelText('Elapsed time')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: /Complete\s*pnpm test/ }))
+    expect(screen.getByText('All passed')).not.toBeNull()
+    expect(screen.getByText('result')).not.toBeNull()
+    expect(screen.getByText('Check failed')).not.toBeNull()
+  })
+
   it('keeps reasoning geometry while replacing loading with completion', async () => {
     const { container, rerender } = render(
       <Reasoning state={{ status: 'thinking' }}>Checking the response.</Reasoning>,
@@ -200,7 +294,7 @@ describe('chat components', () => {
     expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
   })
 
-  it('keeps a working indicator after assistant text while the turn remains active', () => {
+  it('shows waiting after settled text but hands off to streaming text or a tool', async () => {
     const turn = runningTurnWithParts([
       {
         id: 'assistant-text',
@@ -218,6 +312,15 @@ describe('chat components', () => {
     )
     expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
 
+    rerender(<Turn turn={runningTurnWithParts([{
+      id: 'assistant-text',
+      markdown: 'The response is arriving.',
+      state: { status: 'streaming' },
+      type: 'text',
+    }])} />)
+    await waitFor(() => expect(container.querySelector('[data-slot="turn-status"]')).toBeNull())
+    expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(0)
+
     rerender(
       <Turn
         turn={runningTurnWithParts([
@@ -233,7 +336,7 @@ describe('chat components', () => {
         ])}
       />,
     )
-    expect(container.querySelector('[data-slot="turn-status"]')).toBeNull()
+    await waitFor(() => expect(container.querySelector('[data-slot="turn-status"]')).toBeNull())
     expect(screen.getByText('Generating image…')).not.toBeNull()
     expect(container.querySelectorAll('[data-slot="spinner"]')).toHaveLength(1)
   })

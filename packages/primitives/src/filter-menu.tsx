@@ -61,7 +61,7 @@ export function FilterMenu<Item extends FilterMenuItem>({
 
   useEffect(() => {
     if (!resolvedOpen) return
-    const frame = requestAnimationFrame(() => inputRef.current?.focus())
+    const frame = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
     return () => cancelAnimationFrame(frame)
   }, [resolvedOpen])
 
@@ -99,7 +99,7 @@ export function FilterMenu<Item extends FilterMenuItem>({
           sideOffset={6}
           {...stylex.props(styles.positioner)}
         >
-          <Combobox.Popup data-slot="filter-menu-popup" {...stylex.props(styles.popup)}>
+          <Combobox.Popup aria-label={label} data-slot="filter-menu-popup" {...stylex.props(styles.popup)}>
             <Combobox.Label {...stylex.props(styles.label)}>
               {label}
             </Combobox.Label>
@@ -111,6 +111,7 @@ export function FilterMenu<Item extends FilterMenuItem>({
               spellCheck={false}
               {...stylex.props(styles.input)}
             />
+            <div data-slot="filter-menu-results" {...stylex.props(styles.results)}>
             <Combobox.Empty {...stylex.props(styles.empty)}>
               {emptyLabel}
             </Combobox.Empty>
@@ -136,6 +137,7 @@ export function FilterMenu<Item extends FilterMenuItem>({
                 </Combobox.Item>
               )}
             </Combobox.List>
+            </div>
           </Combobox.Popup>
         </Combobox.Positioner>
       </Combobox.Portal>
@@ -229,9 +231,14 @@ const styles = stylex.create({
     outlineWidth: '3px',
     paddingInline: space.x3,
   },
-  list: {
-    maxBlockSize: 'min(18rem, var(--available-height))',
+  results: {
+    minBlockSize: 'min(12rem, max(0px, calc(var(--available-height) - 6.5rem)))',
+    maxBlockSize: 'min(18rem, max(0px, calc(var(--available-height) - 6.5rem)))',
     overflowY: 'auto',
+    marginBlockStart: space.x2,
+    overscrollBehaviorY: 'contain',
+  },
+  list: {
     padding: space.x1,
   },
   item: {
@@ -242,25 +249,31 @@ const styles = stylex.create({
     flexDirection: 'column',
     fontFamily: type.family,
     fontSize: type.sizeSmall,
+    fontWeight: type.weightMedium,
+    lineHeight: type.lineBody,
     gap: space.x1,
+    justifyContent: 'center',
     minBlockSize: '2.75rem',
     opacity: { default: 1, '[data-disabled]': 0.45 },
     outline: 'none',
-    paddingBlock: space.x2,
-    paddingInline: space.x2,
+    paddingBlock: space.x3,
+    paddingInline: space.x3,
+    overflowWrap: 'anywhere',
     userSelect: 'none',
   },
   itemHighlighted: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.surfaceSelected,
   },
   description: {
     color: colors.textMuted,
     fontSize: type.sizeCaption,
+    fontWeight: type.weightRegular,
   },
   empty: {
     color: colors.textMuted,
     fontFamily: type.family,
     fontSize: type.sizeSmall,
     padding: space.x4,
+    ':empty': { padding: 0 },
   },
 })

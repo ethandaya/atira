@@ -1,4 +1,5 @@
 import {
+  chatAppearance,
   colors,
   radii,
   space,
@@ -85,7 +86,7 @@ const styles = stylex.create({
     boxSizing: 'border-box',
     color: colors.text,
     fontFamily: type.family,
-    fontSize: type.sizeBody,
+    fontSize: chatAppearance.readingSize,
     fontWeight: type.weightRegular,
     lineHeight: type.lineBody,
     overflowWrap: 'anywhere',

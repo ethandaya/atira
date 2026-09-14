@@ -5,7 +5,6 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import {
   Disclosure,
-  Shimmer,
   Spinner,
   StateTransition,
   TextTransition,
@@ -78,13 +77,7 @@ export function Reasoning({
               />
             )}
             </StateTransition>
-            <TextTransition state={`${state.status}:${typeof summary === 'string' ? summary : ''}`}>
-              {isThinking && typeof summary === 'string' ? (
-                <Shimmer>{summary}</Shimmer>
-              ) : (
-                summary
-              )}
-            </TextTransition>
+            <TextTransition state={state.status}>{summary}</TextTransition>
           </span>
         )}
       >

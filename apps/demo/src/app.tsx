@@ -467,7 +467,8 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
     getNotificationCount: store.getNotificationCount,
   }))
   const parameters = new URLSearchParams(window.location.search)
-  const theme = parameters.get('theme') === 'dark' ? 'dark' : 'light'
+  const [theme, setTheme] = useState<Theme>(() => parameters.get('theme') === 'dark' ? 'dark' : 'light')
+  const review = parameters.has('review') || parameters.has('design')
   const direction = parameters.get('dir') === 'rtl' ? 'rtl' : 'ltr'
 
   useEffect(() => {
@@ -510,6 +511,28 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
         themeStyles[theme],
       )}
     >
+      {review && <header {...stylex.props(styles.header)}>
+        <div {...stylex.props(styles.headerInner, styles.reviewHeader)}>
+          <span {...stylex.props(styles.runtimeMeta)}>Local fixture · no external actions</span>
+          <nav aria-label="Design review" {...stylex.props(styles.headerActions)}>
+            <ActionMenu label="Preview request" trigger="Requests" items={[
+              { id: 'permission', label: 'Permission request', onSelect: () => store.requestPermission() },
+              { id: 'question', label: 'Question request', onSelect: () => store.requestQuestion() },
+            ]} />
+            <IconButton aria-label={theme === 'dark' ? 'Light' : 'Dark'} variant="quiet" onClick={() => {
+              document.documentElement.dataset.themeSwitching = 'true'
+              const next = theme === 'dark' ? 'light' : 'dark'
+              setTheme(next)
+              const url = new URL(window.location.href)
+              url.searchParams.set('theme', next)
+              window.history.replaceState(null, '', url)
+              window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+                delete document.documentElement.dataset.themeSwitching
+              }))
+            }}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</IconButton>
+          </nav>
+        </div>
+      </header>}
       <Profiler
         id={`${mode}-chat-fixture`}
         onRender={(_id, _phase, actualDuration) => {
@@ -591,9 +614,6 @@ const styles = stylex.create({
   },
   header: {
     backgroundColor: colors.canvas,
-    borderBlockEndColor: colors.border,
-    borderBlockEndStyle: 'solid',
-    borderBlockEndWidth: '1px',
     flexShrink: 0,
   },
   headerInner: {
@@ -614,6 +634,10 @@ const styles = stylex.create({
       default: space.x4,
       '@media (min-width: 48rem)': space.x6,
     },
+  },
+  reviewHeader: {
+    flexWrap: 'wrap',
+    paddingBlock: space.x2,
   },
   identity: {
     alignItems: 'baseline',

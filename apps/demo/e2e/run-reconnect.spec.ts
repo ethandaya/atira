@@ -37,7 +37,10 @@ for (const reload of [false, true]) {
       await expect(page.getByText('Preparing image.', { exact: true })).toBeVisible()
       await page.reload()
     }
-    await expect(page.getByText('Preparing image. Done.', { exact: true })).toBeVisible()
+    await expect(page.getByText('Preparing image.', { exact: true })).toBeVisible()
+    await expect(page.getByText('Done.', { exact: true })).toBeVisible()
+    const parts = page.locator('[data-slot="turn-assistant-message"]')
+    expect(await parts.locator(':scope > [data-slot="activity-slot-content"]:not([aria-hidden="true"]) > *').evaluateAll(elements => elements.map(element => element.getAttribute('data-slot')))).toEqual(['markdown', 'activity-sequence', 'markdown'])
     expect(submissions).toBe(1)
     expect(replays).toBe(1)
     await expect(page.locator('[data-slot="turn"]')).toHaveCount(1)

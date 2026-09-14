@@ -1,5 +1,6 @@
 import { Field } from '@base-ui/react/field'
 import {
+  chatAppearance,
   colors,
   motion,
   radii,
@@ -161,14 +162,15 @@ const styles = stylex.create({
     borderRadius: 0,
     borderStyle: 'solid',
     borderWidth: 0,
-    minBlockSize: {
-      default: '2.75rem',
-      '@media (hover: none)': '3rem',
+    fontSize: {
+      default: type.sizeInput,
+      '@media (min-width: 48rem)': chatAppearance.readingSize,
     },
+    minBlockSize: '4rem',
     outlineWidth: 0,
     resize: 'none',
-    paddingBlock: space.x2,
-    paddingInline: space.x3,
+    paddingBlock: stylex.firstThatWorks(chatAppearance.inputPaddingBlock, space.x2),
+    paddingInline: stylex.firstThatWorks(chatAppearance.inputPaddingInline, space.x3),
   },
   invalid: {
     borderColor: colors.danger,

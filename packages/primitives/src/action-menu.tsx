@@ -75,6 +75,7 @@ export function ActionMenu({
                 className={(state) =>
                   stylex.props(
                     styles.item,
+                    Boolean(item.description) && styles.itemMultiline,
                     state.highlighted && styles.itemHighlighted,
                   ).className
                 }
@@ -180,33 +181,41 @@ const styles = stylex.create({
     display: 'flex',
     fontFamily: type.family,
     fontSize: type.sizeSmall,
-    gap: space.x2,
+    fontWeight: type.weightMedium,
+    lineHeight: type.lineBody,
+    gap: space.x3,
     minBlockSize: {
       default: '2.25rem',
       '@media (hover: none)': '2.75rem',
     },
     opacity: { default: 1, '[data-disabled]': 0.45 },
     outline: 'none',
-    paddingBlock: space.x1,
-    paddingInline: space.x2,
+    paddingBlock: space.x2,
+    paddingInline: space.x3,
     userSelect: 'none',
   },
+  itemMultiline: {
+    alignItems: 'flex-start',
+    paddingBlock: space.x3,
+  },
   itemHighlighted: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.surfaceSelected,
   },
   icon: {
     alignItems: 'center',
     color: colors.textMuted,
     display: 'inline-flex',
     flexShrink: 0,
+    blockSize: '1.25rem',
     inlineSize: '1rem',
     justifyContent: 'center',
   },
   itemCopy: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.125rem',
+    gap: space.x1,
     minInlineSize: 0,
+    overflowWrap: 'anywhere',
   },
   description: {
     color: colors.textMuted,

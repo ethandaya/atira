@@ -92,6 +92,7 @@ export function ComponentGallery() {
   const [permissionState, setPermissionState] =
     useState<PermissionRequestState>({ status: 'pending' })
   const [chatDraft, setChatDraft] = useState<ComposerDraft>(galleryDraft)
+  const [queuedPrompts, setQueuedPrompts] = useState<readonly QueuedPrompt[]>(galleryQueue)
   const [chatResult, setChatResult] = useState('No chat action selected.')
 
   function submitComposer(value: string) {
@@ -724,13 +725,16 @@ export function ComponentGallery() {
               wide
             >
               <QueueList
-                items={galleryQueue}
+                items={queuedPrompts}
                 onEdit={(item) => {
                   setChatDraft(item.draft)
+                  setQueuedPrompts(items => items.filter(queued => queued.id !== item.id))
                   setChatResult('Queued prompt restored for editing.')
                 }}
-                onRemove={() => setChatResult('Queued prompt removed.')}
-                onRetry={() => setChatResult('Queued prompt retry requested.')}
+                onRemove={item => setQueuedPrompts(items => items.filter(queued => queued.id !== item.id))}
+                onRetry={item => setQueuedPrompts(items => items.map(queued => queued.id === item.id
+                  ? { id: queued.id, draft: queued.draft, state: 'queued' }
+                  : queued))}
               />
             </ComponentSample>
 
@@ -1091,7 +1095,7 @@ const galleryRunningSubagent: ToolPart = {
   },
   state: {
     input: { description: 'Compare transcript density patterns' },
-    startedAt: 1_000,
+    startedAt: Date.now(),
     status: 'running',
   },
   toolName: 'run_subagent',
@@ -1373,9 +1377,6 @@ const styles = stylex.create({
   },
   categoryNav: {
     backgroundColor: colors.canvas,
-    borderBlockEndColor: colors.border,
-    borderBlockEndStyle: 'solid',
-    borderBlockEndWidth: '1px',
     insetBlockStart: 0,
     position: 'sticky',
     zIndex: 10,
@@ -1508,7 +1509,7 @@ const styles = stylex.create({
     flexGrow: 1,
     flexDirection: 'column',
     gap: space.x3,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     minBlockSize: '9.5rem',
     minInlineSize: 0,
     order: 1,

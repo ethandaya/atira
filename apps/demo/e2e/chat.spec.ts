@@ -226,34 +226,36 @@ test('fades only overflowing tool labels and follows reading direction', async (
 })
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-  test(`transitions lifecycle text without overlapping labels (${reducedMotion})`, async ({ page }) => {
+  test(`updates accessible lifecycle text immediately during state fades (${reducedMotion})`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion })
     await page.goto('/?fixture=workflow')
     await page.getByRole('textbox', { name: 'Message' }).fill('Exercise text transitions')
     const samples = await page.getByRole('button', { name: 'Send', exact: true }).evaluate(async (button) => {
       button.click()
-      const values: { state: string; opacity: number; count: number }[] = []
+      const values: { text: string; opacity: number; currentLabels: number; stale: boolean }[] = []
       const start = performance.now()
       while (performance.now() - start < 3500) {
         await new Promise(requestAnimationFrame)
         const turn = Array.from(document.querySelectorAll('[data-slot="turn"]')).at(-1)
-        for (const label of turn?.querySelectorAll<HTMLElement>('[data-text-state]') ?? []) {
+        for (const label of turn?.querySelectorAll<HTMLElement>('[data-slot="reasoning-summary"], [data-slot="tool-activity-summary"]') ?? []) {
+          const current = label.querySelectorAll<HTMLElement>('[data-text-state]:not([aria-hidden="true"])')
+          const text = (current[0] ?? label).textContent ?? ''
           values.push({
-            state: label.dataset.textState ?? '',
-            opacity: Number(getComputedStyle(label).opacity),
-            count: label.parentElement!.querySelectorAll('[data-text-state]').length,
+            text,
+            opacity: Number(getComputedStyle(current[0] ?? label).opacity),
+            currentLabels: current.length,
+            stale: label.closest('[data-slot="reasoning"]')?.getAttribute('data-state') === 'complete' && text === 'Thinking',
           })
         }
       }
       return values
     })
-    expect(samples.every((sample) => sample.count === 1)).toBe(true)
-    for (const prefix of ['complete:Thought', 'succeeded:Search']) {
-      const completion = samples.filter((sample) => sample.state.startsWith(prefix))
-      expect(completion.length).toBeGreaterThan(0)
-      expect(completion.some((sample) => sample.opacity > 0 && sample.opacity < 1))
-        .toBe(reducedMotion === 'no-preference')
-    }
+    expect(samples.length).toBeGreaterThan(0)
+    expect(samples.every(sample => sample.currentLabels <= 1 && !sample.stale)).toBe(true)
+    if (reducedMotion === 'reduce') expect(samples.every(sample => sample.opacity === 1)).toBe(true)
+    else expect(samples.some(sample => sample.opacity < 1)).toBe(true)
+    expect(samples.some(sample => sample.text.includes('Thought for'))).toBe(true)
+    expect(samples.some(sample => sample.text.includes('Search'))).toBe(true)
   })
 }
 
@@ -292,7 +294,7 @@ test('keeps press motion pointer-only and disables presence motion on mobile red
   const primary = page.getByRole('button', { name: 'Primary', exact: true })
   await primary.hover()
   await page.mouse.down()
-  await expect(primary).toHaveCSS('transform', 'matrix(0.97, 0, 0, 0.97, 0, 0)')
+  await expect(primary).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 1)')
   await page.mouse.up()
   await expect(primary).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
   await primary.focus()
@@ -460,14 +462,26 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   await expect(reasoning.locator('[data-slot="reasoning-state-icon"]')).toBeVisible()
   expect(await textMetrics(reasoning.locator('[data-slot="reasoning-summary"]')))
     .toEqual(statusTypography)
+  // Compare resting geometry, not an intermediate entrance/layout frame.
+  await expect.poll(() => tool.evaluate(element => {
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      if (parent.hasAttribute('data-activity-presence') && getComputedStyle(parent).transform !== 'none') return false
+      if (parent.getAttribute('data-slot') === 'turn') break
+    }
+    return true
+  })).toBe(true)
   await settleLayout(page)
   const runningBounds = await elementBounds(tool)
+  const viewport = page.locator('[data-slot="timeline-viewport"]')
+  const runningScroll = await viewport.evaluate(element => element.scrollTop)
   const composerTop = (await elementBounds(composer)).top
 
   await expect(tool).toHaveAttribute('data-state', 'succeeded')
   await settleLayout(page)
   const completedBounds = await elementBounds(tool)
-  expect(Math.abs(completedBounds.top - runningBounds.top)).toBeLessThanOrEqual(1)
+  // Following the new pending row may scroll the viewport, not move the result in the transcript.
+  const completedScroll = await viewport.evaluate(element => element.scrollTop)
+  expect(Math.abs(completedBounds.top + completedScroll - runningBounds.top - runningScroll)).toBeLessThanOrEqual(1)
   expect(Math.abs(completedBounds.height - runningBounds.height)).toBeLessThanOrEqual(1)
   expect(Math.abs((await elementBounds(composer)).top - composerTop)).toBeLessThanOrEqual(1)
 })
@@ -492,7 +506,7 @@ test('removes nonessential lifecycle motion when reduced motion is requested', a
     'animation-name',
     'none',
   )
-  await expect(turn.locator('[data-slot="shimmer"]')).toHaveCSS('animation-name', 'none')
+  await expect(turn.locator('[data-slot="shimmer"]')).toHaveCount(0)
 
   const tool = turn.locator('[data-slot="tool-activity"]')
   await expect(tool).toHaveAttribute('data-state', 'succeeded')
@@ -638,6 +652,38 @@ test('only offers jump to latest when detached content extends below the viewpor
   await expect(page.getByRole('button', { name: /Jump to latest/ })).toHaveCount(0)
 })
 
+for (const theme of ['light', 'dark']) {
+  for (const width of [390, 1100]) {
+    test(`fades only overflowing transcript edges (${theme}, ${width})`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(`/?fixture=workflow&theme=${theme}`)
+      const scroll = page.locator(viewport)
+      await expect(scroll).toHaveAttribute('data-overflow-start', 'true')
+      await expect(scroll).not.toHaveAttribute('data-overflow-end')
+      await scroll.evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) / 2 })
+      await expect(scroll).toHaveAttribute('data-overflow-start', 'true')
+      await expect(scroll).toHaveAttribute('data-overflow-end', 'true')
+      await expect(scroll).not.toHaveCSS('mask-image', 'none')
+      await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS('mask-image', 'none')
+      const jump = page.getByRole('button', { name: /Jump to latest/ })
+      await expect(jump).toBeVisible()
+      await expect(page.locator('[data-slot="jump-to-latest"]')).toHaveCSS('mask-image', 'none')
+      await page.screenshot({ path: test.info().outputPath('scroll-edges.png') })
+      await scroll.evaluate(element => { element.scrollTop = 0 })
+      await expect(scroll).not.toHaveAttribute('data-overflow-start')
+      await expect(scroll).toHaveAttribute('data-overflow-end', 'true')
+      await jump.click()
+      await expect(scroll).toHaveAttribute('data-overflow-start', 'true')
+      await expect(scroll).not.toHaveAttribute('data-overflow-end')
+      await expect(jump).toHaveCount(0)
+      await page.setViewportSize({ width, height: 16000 })
+      await expect(scroll).not.toHaveAttribute('data-overflow-start')
+      await expect(scroll).not.toHaveAttribute('data-overflow-end')
+      await expect(scroll).toHaveCSS('mask-image', 'none')
+    })
+  }
+}
+
 test('renders a readable subagent transcript with markdown', async ({ page }) => {
   await page.goto('/?fixture=workflow')
   const task = page.locator('[data-renderer="task"]')
@@ -663,7 +709,7 @@ test('renders a readable subagent transcript with markdown', async ({ page }) =>
     '[aria-label="Subagent result"] [data-slot="markdown"]',
   )
   expect((await textMetrics(description)).fontSize).toBe('14px')
-  expect((await textMetrics(result)).fontSize).toBe('14px')
+  expect((await textMetrics(result)).fontSize).toBe('15px')
 })
 
 test('bounds the stress fixture and keeps the composer responsive', async ({ page }, testInfo) => {

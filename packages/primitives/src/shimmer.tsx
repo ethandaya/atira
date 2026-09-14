@@ -1,4 +1,4 @@
-import { colors } from '@pretty-amped/foundations/tokens.stylex'
+import { chatAppearance, colors } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
@@ -47,7 +47,7 @@ const styles = stylex.create({
     color: colors.textMuted,
   },
   active: {
-    animationIterationCount: 'infinite',
+    animationIterationCount: chatAppearance.shimmerIterations,
     animationName: {
       default: 'none',
       '@media (prefers-reduced-motion: no-preference)': shimmer,

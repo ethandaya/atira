@@ -1,16 +1,16 @@
 import type { ChatTurn, TurnState } from '@pretty-amped/foundations/chat'
 import {
   colors,
-  motion,
   radii,
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { AnimatePresence, PresenceSurface, Shimmer, Spinner, TextTransition, VisuallyHidden } from '@pretty-amped/primitives'
+import { LayoutGroup, Spinner, VisuallyHidden } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
 import {
+  AssistantSequence,
   MessageParts,
   type ToolActions,
   type ToolRenderer,
@@ -22,6 +22,7 @@ type NativeListItemProps = Omit<
 >
 
 export type TurnProps = NativeListItemProps & {
+  activityPresentation?: 'expanded' | 'summary'
   actions?: ReactNode
   toolActions?: ToolActions
   toolRenderers?: readonly ToolRenderer[]
@@ -29,6 +30,7 @@ export type TurnProps = NativeListItemProps & {
 }
 
 export function Turn({
+  activityPresentation = 'expanded',
   actions,
   toolActions,
   toolRenderers,
@@ -45,6 +47,12 @@ export function Turn({
   const hasActiveAssistantIndicator = turn.assistant.some((message) =>
     message.parts.some(isActiveAssistantIndicator),
   )
+  const lastPart = turn.assistant.at(-1)?.parts.at(-1)
+  const streamingText = lastPart?.type === 'text'
+    && lastPart.state.status === 'streaming'
+    && lastPart.markdown.trim().length > 0
+  const showStatus = turn.state.status !== 'running'
+    || !(hasActiveAssistantIndicator || streamingText)
 
   return (
     <li
@@ -69,6 +77,7 @@ export function Turn({
           />
         </section>
 
+        <LayoutGroup id={turn.id}>
         <div data-slot="turn-assistant" {...stylex.props(styles.assistant)}>
           {(turn.agent || turn.model) && (
             <div aria-label="Response author" role="group" data-slot="turn-identity" {...stylex.props(styles.identity)}>
@@ -84,36 +93,20 @@ export function Turn({
               )}
             </div>
           )}
-          {assistant.map((message) => (
-            <section
-              aria-label="Assistant message"
-              data-message-id={message.id}
-              data-slot="turn-assistant-message"
-              key={message.id}
-              {...stylex.props(
-                styles.assistantMessage,
-                active && styles.activeAssistantMessage,
-              )}
-            >
-              <MessageParts
-                message={message}
-                {...(toolActions === undefined ? {} : { toolActions })}
-                {...(toolRenderers === undefined ? {} : { toolRenderers })}
-              />
-            </section>
-          ))}
-          {assistant.length > 0 ? (
-            <div {...stylex.props(styles.pendingSlot)}>
-              {(!active || !hasActiveAssistantIndicator) && <TurnStatus state={turn.state} compact />}
-            </div>
-          ) : <TurnStatus state={turn.state} />}
+          <AssistantSequence
+            messages={assistant}
+            activityPresentation={activityPresentation}
+            pending={active && showStatus ? <TurnStatus state={turn.state} compact={assistant.length > 0} /> : undefined}
+            {...(toolActions === undefined ? {} : { toolActions })}
+            {...(toolRenderers === undefined ? {} : { toolRenderers })}
+          />
+          {!active && <TurnStatus state={turn.state} compact={assistant.length > 0} />}
         </div>
+        </LayoutGroup>
 
         {actions && (
           <footer data-slot="turn-meta" {...stylex.props(styles.meta)}>
-            <AnimatePresence initial={false}>
-              {actions && <PresenceSurface key="actions" kind="content">{actions}</PresenceSurface>}
-            </AnimatePresence>
+            {actions}
           </footer>
         )}
       </article>
@@ -145,7 +138,7 @@ export function TurnStatus({ state, compact = false }: { state: TurnState; compa
       )}
     >
       {active && <Spinner size="small" />}
-      <TextTransition state={label}>{active ? <Shimmer>{label}</Shimmer> : label}</TextTransition>
+      <span>{label}</span>
       {active && <span aria-hidden="true" {...stylex.props(styles.statusEnd)} />}
       {state.status === 'failed' && (
         <span {...stylex.props(styles.error)}>{state.error.message}</span>
@@ -192,11 +185,6 @@ function isActiveAssistantIndicator(
   )
 }
 
-const fadeIn = stylex.keyframes({
-  from: { opacity: 0 },
-  to: { opacity: 1 },
-})
-
 const styles = stylex.create({
   root: {
     inlineSize: '100%',
@@ -222,23 +210,7 @@ const styles = stylex.create({
     flexDirection: 'column',
     gap: space.x2,
     minInlineSize: 0,
-  },
-  assistantMessage: {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    minBlockSize: '2rem',
-  },
-  activeAssistantMessage: {
-    animationDuration: {
-      default: motion.durationFast,
-      '@media (prefers-reduced-motion: reduce)': '0ms',
-    },
-    animationName: {
-      default: fadeIn,
-      '@media (prefers-reduced-motion: reduce)': 'none',
-    },
-    animationTimingFunction: motion.easingStandard,
+    position: 'relative',
   },
   identity: {
     alignItems: 'baseline',
@@ -288,28 +260,20 @@ const styles = stylex.create({
     justifyContent: 'center',
   },
   statusActive: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
-    borderRadius: radii.inset,
-    borderStyle: 'solid',
-    borderWidth: '1px',
     display: 'grid',
     gap: space.x2,
-    gridTemplateColumns: '0.875rem minmax(0, 1fr) 1rem',
+    gridTemplateColumns: '1rem minmax(0, 1fr) 1rem',
     justifyContent: 'normal',
     minBlockSize: {
-      default: '2.625rem',
-      '@media (hover: none)': '3.375rem',
+      default: '2.125rem',
+      '@media (hover: none)': '2.875rem',
     },
     paddingBlock: space.x1,
-    paddingInline: space.x3,
+    paddingInline: 0,
   },
   statusEnd: {
     blockSize: '1rem',
     inlineSize: '1rem',
-  },
-  pendingSlot: {
-    minBlockSize: '2rem',
   },
   statusCompact: {
     backgroundColor: 'transparent',

@@ -750,12 +750,13 @@ function updateText(
   text: string,
   replace: boolean,
 ) {
-  const existing = parts.find(
-    (part) => part.type === 'text' && part.id === id,
-  )
+  // Only adjacent text belongs to the same segment. A tool or reasoning part
+  // marks a new position in the response, even within one assistant message.
+  const tail = parts.at(-1)
+  const existing = tail?.type === 'text' ? tail : undefined
   const part = {
-    id,
-    markdown: `${replace ? '' : existing?.type === 'text' ? existing.markdown : ''}${text}`,
+    id: existing?.id ?? `${id}:${parts.length}`,
+    markdown: `${replace ? '' : existing?.markdown ?? ''}${text}`,
     state: { status: 'streaming' as const },
     type: 'text' as const,
   }
@@ -763,8 +764,18 @@ function updateText(
 }
 
 function replaceText(parts: ChatMessage['parts'], text: string) {
-  const current = parts.find((part) => part.type === 'text')
-  return updateText(parts, current?.id ?? 'response-text', text, true)
+  const streamed = parts.flatMap(part => part.type === 'text' ? [part.markdown] : []).join('')
+  if (streamed.trim() === text.trim()) return parts
+
+  // Completion may carry the full accumulated response rather than just the
+  // last segment. Reconcile its suffix without moving earlier text past tools.
+  const tail = parts.at(-1)
+  const earlier = tail?.type === 'text' ? parts.slice(0, -1) : parts
+  const prefix = earlier.flatMap(part => part.type === 'text' ? [part.markdown] : []).join('').trimStart()
+  const remaining = text.trimStart().startsWith(prefix)
+    ? text.trimStart().slice(prefix.length)
+    : text
+  return updateText(parts, 'response-text', remaining, true)
 }
 
 function updateReasoning(

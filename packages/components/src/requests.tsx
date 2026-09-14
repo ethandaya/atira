@@ -10,6 +10,7 @@ import type {
 } from '@pretty-amped/foundations/chat'
 import { selectActiveRequest } from '@pretty-amped/foundations/chat-invariants'
 import {
+  chatAppearance,
   colors,
   radii,
   shadows,
@@ -150,7 +151,7 @@ export function PermissionPrompt({
                 size="compact"
                 variant="outline"
               >
-                Always
+                Always allow
               </Button>
             )}
             {availableDecisions.includes('once') && (
@@ -162,7 +163,7 @@ export function PermissionPrompt({
                 size="compact"
                 variant="primary"
               >
-                Allow
+                Allow once
               </Button>
             )}
           </div>
@@ -636,6 +637,8 @@ export function RequestRegion({
   todos,
 }: RequestRegionProps) {
   const active = selectActiveRequest(requests)
+  const resolved = requests.filter(request => request.state.status === 'resolved')
+  const latestDecision = resolved.at(-1)
   const regionRef = useRef<HTMLDivElement>(null)
   const previousRequest = useRef<string | undefined>(undefined)
   const capturedRevision = useRef<number | undefined>(undefined)
@@ -708,6 +711,22 @@ export function RequestRegion({
       {...stylex.props(styles.region)}
     >
       {todos && <TodoDock todos={todos} />}
+      <div data-slot="request-history" {...stylex.props(styles.decisionSlot)}>
+        {latestDecision && <Disclosure variant="plain" summary={<span {...stylex.props(styles.decisionSummary)}>{latestDecision.type === 'permission'
+          ? `${permissionStatus(latestDecision)} ${latestDecision.title}`
+          : questionStatus(latestDecision)}</span>}>
+          <ol aria-label="Decision history" {...stylex.props(styles.decisionList)}>
+            {resolved.map(request => <li key={`${request.origin.sessionId}:${request.id}`}>
+              {request.type === 'permission' ? <>
+                <p {...stylex.props(styles.dockTitle)}>{permissionStatus(request)}</p>
+                <p {...stylex.props(styles.supporting)}>{request.effect} {request.scope}</p>
+              </> : request.state.status === 'resolved' && request.state.decision.type === 'answer'
+                ? <QuestionAnswerSummary request={request} />
+                : <p {...stylex.props(styles.supporting)}>{questionStatus(request)}</p>}
+            </li>)}
+          </ol>
+        </Disclosure>}
+      </div>
         <div data-slot="request-stage" {...stylex.props(styles.requestStage)}>
           <div aria-hidden={!!active || undefined} inert={!!active} {...stylex.props(active && styles.reservedComposer)}>
             {reverted || children}
@@ -749,7 +768,7 @@ function permissionStatus(request: PermissionRequestView) {
     case 'resolved':
       return request.state.decision === 'reject'
         ? 'Permission rejected.'
-        : 'Permission allowed.'
+        : request.state.decision === 'always' ? 'Always allowed.' : 'Allowed once.'
     case 'expired':
       return 'This request expired.'
   }
@@ -853,6 +872,27 @@ const styles = stylex.create({
     gap: space.x2,
     inlineSize: '100%',
   },
+  decisionList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x3,
+    listStyle: 'none',
+    margin: 0,
+    maxBlockSize: '12rem',
+    overflowY: 'auto',
+    padding: space.x2,
+  },
+  decisionSlot: {
+    // Reserve one row so resolving a request does not move the transcript.
+    minBlockSize: { default: '2.125rem', '@media (hover: none)': '2.875rem' },
+    minInlineSize: 0,
+  },
+  decisionSummary: {
+    display: 'block',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
   requestStage: {
     inlineSize: '100%',
     position: 'relative',
@@ -874,7 +914,7 @@ const styles = stylex.create({
   request: {
     backgroundColor: colors.surfaceRaised,
     borderColor: 'transparent',
-    borderRadius: radii.surface,
+    borderRadius: radii.panel,
     borderStyle: 'solid',
     borderWidth: '1px',
     boxShadow: shadows.raised,
@@ -883,12 +923,9 @@ const styles = stylex.create({
     display: 'flex',
     flexDirection: 'column',
     fontFamily: type.family,
-    gap: space.x2,
+    gap: stylex.firstThatWorks(chatAppearance.requestGap, space.x2),
     inlineSize: '100%',
-    padding: {
-      default: space.x3,
-      '@media (min-width: 40rem)': space.x4,
-    },
+    padding: space.x5,
   },
   permissionRequest: {
     '@media (min-width: 40rem)': {
@@ -896,7 +933,7 @@ const styles = stylex.create({
       columnGap: space.x4,
       display: 'grid',
       gridTemplateColumns: 'minmax(0, 1fr) auto',
-      rowGap: space.x1,
+      rowGap: space.x2,
     },
   },
   requestCopy: {
@@ -947,11 +984,12 @@ const styles = stylex.create({
     },
   },
   title: {
-    fontSize: type.sizeTitle,
+    fontSize: stylex.firstThatWorks(chatAppearance.requestTitleSize, type.sizeTitle),
     fontWeight: type.weightStrong,
     lineHeight: type.lineCompact,
     margin: 0,
     outline: 'none',
+    textWrap: 'balance',
   },
   origin: {
     color: colors.textMuted,
@@ -960,14 +998,11 @@ const styles = stylex.create({
     margin: 0,
   },
   effect: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radii.inset,
     fontSize: type.sizeBody,
     lineHeight: type.lineBody,
     marginBlock: space.x1,
     overflowWrap: 'anywhere',
-    paddingBlock: space.x2,
-    paddingInline: space.x3,
+    paddingBlock: space.x3,
   },
   supporting: {
     color: colors.textMuted,

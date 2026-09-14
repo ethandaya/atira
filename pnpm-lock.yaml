@@ -117,6 +117,9 @@ importers:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@aiforui/lapse':
+        specifier: ^0.19.0
+        version: 0.19.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@stylexjs/unplugin':
         specifier: 'catalog:'
         version: 0.19.0(unplugin@2.3.11)
@@ -251,6 +254,17 @@ importers:
         version: 7.0.2
 
 packages:
+
+  '@aiforui/lapse@0.19.0':
+    resolution: {integrity: sha512-+QRQVPe/l5XQGcO3R52z3SLklmHoouFzG8uUwmvOLJwTzcV13dU62qoBZwdizOPSF5KgWIL3V5pJftZiT05ZNg==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   '@asamuzakjp/css-color@6.0.7':
     resolution: {integrity: sha512-vC/bk1Lz7Tn/EfU9/apOTBk80/8dyGyWMowPoV1tJ52muDGsDqt2HPT2klrFUiY60MQmQv9q8yIht15JnBgDGw==}
@@ -1853,6 +1867,11 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@aiforui/lapse@0.19.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    optionalDependencies:
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
 
   '@asamuzakjp/css-color@6.0.7':
     dependencies:

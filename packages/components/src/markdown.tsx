@@ -1,4 +1,5 @@
 import {
+  chatAppearance,
   colors,
   radii,
   space,
@@ -29,6 +30,8 @@ export type MarkdownProps = NativeDivProps & {
 
 const linkSafety = { enabled: false } as const
 const disallowedElements = ['img'] as const
+const streamingChunkLimit = 1_024
+const streamingFade = { animation: 'fadeIn', duration: 90, easing: 'ease-out', sep: 'word', stagger: 0 } as const
 
 export function Markdown({ children, status, ...props }: MarkdownProps) {
   const [parseIncrementally] = useState(createIncrementalMarkdownChunker)
@@ -53,12 +56,13 @@ export function Markdown({ children, status, ...props }: MarkdownProps) {
         <SettledMarkdown chunks={settledChunks} />
         {streamingChunk !== undefined && (
           <Streamdown
+            animated={streamingChunk.length <= streamingChunkLimit ? streamingFade : false}
             className={stylex.props(styles.content).className ?? ''}
             components={markdownComponents}
             controls={false}
             dir="auto"
             disallowedElements={disallowedElements}
-            isAnimating={false}
+            isAnimating
             linkSafety={linkSafety}
             mode="streaming"
             parseIncompleteMarkdown
@@ -131,7 +135,7 @@ function chunkMarkdownBlocks(blocks: readonly string[]) {
   let chunk = ''
 
   for (const block of blocks) {
-    if (chunk && chunk.length + block.length > 1_024) {
+    if (chunk && chunk.length + block.length > streamingChunkLimit) {
       chunks.push(chunk)
       chunk = ''
     }
@@ -371,6 +375,10 @@ function HorizontalRule({
   return <hr {...props} {...stylex.props(styles.rule)} />
 }
 
+function StreamingSpan({ node: _node, ...props }: ElementProps<'span'>) {
+  return <span {...props} {...stylex.props('data-sd-animate' in props && styles.streamingWord)} />
+}
+
 const markdownComponents = {
   a: Link,
   blockquote: Blockquote,
@@ -385,6 +393,7 @@ const markdownComponents = {
   li: ListItem,
   ol: OrderedList,
   p: Paragraph,
+  span: StreamingSpan,
   strong: Strong,
   table: Table,
   td: TableCell,
@@ -393,11 +402,25 @@ const markdownComponents = {
   ul: UnorderedList,
 } satisfies Components
 
+const wordFade = stylex.keyframes({
+  from: { opacity: 0 },
+  to: { opacity: 1 },
+})
+
 const styles = stylex.create({
+  streamingWord: {
+    animationName: wordFade,
+    animationDuration: {
+      default: 'var(--sd-duration, 0ms)',
+      '@media (prefers-reduced-motion: reduce)': '0ms',
+    },
+    animationTimingFunction: 'ease-out',
+    animationFillMode: 'both',
+  },
   root: {
     color: colors.text,
     fontFamily: type.family,
-    fontSize: type.sizeBody,
+    fontSize: stylex.firstThatWorks(chatAppearance.readingSize, type.sizeBody),
     inlineSize: '100%',
     lineHeight: type.lineBody,
     minInlineSize: 0,
@@ -413,6 +436,7 @@ const styles = stylex.create({
   paragraph: {
     margin: 0,
     maxInlineSize: '65ch',
+    textWrap: 'pretty',
   },
   heading: {
     fontWeight: type.weightStrong,
@@ -423,16 +447,16 @@ const styles = stylex.create({
     textWrap: 'balance',
   },
   heading1: {
-    fontSize: '1.125rem',
+    fontSize: type.sizeHeading,
   },
   heading2: {
-    fontSize: '1rem',
+    fontSize: type.sizeTitle,
   },
   heading3: {
-    fontSize: '0.9375rem',
+    fontSize: type.sizeTitle,
   },
   heading4: {
-    fontSize: type.sizeBody,
+    fontSize: type.sizeTitle,
   },
   list: {
     display: 'flex',
@@ -481,10 +505,7 @@ const styles = stylex.create({
   },
   codeBlock: {
     backgroundColor: colors.surfaceInset,
-    borderColor: colors.border,
     borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: '1px',
     boxSizing: 'border-box',
     inlineSize: '100%',
     margin: 0,
@@ -540,12 +561,9 @@ const styles = stylex.create({
     maskImage: 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)',
   },
   tableHead: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: 'transparent',
   },
   tableCell: {
-    borderBlockEndColor: colors.border,
-    borderBlockEndStyle: 'solid',
-    borderBlockEndWidth: '1px',
     minInlineSize: '10rem',
     maxInlineSize: '24rem',
     overflowWrap: 'break-word',
@@ -560,10 +578,8 @@ const styles = stylex.create({
     color: colors.textMuted,
   },
   rule: {
-    borderBlockEndWidth: 0,
-    borderBlockStartColor: colors.border,
-    borderBlockStartStyle: 'solid',
-    borderBlockStartWidth: '1px',
+    borderWidth: 0,
+    blockSize: space.x4,
     inlineSize: '100%',
     margin: 0,
   },

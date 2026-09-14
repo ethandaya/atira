@@ -34,6 +34,7 @@ export type FollowState =
   | { anchorId: string; offset: number; status: 'restoring' }
 
 export type TimelineProps = {
+  activityPresentation?: 'expanded' | 'summary'
   activity: SessionActivity
   empty?: ReactNode
   estimatedTurnGap?: number
@@ -53,6 +54,7 @@ type ScrollAnchor = { id: string; offset: number }
 type WindowRange = { end: number; start: number }
 
 export function Timeline({
+  activityPresentation = 'expanded',
   activity,
   empty = 'No messages yet.',
   estimatedTurnGap = 16,
@@ -77,6 +79,7 @@ export function Timeline({
   const initialized = useRef(false)
   const [follow, setFollow] = useState<FollowState>({ status: 'following' })
   const followRef = useRef<FollowState>(follow)
+  const [hasContentAbove, setHasContentAbove] = useState(false)
   const [hasContentBelow, setHasContentBelow] = useState(false)
   const [measurementVersion, setMeasurementVersion] = useState(0)
   const [windowRange, setWindowRange] = useState<WindowRange>({
@@ -167,7 +170,7 @@ export function Timeline({
       if (followRef.current.status === 'following' && !pendingAnchor.current) {
         viewport.scrollTop = viewport.scrollHeight
       }
-      setHasContentBelow(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight >= 48)
+      updateScrollEdges(viewport)
     })
     observer.observe(viewport)
     observer.observe(measure)
@@ -198,7 +201,13 @@ export function Timeline({
     previousTurnCount.current = turns.length
   }, [follow, turns.length, version])
 
+  function updateScrollEdges(viewport: HTMLElement) {
+    setHasContentAbove(viewport.scrollTop > 1)
+    setHasContentBelow(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1)
+  }
+
   function updateVirtualWindow(viewport: HTMLElement) {
+    updateScrollEdges(viewport)
     if (!virtualized) return
     pinOpenOrFocusedTurns(viewport, pinnedTurnIds.current)
     const next = calculateWindowRange({
@@ -237,7 +246,6 @@ export function Timeline({
     const viewport = event.currentTarget
     const atBottom =
       viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 48
-    setHasContentBelow(!atBottom)
 
     if (atBottom && follow.status !== 'following') {
       changeFollow({ status: 'following' })
@@ -276,9 +284,14 @@ export function Timeline({
         }}
         onScroll={trackScroll}
         data-slot="timeline-viewport"
+        data-overflow-start={hasContentAbove || undefined}
+        data-overflow-end={hasContentBelow || undefined}
         {...stylex.props(
           styles.viewport,
           follow.status === 'following' && styles.followingViewport,
+          hasContentAbove && styles.fadeStart,
+          hasContentBelow && styles.fadeEnd,
+          hasContentAbove && hasContentBelow && styles.fadeBoth,
         )}
       >
         <div ref={measureRef} {...stylex.props(styles.measure)}>
@@ -298,6 +311,7 @@ export function Timeline({
               )}
               {visibleTurns.map((turn, index) => (
                 <TimelineTurn
+                  activityPresentation={activityPresentation}
                   key={turn.id}
                   pinnedTurnIds={pinnedTurnIds.current}
                   position={range.start + index + 1}
@@ -333,6 +347,7 @@ export function Timeline({
 }
 
 const TimelineTurn = memo(function TimelineTurn({
+  activityPresentation,
   pinnedTurnIds,
   position,
   renderTurnActions,
@@ -341,6 +356,7 @@ const TimelineTurn = memo(function TimelineTurn({
   toolRenderers,
   turn,
 }: {
+  activityPresentation: 'expanded' | 'summary'
   pinnedTurnIds: Set<string>
   position: number
   renderTurnActions?: (turn: ChatTurn) => ReactNode
@@ -351,6 +367,7 @@ const TimelineTurn = memo(function TimelineTurn({
 }) {
   return (
     <Turn
+      activityPresentation={activityPresentation}
       aria-posinset={position}
       aria-setsize={setSize}
       onBlur={(event) => {
@@ -556,10 +573,20 @@ const styles = stylex.create({
     overflowY: 'auto',
     overscrollBehaviorY: 'contain',
     scrollBehavior: 'auto',
+    scrollPaddingBlock: '3rem',
     scrollbarGutter: 'stable both-edges',
   },
   followingViewport: {
     overflowAnchor: 'none',
+  },
+  fadeStart: {
+    maskImage: 'linear-gradient(to bottom, transparent, oklch(0 0 0) 3rem)',
+  },
+  fadeEnd: {
+    maskImage: 'linear-gradient(to top, transparent, oklch(0 0 0) 3rem)',
+  },
+  fadeBoth: {
+    maskImage: 'linear-gradient(to bottom, transparent, oklch(0 0 0) 3rem, oklch(0 0 0) calc(100% - 3rem), transparent)',
   },
   measure: {
     boxSizing: 'border-box',
@@ -623,10 +650,6 @@ const styles = stylex.create({
     alignItems: {
       default: 'normal',
       '@media (max-width: 29.99rem)': 'center',
-    },
-    backgroundColor: {
-      default: 'transparent',
-      '@media (max-width: 29.99rem)': colors.canvas,
     },
     blockSize: {
       default: 'auto',

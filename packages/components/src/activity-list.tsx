@@ -112,19 +112,13 @@ export function ActivityList({
 
 const styles = stylex.create({
   root: {
-    borderColor: colors.border,
     borderRadius: radii.surface,
-    borderStyle: 'solid',
-    borderWidth: '1px',
     boxSizing: 'border-box',
     inlineSize: '100%',
     minInlineSize: 0,
     overflow: 'hidden',
   },
   title: {
-    borderBlockEndColor: colors.border,
-    borderBlockEndStyle: 'solid',
-    borderBlockEndWidth: '1px',
     color: colors.text,
     fontFamily: type.family,
     fontSize: type.sizeSmall,

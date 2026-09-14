@@ -13,6 +13,7 @@ vi.mock('@stylexjs/stylex', () => ({
   create: <Styles,>(styles: Styles) => styles,
   createTheme: () => ({}),
   defineVars: <Vars,>(variables: Vars) => variables,
+  firstThatWorks: (...values: string[]) => values[0],
   keyframes: () => '',
   props: () => ({}),
 }))

@@ -9,7 +9,14 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
+import { createContext, useContext, useId, useState, type ReactNode } from 'react'
+
+const RadioSelection = createContext<{
+  id: string
+  immediate: boolean
+  value: string | undefined
+} | null>(null)
 
 export type CheckboxFieldProps = {
   checked: boolean
@@ -76,6 +83,8 @@ export function RadioGroup({
   value,
 }: RadioGroupProps) {
   const labelId = useId()
+  const reducedMotion = useReducedMotion()
+  const [immediate, setImmediate] = useState(true)
 
   return (
     <div data-slot="radio-field" {...stylex.props(styles.group)}>
@@ -86,6 +95,8 @@ export function RadioGroup({
         aria-labelledby={labelId}
         disabled={disabled}
         name={name}
+        onKeyDownCapture={() => setImmediate(true)}
+        onPointerDownCapture={() => setImmediate(false)}
         onValueChange={(next) => {
           if (typeof next === 'string') onValueChange(next)
         }}
@@ -94,7 +105,9 @@ export function RadioGroup({
         data-slot="radio-group"
         {...stylex.props(styles.options)}
       >
-        {children}
+        <RadioSelection value={{ id: labelId, immediate: immediate || !!reducedMotion, value }}>
+          {children}
+        </RadioSelection>
       </BaseRadioGroup>
     </div>
   )
@@ -113,8 +126,21 @@ export function RadioOption({
   label,
   value,
 }: RadioOptionProps) {
+  const selection = useContext(RadioSelection)
   return (
-    <label data-slot="radio-option" {...stylex.props(styles.option)}>
+    <label data-slot="radio-option" {...stylex.props(styles.option, selection && styles.radioOption)}>
+      {selection?.value === value && (
+        <motion.span
+          aria-hidden="true"
+          data-slot="radio-selection"
+          data-motion={selection.immediate ? 'immediate' : 'pointer'}
+          layoutId={`${selection.id}-selection`}
+          initial={false}
+          transition={{ type: 'spring', duration: selection.immediate ? 0 : 0.24, bounce: 0 }}
+          style={{ borderRadius: radii.control }}
+          {...stylex.props(styles.selection)}
+        />
+      )}
       <BaseRadio.Root
         disabled={disabled}
         value={value}
@@ -167,6 +193,20 @@ const styles = stylex.create({
     flexDirection: 'column',
     gap: space.x1,
   },
+  radioOption: {
+    isolation: 'isolate',
+    position: 'relative',
+    ':has([data-checked])': {
+      backgroundColor: 'transparent',
+    },
+  },
+  selection: {
+    backgroundColor: colors.surfaceSelected,
+    inset: 0,
+    pointerEvents: 'none',
+    position: 'absolute',
+    zIndex: -1,
+  },
   option: {
     alignItems: 'flex-start',
     backgroundColor: {
@@ -181,10 +221,10 @@ const styles = stylex.create({
     display: 'flex',
     gap: space.x3,
     minBlockSize: '2.75rem',
-    paddingBlock: space.x2,
-    paddingInline: space.x2,
+    paddingBlock: space.x3,
+    paddingInline: space.x3,
     ':has([data-checked])': {
-      backgroundColor: colors.surfaceMuted,
+      backgroundColor: colors.surfaceSelected,
     },
     ':has([data-disabled])': {
       cursor: 'not-allowed',
@@ -201,7 +241,7 @@ const styles = stylex.create({
     display: 'inline-flex',
     flexShrink: 0,
     justifyContent: 'center',
-    marginBlockStart: '0.125rem',
+    marginBlockStart: '0.1875rem',
     outlineColor: {
       default: 'transparent',
       ':focus-visible': colors.focus,
@@ -240,18 +280,22 @@ const styles = stylex.create({
   copy: {
     display: 'flex',
     flexDirection: 'column',
+    gap: space.x1,
     minInlineSize: 0,
   },
   label: {
     color: colors.text,
     fontFamily: type.family,
     fontSize: type.sizeBody,
-    lineHeight: type.lineCompact,
+    fontWeight: type.weightMedium,
+    lineHeight: type.lineBody,
+    overflowWrap: 'anywhere',
   },
   description: {
     color: colors.textMuted,
     fontFamily: type.family,
     fontSize: type.sizeSmall,
-    lineHeight: type.lineCompact,
+    lineHeight: type.lineBody,
+    overflowWrap: 'anywhere',
   },
 })

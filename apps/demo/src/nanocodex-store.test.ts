@@ -14,6 +14,37 @@ describe('NanocodexChatStore', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
+  it.each(['streamed', 'partial', 'completion-only', 'segment-snapshot'])('preserves text/tool chronology with a %s final answer', async (mode) => {
+    const intro = 'I will check the sources.\n\n'
+    const answer = 'The evidence supports this recommendation.'
+    const finalEvents = mode === 'completion-only' ? [] : mode === 'segment-snapshot'
+      ? [{ type: 'assistant-message', text: answer }]
+      : [{ type: 'assistant-delta', text: mode === 'partial' ? 'The evidence' : answer }]
+    vi.stubGlobal('fetch', vi.fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(runtimeResponse())
+      .mockResolvedValueOnce(streamResponse([
+        { type: 'started' },
+        { type: 'assistant-delta', text: 'I will check ' },
+        { type: 'assistant-delta', text: 'the sources.\n\n' },
+        { type: 'tool-started', id: 'search', tool: 'search_web', input: 'Official sources', summary: 'Searching' },
+        { type: 'tool-completed', id: 'search', tool: 'search_web', status: 'succeeded', summary: 'Sources found' },
+        ...finalEvents,
+        { type: 'assistant-message', text: intro + answer },
+        { type: 'completed', message: intro + answer, durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } },
+      ])))
+    const store = new NanocodexChatStore()
+    await store.initialize()
+    await store.submit(createDraft('Compare the sources'), 'send')
+    const parts = store.getSnapshot().turns[0]!.assistant[0]!.parts
+    expect(parts).toEqual([
+      expect.objectContaining({ type: 'text', markdown: intro, state: { status: 'complete' } }),
+      expect.objectContaining({ type: 'tool', callId: 'search' }),
+      expect.objectContaining({ type: 'text', markdown: answer, state: { status: 'complete' } }),
+    ])
+    expect(new Set(parts.map(part => part.id)).size).toBe(parts.length)
+    store.dispose()
+  })
+
   it('preserves failed subagent input and partial transcript, then retries the same turn without consuming the draft', async () => {
     let resolveRetry: (value: Response) => void = () => undefined
     const fetch = vi.fn<typeof globalThis.fetch>()
