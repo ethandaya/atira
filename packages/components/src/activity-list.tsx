@@ -8,7 +8,6 @@ import { Disclosure } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
   Children,
-  isValidElement,
   type ComponentPropsWithRef,
   type ReactElement,
   type ReactNode,
@@ -67,13 +66,8 @@ export function ActivityList({
     </p>
   ) : (
     <ol data-slot="activity-list-items" {...stylex.props(styles.list)}>
-      {items.map((item, index) => (
-        <li
-          key={(isValidElement(item) && item.key) || index}
-          data-slot="activity-list-item"
-        >
-          {item}
-        </li>
+      {Children.map(items, (item) => (
+        <li data-slot="activity-list-item">{item}</li>
       ))}
     </ol>
   )
