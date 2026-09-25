@@ -1,5 +1,5 @@
 // @ts-check
-import { ServerResponse } from 'node:http'
+/** @typedef {import('node:http').ServerResponse} ServerResponse */
 
 // A provider writes once; browser connections may come and go independently.
 export class RunStream {
