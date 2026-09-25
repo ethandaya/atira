@@ -31,7 +31,7 @@ import {
   ToolActivity,
   Turn,
   type PermissionRequestState,
-} from '@pretty-amped/components'
+} from '@atira/components'
 import type {
   ChatCapabilities,
   ChatTurn,
@@ -42,13 +42,8 @@ import type {
   RevertedPrompt,
   TodoListView,
   ToolPart,
-} from '@pretty-amped/foundations/chat'
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+} from '@atira/foundations/chat'
+import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
 import {
   Button,
   ComposerField,
@@ -61,7 +56,7 @@ import {
   Status,
   TextField,
   VisuallyHidden,
-} from '@pretty-amped/primitives'
+} from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
   Copy as CopyIcon,
@@ -71,7 +66,7 @@ import {
 } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 
-import consumptionGuide from '../../../docs/private-consumption.md?raw'
+import consumptionGuide from '../../../docs/consumption.md?raw'
 
 export function ComponentGallery() {
   return (
@@ -114,7 +109,7 @@ export function ComponentGallery() {
           </h1>
           <p {...stylex.props(styles.libraryDescription)}>
             Composable controls, streaming responses, and agent workflows. You
-            own the runtime; Pretty Amped handles the interface.
+            own the runtime; Atira handles the interface.
           </p>
           <p {...stylex.props(styles.groupDescription)}>
             Explore working examples below, or{' '}
@@ -129,7 +124,7 @@ export function ComponentGallery() {
               <CodeBlock
                 filename="Export from this checkout"
                 language="sh"
-                code="node scripts/export-library.mjs /absolute/path/to/your-app/vendor/pretty-amped"
+                code="node scripts/export-library.mjs /absolute/path/to/your-app/vendor/atira"
               />
               <Markdown status="complete">{consumptionGuide}</Markdown>
             </div>

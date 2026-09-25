@@ -116,16 +116,16 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: 'catalog:'
         version: 5.3.0
-      '@pretty-amped/blocks':
+      '@atira/blocks':
         specifier: workspace:*
         version: link:../../packages/blocks
-      '@pretty-amped/components':
+      '@atira/components':
         specifier: workspace:*
         version: link:../../packages/components
-      '@pretty-amped/foundations':
+      '@atira/foundations':
         specifier: workspace:*
         version: link:../../packages/foundations
-      '@pretty-amped/primitives':
+      '@atira/primitives':
         specifier: workspace:*
         version: link:../../packages/primitives
       '@stylexjs/stylex':
@@ -174,13 +174,13 @@ importers:
 
   packages/blocks:
     dependencies:
-      '@pretty-amped/components':
+      '@atira/components':
         specifier: workspace:*
         version: link:../components
-      '@pretty-amped/foundations':
+      '@atira/foundations':
         specifier: workspace:*
         version: link:../foundations
-      '@pretty-amped/primitives':
+      '@atira/primitives':
         specifier: workspace:*
         version: link:../primitives
       lucide-react:
@@ -205,10 +205,10 @@ importers:
 
   packages/components:
     dependencies:
-      '@pretty-amped/foundations':
+      '@atira/foundations':
         specifier: workspace:*
         version: link:../foundations
-      '@pretty-amped/primitives':
+      '@atira/primitives':
         specifier: workspace:*
         version: link:../primitives
       lucide-react:
@@ -248,7 +248,7 @@ importers:
       '@base-ui/react':
         specifier: 'catalog:'
         version: 1.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@pretty-amped/foundations':
+      '@atira/foundations':
         specifier: workspace:*
         version: link:../foundations
       lucide-react:

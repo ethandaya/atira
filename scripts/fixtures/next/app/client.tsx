@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@pretty-amped/primitives/button'
+import { Button } from '@atira/primitives/button'
 
 export function Client() {
   const [on, setOn] = useState(false)

@@ -104,14 +104,14 @@ test('legacy All and component detail URLs still work', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Message', exact: true }),
   ).toBeVisible()
-  await expect(page).toHaveTitle('Message — Pretty Amped')
+  await expect(page).toHaveTitle('Message — Atira')
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
-  await page.getByRole('link', { name: 'Pretty Amped', exact: true }).click()
+  await page.getByRole('link', { name: 'Atira', exact: true }).click()
   await expect(page).not.toHaveURL(/all=true|component=/)
   await expect(
     page.getByRole('region', { name: 'Component gallery', exact: true }),
   ).toBeVisible()
-  await expect(page).toHaveTitle('Components — Pretty Amped')
+  await expect(page).toHaveTitle('Components — Atira')
 })
 
 test('question outcomes resolve and reset, and displayed source remains stable', async ({
@@ -200,7 +200,7 @@ test('displayed examples typecheck against the public API', async ({
         .innerText(),
     )
   }
-  const directory = await mkdtemp(join(tmpdir(), 'pretty-amped-examples-'))
+  const directory = await mkdtemp(join(tmpdir(), 'atira-examples-'))
   try {
     await symlink(
       resolve('apps/demo/node_modules'),

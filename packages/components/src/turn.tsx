@@ -1,11 +1,6 @@
-import type { ChatTurn, TurnState } from '@pretty-amped/foundations/chat'
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
-import { LayoutGroup, Spinner, VisuallyHidden } from '@pretty-amped/primitives'
+import type { ChatTurn, TurnState } from '@atira/foundations/chat'
+import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
+import { LayoutGroup, Spinner, VisuallyHidden } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 

@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url'
 
 const script = fileURLToPath(new URL('./export-library.mjs', import.meta.url))
 
-test('exports private source without catalog references and refuses overwrites', async () => {
-  const temporary = await mkdtemp(join(tmpdir(), 'pretty-amped-test-'))
+test('exports source without catalog references and refuses overwrites', async () => {
+  const temporary = await mkdtemp(join(tmpdir(), 'atira-test-'))
   const output = join(temporary, 'export with spaces')
   try {
     const run = spawnSync(process.execPath, [script, output], {
@@ -41,7 +41,7 @@ test('exports private source without catalog references and refuses overwrites',
       for (const [dependency, version] of Object.entries(
         manifest.dependencies ?? {},
       )) {
-        if (dependency.startsWith('@pretty-amped/'))
+        if (dependency.startsWith('@atira/'))
           assert.equal(version, 'workspace:*')
       }
       const source = fileURLToPath(

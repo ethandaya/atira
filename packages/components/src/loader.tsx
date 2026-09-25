@@ -1,5 +1,5 @@
-import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
-import { Spinner } from '@pretty-amped/primitives'
+import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { Spinner } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'

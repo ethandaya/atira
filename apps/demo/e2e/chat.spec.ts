@@ -110,7 +110,7 @@ test('preserves the configured Nanocodex model across send, reload, and retry', 
   await expect(page.locator('[data-slot="turn-meta"]')).toHaveCount(0)
 
   await page.addInitScript(() => {
-    const key = 'pretty-amped:conversations:v1'
+    const key = 'atira:conversations:v1'
     const saved = JSON.parse(sessionStorage.getItem(key)!)
     const turn = saved.conversations.find(
       (item: { id: string }) => item.id === saved.activeId,
@@ -482,7 +482,7 @@ test('preserves detached scroll and history anchors', async ({ page }) => {
   const beforeAppend = await page
     .locator(viewport)
     .evaluate((element) => element.scrollTop)
-  await dispatch(page, 'pretty-amped:append-turn')
+  await dispatch(page, 'atira:append-turn')
   await expect(
     page.getByRole('button', { name: '1 new · Jump to latest' }),
   ).toBeVisible()
@@ -733,7 +733,7 @@ test('restores composer focus, draft, and selection around requests', async ({
   await settleLayout(page)
   const timelineBounds = await elementBounds(page.locator(viewport))
 
-  await dispatch(page, 'pretty-amped:request-permission')
+  await dispatch(page, 'atira:request-permission')
   const permission = page.locator('[data-slot="permission-prompt"]')
   await expect(permission).toHaveAttribute(
     'data-origin-session-id',
@@ -761,7 +761,7 @@ test('restores composer focus, draft, and selection around requests', async ({
   )
   await expect.poll(() => selectionStart(message)).toBe(6)
 
-  await dispatch(page, 'pretty-amped:request-question')
+  await dispatch(page, 'atira:request-question')
   await settleLayout(page)
   const questionTimelineBounds = await elementBounds(page.locator(viewport))
   expect(
@@ -1006,9 +1006,9 @@ test('bounds the stress fixture and keeps the composer responsive', async ({
   const notificationCount = await page.evaluate(() => {
     const metrics = (
       window as Window & {
-        __prettyAmpedFixtureMetrics: FixtureMetrics
+        __atiraFixtureMetrics: FixtureMetrics
       }
-    ).__prettyAmpedFixtureMetrics
+    ).__atiraFixtureMetrics
     metrics.commitDurations.length = 0
     metrics.longTasks = []
     metrics.longTaskObserver = new PerformanceObserver((list) => {
@@ -1020,7 +1020,7 @@ test('bounds the stress fixture and keeps the composer responsive', async ({
     return metrics.getNotificationCount()
   })
   const startedAt = Date.now()
-  await dispatch(page, 'pretty-amped:burst-deltas', 1_000)
+  await dispatch(page, 'atira:burst-deltas', 1_000)
   await expect
     .poll(() => fixtureNotificationCount(page))
     .toBe(notificationCount + 1)
@@ -1030,22 +1030,22 @@ test('bounds the stress fixture and keeps the composer responsive', async ({
   await page.evaluate(() => {
     const metrics = (
       window as Window & {
-        __prettyAmpedFixtureMetrics: FixtureMetrics
+        __atiraFixtureMetrics: FixtureMetrics
       }
-    ).__prettyAmpedFixtureMetrics
+    ).__atiraFixtureMetrics
     metrics.commitDurations.length = 0
   })
   for (let sample = 0; sample < 20; sample += 1) {
     const before = await fixtureNotificationCount(page)
-    await dispatch(page, 'pretty-amped:burst-deltas', 1)
+    await dispatch(page, 'atira:burst-deltas', 1)
     await expect.poll(() => fixtureNotificationCount(page)).toBe(before + 1)
   }
   const performance = await page.evaluate(() => {
     const metrics = (
       window as Window & {
-        __prettyAmpedFixtureMetrics: FixtureMetrics
+        __atiraFixtureMetrics: FixtureMetrics
       }
-    ).__prettyAmpedFixtureMetrics
+    ).__atiraFixtureMetrics
     metrics.longTaskObserver?.disconnect()
     return {
       commitDurations: metrics.commitDurations,
@@ -1295,9 +1295,9 @@ async function fixtureNotificationCount(page: Page) {
   return page.evaluate(() =>
     (
       window as Window & {
-        __prettyAmpedFixtureMetrics: FixtureMetrics
+        __atiraFixtureMetrics: FixtureMetrics
       }
-    ).__prettyAmpedFixtureMetrics.getNotificationCount(),
+    ).__atiraFixtureMetrics.getNotificationCount(),
   )
 }
 

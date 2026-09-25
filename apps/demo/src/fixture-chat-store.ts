@@ -16,8 +16,8 @@ import type {
   SubmitIntent,
   ToolPart,
   ToolPresentation,
-} from '@pretty-amped/foundations/chat'
-import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
+} from '@atira/foundations/chat'
+import { composerDraftText } from '@atira/foundations/chat-invariants'
 
 const capabilities: ChatCapabilities = {
   agents: [

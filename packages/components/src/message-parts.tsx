@@ -2,21 +2,21 @@ import type {
   ChatMessage,
   MessagePart,
   ToolPart,
-} from '@pretty-amped/foundations/chat'
+} from '@atira/foundations/chat'
 import {
   chatAppearance,
   colors,
   radii,
   space,
   type,
-} from '@pretty-amped/foundations/tokens.stylex'
+} from '@atira/foundations/tokens.stylex'
 import {
   ActivityPresence,
   ActivitySlot,
   AnimatePresence,
   Disclosure,
   Shimmer,
-} from '@pretty-amped/primitives'
+} from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { memo, type ReactElement, type ReactNode, useMemo } from 'react'
 

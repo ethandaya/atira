@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('..', import.meta.url))
 
 test('builds private ESM, declarations, CSS, and installable tarballs', async () => {
-  const temporary = await mkdtemp(join(tmpdir(), 'pretty-amped-build-'))
+  const temporary = await mkdtemp(join(tmpdir(), 'atira-build-'))
   const sourceRoot = join(temporary, 'source')
   const packs = join(temporary, 'packs')
   try {
@@ -86,7 +86,7 @@ test('builds private ESM, declarations, CSS, and installable tarballs', async ()
       await mkdir(unpacked, { recursive: true })
       execFileSync('tar', [
         '-xzf',
-        join(packs, `pretty-amped-${name}-0.0.0.tgz`),
+        join(packs, `atira-${name}-0.0.0.tgz`),
         '-C',
         unpacked,
       ])
@@ -111,7 +111,7 @@ test('builds private ESM, declarations, CSS, and installable tarballs', async ()
       }
       const packedFiles = execFileSync(
         'tar',
-        ['-tzf', join(packs, `pretty-amped-${name}-0.0.0.tgz`)],
+        ['-tzf', join(packs, `atira-${name}-0.0.0.tgz`)],
         { encoding: 'utf8' },
       )
       assert.doesNotMatch(
@@ -196,8 +196,8 @@ test('builds private ESM, declarations, CSS, and installable tarballs', async ()
     assert.ok(!(await readdir(temporary)).includes('exported'))
     await mkdir(join(sourceRoot, 'docs'))
     await cp(
-      join(root, 'docs/private-consumption.md'),
-      join(sourceRoot, 'docs/private-consumption.md'),
+      join(root, 'docs/consumption.md'),
+      join(sourceRoot, 'docs/consumption.md'),
     )
     execFileSync(process.execPath, [exportScript, exported], {
       cwd: sourceRoot,

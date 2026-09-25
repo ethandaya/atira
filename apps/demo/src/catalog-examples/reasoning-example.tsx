@@ -1,4 +1,4 @@
-import { Reasoning } from '@pretty-amped/components'
+import { Reasoning } from '@atira/components'
 
 export function ReasoningExample({ compact = false }: { compact?: boolean }) {
   return (

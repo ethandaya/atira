@@ -1,4 +1,4 @@
-import { colors } from '@pretty-amped/foundations/tokens.stylex'
+import { colors } from '@atira/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { LoaderCircle } from 'lucide-react'
 import type { ComponentPropsWithRef } from 'react'

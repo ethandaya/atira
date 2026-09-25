@@ -1,12 +1,7 @@
 import { Checkbox as BaseCheckbox } from '@base-ui/react/checkbox'
 import { Radio as BaseRadio } from '@base-ui/react/radio'
 import { RadioGroup as BaseRadioGroup } from '@base-ui/react/radio-group'
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
 // react-doctor-disable-next-line react-doctor/use-lazy-motion -- Standalone choices own layout animations; requiring a consumer LazyMotion provider would change their API.

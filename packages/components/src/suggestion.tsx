@@ -1,10 +1,10 @@
-import { space } from '@pretty-amped/foundations/tokens.stylex'
+import { space } from '@atira/foundations/tokens.stylex'
 import {
   Button,
   resolveStyleProps,
   type ButtonProps,
   type StyleProps,
-} from '@pretty-amped/primitives'
+} from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 

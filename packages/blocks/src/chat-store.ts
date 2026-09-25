@@ -1,4 +1,4 @@
-import type { ChatStore } from '@pretty-amped/foundations/chat'
+import type { ChatStore } from '@atira/foundations/chat'
 import { useSyncExternalStore } from 'react'
 
 export function useChatStore(store: ChatStore) {

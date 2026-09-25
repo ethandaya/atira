@@ -5,7 +5,7 @@ import {
   radii,
   space,
   type,
-} from '@pretty-amped/foundations/tokens.stylex'
+} from '@atira/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronRight } from 'lucide-react'
 import { useState, type ComponentPropsWithRef, type ReactNode } from 'react'

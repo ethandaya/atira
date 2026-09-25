@@ -1,5 +1,5 @@
-import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
-import type { ToolProgress } from '@pretty-amped/foundations/chat'
+import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import type { ToolProgress } from '@atira/foundations/chat'
 import {
   Disclosure,
   Spinner,
@@ -8,7 +8,7 @@ import {
   VisuallyHidden,
   resolveStyleProps,
   type StyleProps,
-} from '@pretty-amped/primitives'
+} from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Minus, ShieldAlert, X } from 'lucide-react'
 import {

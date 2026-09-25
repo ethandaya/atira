@@ -1,3 +1,1 @@
-declare module 'virtual:optional-lapse' {
-  export function mountLapse(): void
-}
+/// <reference types="vite/client" />

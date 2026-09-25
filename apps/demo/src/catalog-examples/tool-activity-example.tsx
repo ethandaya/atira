@@ -1,4 +1,4 @@
-import { ToolActivity } from '@pretty-amped/components'
+import { ToolActivity } from '@atira/components'
 
 export function ToolActivityExample({
   compact = false,

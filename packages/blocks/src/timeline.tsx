@@ -3,14 +3,14 @@ import {
   Turn,
   type ToolActions,
   type ToolRenderer,
-} from '@pretty-amped/components'
+} from '@atira/components'
 import type {
   ChatTurn,
   HistoryState,
   SessionActivity,
-} from '@pretty-amped/foundations/chat'
-import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
-import { Button } from '@pretty-amped/primitives'
+} from '@atira/foundations/chat'
+import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { Button } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronDown } from 'lucide-react'
 import {

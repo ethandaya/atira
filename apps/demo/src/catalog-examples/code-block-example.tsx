@@ -1,5 +1,5 @@
-import { CodeBlock } from '@pretty-amped/components'
-import { TextareaField } from '@pretty-amped/primitives'
+import { CodeBlock } from '@atira/components'
+import { TextareaField } from '@atira/primitives'
 import { useState } from 'react'
 
 const initialCode =
