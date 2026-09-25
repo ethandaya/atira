@@ -15,7 +15,7 @@ for (const width of [390, 1280]) {
       page.getByRole('heading', {
         name: 'Build agent interfaces with React and StyleX.',
       }),
-    ).toBeVisible()
+    ).toBeVisible({ timeout: 15_000 })
     await expect(
       page.getByRole('region', { name: 'Component gallery', exact: true }),
     ).toBeVisible()

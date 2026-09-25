@@ -90,7 +90,48 @@ for (const width of [1100, 390]) {
       await expect(pending).toHaveAttribute('data-handoff-slot', String(index))
       const slot = await pending.elementHandle()
       const before = (await pending.boundingBox())!
-      await emit({ ...call, type: 'tool-started' })
+      if (width === 1100 && index === 0) {
+        // Start sampling in the page when the event fires, before protocol
+        // round trips and locator assertions can miss the transition.
+        const opacities = await slot!.evaluate(
+          (element, detail) =>
+            new Promise<number[]>((resolve, reject) => {
+              const samples: number[] = []
+              let frames = 0
+              const sample = () => {
+                frames++
+                if (getComputedStyle(element).opacity !== '1')
+                  return reject(
+                    new Error('Persistent slot faded during handoff'),
+                  )
+                const content = element.querySelector(
+                  '[data-slot="activity-slot-content"]:not([aria-hidden="true"])',
+                )
+                if (
+                  element.dataset.slot === 'turn-assistant-message' &&
+                  content
+                ) {
+                  samples.push(Number(getComputedStyle(content).opacity))
+                }
+                if (
+                  frames >= 60 ||
+                  (samples.some((value) => value < 1) && samples.at(-1) === 1)
+                )
+                  resolve(samples)
+                else requestAnimationFrame(sample)
+              }
+              window.dispatchEvent(new CustomEvent('handoff-event', { detail }))
+              requestAnimationFrame(sample)
+            }),
+          { ...call, type: 'tool-started' },
+        )
+        expect(opacities.some((opacity) => opacity > 0 && opacity < 1)).toBe(
+          true,
+        )
+        expect(opacities.at(-1)).toBe(1)
+      } else {
+        await emit({ ...call, type: 'tool-started' })
+      }
       const incoming = owner.locator(
         `[data-handoff-slot="${index}"][data-slot="turn-assistant-message"]`,
       )
@@ -103,32 +144,6 @@ for (const width of [1100, 390]) {
         ),
       ).toBe(true)
       await expect(incoming).toHaveCSS('opacity', '1')
-      if (width === 1100 && index === 0) {
-        const opacities = await incoming.evaluate(
-          (element) =>
-            new Promise<number[]>((resolve, reject) => {
-              const samples: number[] = []
-              const sample = () => {
-                if (getComputedStyle(element).opacity !== '1')
-                  return reject(
-                    new Error('Persistent slot faded during handoff'),
-                  )
-                const content = element.querySelector(
-                  '[data-slot="activity-slot-content"]:not([aria-hidden="true"])',
-                )!
-                const opacity = Number(getComputedStyle(content).opacity)
-                samples.push(opacity)
-                if (opacity === 1 || samples.length > 60) resolve(samples)
-                else requestAnimationFrame(sample)
-              }
-              sample()
-            }),
-        )
-        expect(opacities.some((opacity) => opacity > 0 && opacity < 1)).toBe(
-          true,
-        )
-        expect(opacities.at(-1)).toBe(1)
-      }
       await expect(incoming).toHaveCSS('transform', 'none')
       await expect(pending).toHaveCount(0)
       expect((await incoming.boundingBox())!.y).toBeCloseTo(before.y, 0)
@@ -201,7 +216,13 @@ for (const width of [1100, 390]) {
               }),
             )
           }
-          if (performance.now() - started < 350) requestAnimationFrame(sample)
+          const settled =
+            samples.length >= 4 &&
+            Math.max(...samples.slice(-4)) - Math.min(...samples.slice(-4)) <
+              0.01
+          const elapsed = performance.now() - started
+          if (elapsed < 350 || (!settled && elapsed < 2_000))
+            requestAnimationFrame(sample)
           else resolve()
         }
         requestAnimationFrame(sample)
