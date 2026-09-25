@@ -38,8 +38,10 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type Dispatch,
   type FormEvent,
   type ReactNode,
+  type SetStateAction,
 } from 'react'
 
 export type PermissionPromptProps = {
@@ -132,54 +134,75 @@ function PermissionPromptContent({
           {permissionStatus(request)}
         </VisuallyHidden>
         {(actionable || submitting) && (
-          <div
-            role="group"
-            aria-label="Permission decision"
-            {...stylex.props(styles.actions)}
-          >
-            {availableDecisions.includes('reject') && (
-              <Button
-                disabled={submitting || !onDecision}
-                focusableWhenDisabled={
-                  submitting && activeDecision === 'reject'
-                }
-                onClick={() => decide('reject')}
-                size="compact"
-                variant="quiet"
-              >
-                Reject
-              </Button>
-            )}
-            {availableDecisions.includes('always') && (
-              <Button
-                aria-label="Always allow"
-                disabled={submitting || !onDecision}
-                focusableWhenDisabled={
-                  submitting && activeDecision === 'always'
-                }
-                onClick={() => decide('always')}
-                size="compact"
-                variant="outline"
-              >
-                Always allow
-              </Button>
-            )}
-            {availableDecisions.includes('once') && (
-              <Button
-                aria-label="Allow once"
-                disabled={submitting || !onDecision}
-                focusableWhenDisabled={submitting && activeDecision === 'once'}
-                onClick={() => decide('once')}
-                size="compact"
-                variant="primary"
-              >
-                Allow once
-              </Button>
-            )}
-          </div>
+          <PermissionDecisionControls
+            activeDecision={activeDecision}
+            availableDecisions={availableDecisions}
+            disabled={submitting || !onDecision}
+            onDecision={decide}
+            submitting={submitting}
+          />
         )}
       </div>
     </section>
+  )
+}
+
+function PermissionDecisionControls({
+  activeDecision,
+  availableDecisions,
+  disabled,
+  onDecision,
+  submitting,
+}: {
+  activeDecision: PermissionDecision | undefined
+  availableDecisions: readonly PermissionDecision[]
+  disabled: boolean
+  onDecision: (decision: PermissionDecision) => void
+  submitting: boolean
+}) {
+  const decisions = new Set(availableDecisions)
+  return (
+    <div
+      role="group"
+      aria-label="Permission decision"
+      {...stylex.props(styles.actions)}
+    >
+      {decisions.has('reject') && (
+        <Button
+          disabled={disabled}
+          focusableWhenDisabled={submitting && activeDecision === 'reject'}
+          onClick={() => onDecision('reject')}
+          size="compact"
+          variant="quiet"
+        >
+          Reject
+        </Button>
+      )}
+      {decisions.has('always') && (
+        <Button
+          aria-label="Always allow"
+          disabled={disabled}
+          focusableWhenDisabled={submitting && activeDecision === 'always'}
+          onClick={() => onDecision('always')}
+          size="compact"
+          variant="outline"
+        >
+          Always allow
+        </Button>
+      )}
+      {decisions.has('once') && (
+        <Button
+          aria-label="Allow once"
+          disabled={disabled}
+          focusableWhenDisabled={submitting && activeDecision === 'once'}
+          onClick={() => onDecision('once')}
+          size="compact"
+          variant="primary"
+        >
+          Allow once
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -187,6 +210,161 @@ export type QuestionRequestProps = {
   onAnswer?: (response: QuestionResponse) => void
   onReject?: () => void
   request: QuestionRequestView
+}
+
+type QuestionValues = Record<string, string | readonly string[]>
+
+function questionsForCurrentStep(
+  request: QuestionRequestView,
+  questionIndex: number,
+) {
+  if (questionIndex >= request.questions.length - 1) return request.questions
+  const activeQuestion = request.questions[questionIndex]
+  return activeQuestion ? [activeQuestion] : []
+}
+
+function firstInvalidQuestionIndex(
+  request: QuestionRequestView,
+  errors: Readonly<Record<string, string>>,
+) {
+  return request.questions.findIndex((question) => errors[question.id])
+}
+
+function serializeQuestionAnswers(
+  questions: QuestionRequestView['questions'],
+  values: QuestionValues,
+): QuestionResponse {
+  const answers: QuestionAnswer[] = questions.map((question) => {
+    if (question.type === 'text') {
+      return {
+        questionId: question.id,
+        type: 'text',
+        value: stringValue(values[question.id]),
+      }
+    }
+
+    const customValue = stringValue(values[customKey(question.id)]).trim()
+    return {
+      ...(customValue ? { customValue } : {}),
+      optionIds: arrayValue(values[question.id]),
+      questionId: question.id,
+      type: 'choice',
+    }
+  })
+  return { answers }
+}
+
+function useQuestionSubmission({
+  actionable,
+  onAnswer,
+  questionIndex,
+  request,
+  setErrors,
+  setQuestionIndex,
+  setSubmittedState,
+  values,
+}: {
+  actionable: boolean
+  onAnswer: QuestionRequestProps['onAnswer']
+  questionIndex: number
+  request: QuestionRequestView
+  setErrors: Dispatch<SetStateAction<Record<string, string>>>
+  setQuestionIndex: Dispatch<SetStateAction<number>>
+  setSubmittedState: Dispatch<
+    SetStateAction<QuestionRequestView['state'] | undefined>
+  >
+  values: QuestionValues
+}) {
+  return (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!actionable || !onAnswer) return
+
+    const questionsToValidate = questionsForCurrentStep(request, questionIndex)
+    const nextErrors = validateQuestionValues(questionsToValidate, values)
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      const nextIndex = firstInvalidQuestionIndex(request, nextErrors)
+      if (nextIndex >= 0) {
+        if (nextIndex !== questionIndex) setQuestionIndex(nextIndex)
+        const firstQuestion = request.questions[nextIndex]
+        if (firstQuestion) focusQuestion(event.currentTarget, firstQuestion.id)
+      }
+      return
+    }
+
+    const isLastQuestion = questionIndex >= request.questions.length - 1
+    if (!isLastQuestion) {
+      const nextIndex = questionIndex + 1
+      const nextQuestion = request.questions[nextIndex]
+      setErrors({})
+      setQuestionIndex(nextIndex)
+      if (nextQuestion) focusQuestion(event.currentTarget, nextQuestion.id)
+      return
+    }
+
+    setSubmittedState(request.state)
+    onAnswer(serializeQuestionAnswers(request.questions, values))
+  }
+}
+
+function useQuestionValues() {
+  const [values, setValues] = useState<QuestionValues>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  function updateValue(
+    key: string,
+    value: string | readonly string[],
+    errorKey = key,
+  ) {
+    setValues((current) => ({ ...current, [key]: value }))
+    if (errors[errorKey]) {
+      setErrors((current) => {
+        const next = { ...current }
+        delete next[errorKey]
+        return next
+      })
+    }
+  }
+
+  return { errors, setErrors, updateValue, values }
+}
+
+function QuestionRequestHeading({
+  questionIndex,
+  request,
+  titleId,
+}: {
+  questionIndex: number
+  request: QuestionRequestView
+  titleId: string
+}) {
+  const settled =
+    request.state.status === 'resolved' || request.state.status === 'expired'
+  return (
+    <div {...stylex.props(styles.requestHeading)}>
+      <div {...stylex.props(styles.requestHeadingCopy)}>
+        <h2
+          id={titleId}
+          data-request-heading
+          tabIndex={-1}
+          {...stylex.props(styles.title)}
+        >
+          {settled ? questionStatus(request) : 'A question needs your input'}
+        </h2>
+        {request.origin.label && (
+          <p {...stylex.props(styles.origin)}>{request.origin.label}</p>
+        )}
+      </div>
+      {request.questions.length > 1 && (
+        <span
+          aria-label={`Question ${questionIndex + 1} of ${request.questions.length}`}
+          {...stylex.props(styles.questionProgress)}
+        >
+          {questionIndex + 1} / {request.questions.length}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export function QuestionRequest(props: QuestionRequestProps) {
@@ -204,10 +382,7 @@ function QuestionRequestForm({
   request,
 }: QuestionRequestProps) {
   const titleId = useId()
-  const [values, setValues] = useState<
-    Record<string, string | readonly string[]>
-  >({})
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const { errors, setErrors, updateValue, values } = useQuestionValues()
   const [questionIndex, setQuestionIndex] = useState(0)
   const [submittedState, setSubmittedState] =
     useState<QuestionRequestView['state']>()
@@ -221,74 +396,16 @@ function QuestionRequestForm({
     !submittingLocally
   const activeQuestion = request.questions[questionIndex]
   const isLastQuestion = questionIndex >= request.questions.length - 1
-
-  function updateValue(
-    key: string,
-    value: string | readonly string[],
-    errorKey = key,
-  ) {
-    setValues((current) => ({ ...current, [key]: value }))
-    if (errors[errorKey]) {
-      setErrors((current) => {
-        const next = { ...current }
-        delete next[errorKey]
-        return next
-      })
-    }
-  }
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!actionable || !onAnswer) return
-
-    const questionsToValidate = isLastQuestion
-      ? request.questions
-      : activeQuestion
-        ? [activeQuestion]
-        : []
-    const nextErrors = validateQuestionValues(questionsToValidate, values)
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors)
-      const firstQuestion = request.questions.find(
-        (question) => nextErrors[question.id],
-      )
-      if (firstQuestion) {
-        const nextIndex = request.questions.indexOf(firstQuestion)
-        if (nextIndex !== questionIndex) setQuestionIndex(nextIndex)
-        focusQuestion(event.currentTarget, firstQuestion.id)
-      }
-      return
-    }
-
-    if (!isLastQuestion) {
-      const nextIndex = questionIndex + 1
-      const nextQuestion = request.questions[nextIndex]
-      setErrors({})
-      setQuestionIndex(nextIndex)
-      if (nextQuestion) focusQuestion(event.currentTarget, nextQuestion.id)
-      return
-    }
-
-    const answers: QuestionAnswer[] = request.questions.map((question) => {
-      if (question.type === 'text') {
-        return {
-          questionId: question.id,
-          type: 'text',
-          value: stringValue(values[question.id]),
-        }
-      }
-
-      const customValue = stringValue(values[customKey(question.id)]).trim()
-      return {
-        ...(customValue ? { customValue } : {}),
-        optionIds: arrayValue(values[question.id]),
-        questionId: question.id,
-        type: 'choice',
-      }
-    })
-    setSubmittedState(request.state)
-    onAnswer({ answers })
-  }
+  const submit = useQuestionSubmission({
+    actionable,
+    onAnswer,
+    questionIndex,
+    request,
+    setErrors,
+    setQuestionIndex,
+    setSubmittedState,
+    values,
+  })
 
   return (
     <form
@@ -302,32 +419,11 @@ function QuestionRequestForm({
       {...stylex.props(styles.request)}
     >
       <div {...stylex.props(styles.requestCopy)}>
-        <div {...stylex.props(styles.requestHeading)}>
-          <div {...stylex.props(styles.requestHeadingCopy)}>
-            <h2
-              id={titleId}
-              data-request-heading
-              tabIndex={-1}
-              {...stylex.props(styles.title)}
-            >
-              {request.state.status === 'resolved' ||
-              request.state.status === 'expired'
-                ? questionStatus(request)
-                : 'A question needs your input'}
-            </h2>
-            {request.origin.label && (
-              <p {...stylex.props(styles.origin)}>{request.origin.label}</p>
-            )}
-          </div>
-          {request.questions.length > 1 && (
-            <span
-              aria-label={`Question ${questionIndex + 1} of ${request.questions.length}`}
-              {...stylex.props(styles.questionProgress)}
-            >
-              {questionIndex + 1} / {request.questions.length}
-            </span>
-          )}
-        </div>
+        <QuestionRequestHeading
+          questionIndex={questionIndex}
+          request={request}
+          titleId={titleId}
+        />
         <div {...stylex.props(styles.questions)}>
           {activeQuestion && (
             <PresenceSurface
@@ -356,44 +452,77 @@ function QuestionRequestForm({
       <div {...stylex.props(styles.requestFooter)}>
         <VisuallyHidden role="status">{questionStatus(request)}</VisuallyHidden>
         {(actionable || submitting) && (
-          <div {...stylex.props(styles.actions)}>
-            {questionIndex > 0 && (
-              <Button
-                disabled={!actionable}
-                onClick={() =>
-                  setQuestionIndex((current) => Math.max(0, current - 1))
-                }
-                size="compact"
-                variant="quiet"
-              >
-                Back
-              </Button>
-            )}
-            <Button
-              disabled={!actionable || !onReject}
-              onClick={() => {
-                if (!actionable || !onReject) return
-                setSubmittedState(request.state)
-                onReject()
-              }}
-              size="compact"
-              variant="quiet"
-            >
-              Dismiss
-            </Button>
-            <Button
-              disabled={!actionable || !onAnswer}
-              focusableWhenDisabled={submitting}
-              size="compact"
-              type="submit"
-              variant="primary"
-            >
-              {isLastQuestion ? 'Submit answer' : 'Next'}
-            </Button>
-          </div>
+          <QuestionRequestActions
+            actionable={actionable}
+            canAnswer={onAnswer !== undefined}
+            canReject={onReject !== undefined}
+            isLastQuestion={isLastQuestion}
+            onBack={() =>
+              setQuestionIndex((current) => Math.max(0, current - 1))
+            }
+            onReject={() => {
+              if (!actionable || !onReject) return
+              setSubmittedState(request.state)
+              onReject()
+            }}
+            questionIndex={questionIndex}
+            submitting={submitting}
+          />
         )}
       </div>
     </form>
+  )
+}
+
+function QuestionRequestActions({
+  actionable,
+  canAnswer,
+  canReject,
+  isLastQuestion,
+  onBack,
+  onReject,
+  questionIndex,
+  submitting,
+}: {
+  actionable: boolean
+  canAnswer: boolean
+  canReject: boolean
+  isLastQuestion: boolean
+  onBack: () => void
+  onReject: () => void
+  questionIndex: number
+  submitting: boolean
+}) {
+  return (
+    <div {...stylex.props(styles.actions)}>
+      {questionIndex > 0 && (
+        <Button
+          disabled={!actionable}
+          onClick={onBack}
+          size="compact"
+          variant="quiet"
+        >
+          Back
+        </Button>
+      )}
+      <Button
+        disabled={!actionable || !canReject}
+        onClick={onReject}
+        size="compact"
+        variant="quiet"
+      >
+        Dismiss
+      </Button>
+      <Button
+        disabled={!actionable || !canAnswer}
+        focusableWhenDisabled={submitting}
+        size="compact"
+        type="submit"
+        variant="primary"
+      >
+        {isLastQuestion ? 'Submit answer' : 'Next'}
+      </Button>
+    </div>
   )
 }
 
@@ -433,6 +562,7 @@ function QuestionControl({
   }
 
   const selected = arrayValue(values[question.id])
+  const selectedIds = new Set(selected)
   return (
     <div
       data-question-id={question.id}
@@ -461,7 +591,7 @@ function QuestionControl({
           <legend {...stylex.props(styles.legend)}>{question.label}</legend>
           {question.options.map((option) => (
             <CheckboxField
-              checked={selected.includes(option.id)}
+              checked={selectedIds.has(option.id)}
               description={option.description}
               disabled={!actionable}
               key={option.id}
