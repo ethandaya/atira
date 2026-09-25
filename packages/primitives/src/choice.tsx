@@ -14,6 +14,7 @@ import {
   createContext,
   useContext,
   useId,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -45,9 +46,16 @@ export function CheckboxField({
   required = false,
   value,
 }: CheckboxFieldProps) {
+  const controlId = useId()
+
   return (
-    <label data-slot="checkbox-field" {...stylex.props(styles.option)}>
+    <label
+      htmlFor={controlId}
+      data-slot="checkbox-field"
+      {...stylex.props(styles.option)}
+    >
       <BaseCheckbox.Root
+        id={controlId}
         checked={checked}
         disabled={disabled}
         name={name}
@@ -91,6 +99,14 @@ export function RadioGroup({
   const labelId = useId()
   const reducedMotion = useReducedMotion()
   const [immediate, setImmediate] = useState(true)
+  const selection = useMemo(
+    () => ({
+      id: labelId,
+      immediate: immediate || !!reducedMotion,
+      value,
+    }),
+    [immediate, labelId, reducedMotion, value],
+  )
 
   return (
     <div data-slot="radio-field" {...stylex.props(styles.group)}>
@@ -115,15 +131,7 @@ export function RadioGroup({
         data-slot="radio-group"
         {...stylex.props(styles.options)}
       >
-        <RadioSelection
-          value={{
-            id: labelId,
-            immediate: immediate || !!reducedMotion,
-            value,
-          }}
-        >
-          {children}
-        </RadioSelection>
+        <RadioSelection value={selection}>{children}</RadioSelection>
       </BaseRadioGroup>
     </div>
   )

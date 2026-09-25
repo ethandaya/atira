@@ -23,6 +23,7 @@ vi.mock('@stylexjs/stylex', () => ({
 }))
 
 import { Button } from './button'
+import { CheckboxField } from './choice'
 import { Disclosure } from './disclosure'
 import { Progress } from './progress'
 import { Status } from './status'
@@ -81,6 +82,24 @@ describe('public primitive API contracts', () => {
     expect(buttonRef.current?.getAttribute('data-test')).toBe('button')
     expect(buttonRef.current?.className).toContain('consumer')
     expect(inputRef.current?.getAttribute('data-test')).toBe('input')
+  })
+
+  it('associates checkbox labels with the native checkbox input', () => {
+    const onCheckedChange = vi.fn()
+    const { container, getByRole } = render(
+      <CheckboxField
+        checked={false}
+        label="Include archived"
+        onCheckedChange={onCheckedChange}
+      />,
+    )
+
+    const label = container.querySelector('label')
+    const input = container.querySelector('input[type="checkbox"]')
+    expect(label?.htmlFor).toBe(input?.id)
+
+    fireEvent.click(getByRole('checkbox', { name: 'Include archived' }))
+    expect(onCheckedChange).toHaveBeenCalledWith(true)
   })
 
   it('forwards native props, refs, styles, and key callbacks through display leaves', () => {
