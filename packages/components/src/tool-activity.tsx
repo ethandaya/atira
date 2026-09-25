@@ -58,21 +58,10 @@ const stateLabels: Record<ToolActivityState['status'], string> = {
   succeeded: 'Complete',
 }
 
-export function ToolActivity({
-  children,
-  className,
-  defaultOpen,
-  id,
-  state,
-  summary,
-  summaryTransitionKey,
-  style,
-  tool,
-  xstyle,
-  ...props
-}: ToolActivityProps) {
+function useSummaryOverflow(summary: string) {
   const summaryRef = useRef<HTMLSpanElement>(null)
   const [overflowing, setOverflowing] = useState(false)
+
   useLayoutEffect(() => {
     const element = summaryRef.current
     if (!element) return
@@ -98,15 +87,94 @@ export function ToolActivity({
       changes.disconnect()
     }
   }, [summary])
+
+  return { overflowing, summaryRef }
+}
+
+export function ToolActivity({
+  children,
+  className,
+  defaultOpen,
+  id,
+  state,
+  summary,
+  summaryTransitionKey,
+  style,
+  tool,
+  xstyle,
+  ...props
+}: ToolActivityProps) {
   const stateLabel = toolStateLabel(state)
-  const terminalMark = toolStateMark(state)
   const active =
     state.status === 'receiving-input' ||
     state.status === 'queued' ||
     state.status === 'running'
   // Evidence is inspectable as soon as it exists, and stays mounted when work settles.
   const canDisclose = Boolean(children)
-  const header = (
+
+  return (
+    <div
+      {...props}
+      id={id}
+      role="group"
+      aria-busy={active || undefined}
+      aria-label={`${tool}: ${summary}`}
+      data-slot="tool-activity"
+      data-state={state.status}
+      data-tool={tool}
+      data-tool-activity-id={id}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
+    >
+      {active && (
+        <VisuallyHidden role="status">
+          {summary}. {stateLabel}.
+        </VisuallyHidden>
+      )}
+      <Disclosure
+        disabled={!canDisclose}
+        summary={
+          <ToolActivityHeader
+            active={active}
+            state={state}
+            stateLabel={stateLabel}
+            summary={summary}
+            summaryTransitionKey={summaryTransitionKey}
+          />
+        }
+        variant="plain"
+        {...(defaultOpen === undefined ? {} : { defaultOpen })}
+      >
+        <div
+          data-slot="tool-activity-evidence"
+          {...stylex.props(styles.evidence)}
+        >
+          {children}
+        </div>
+      </Disclosure>
+      {state.status === 'failed' && (
+        <p role="alert" {...stylex.props(styles.error)}>
+          {state.error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ToolActivityHeader({
+  active,
+  state,
+  stateLabel,
+  summary,
+  summaryTransitionKey,
+}: {
+  active: boolean
+  state: ToolActivityState
+  stateLabel: string
+  summary: string
+  summaryTransitionKey: string | undefined
+}) {
+  const { overflowing, summaryRef } = useSummaryOverflow(summary)
+  return (
     <span data-slot="tool-activity-header" {...stylex.props(styles.header)}>
       <span
         data-slot="tool-activity-state"
@@ -115,7 +183,9 @@ export function ToolActivity({
           state.status === 'failed' && styles.stateDanger,
         )}
       >
-        <StateTransition state={state.status}>{terminalMark}</StateTransition>
+        <StateTransition state={state.status}>
+          {toolStateMark(state)}
+        </StateTransition>
         {state.status === 'succeeded' && (
           <VisuallyHidden>{stateLabel}</VisuallyHidden>
         )}
@@ -141,70 +211,45 @@ export function ToolActivity({
           )}
         </span>
       </span>
-      <span
-        data-slot="tool-activity-status"
-        {...stylex.props(styles.statusLabel)}
-      >
-        <TextTransition state={state.status}>
-          {state.status !== 'succeeded' && (
-            <span {...stylex.props(styles.statusLabel)}>
-              {state.status === 'running' ? (
-                <>
-                  <VisuallyHidden>Running</VisuallyHidden>
-                  {state.progress &&
-                    stateLabel !== 'Running' &&
-                    stateLabel.replace(/^Running · /, '')}
-                </>
-              ) : (
-                stateLabel
-              )}
-              {state.status === 'running' && state.startedAt !== undefined && (
-                <ElapsedTime startedAt={state.startedAt} />
-              )}
-            </span>
-          )}
-        </TextTransition>
-      </span>
+      <ToolActivityStatus state={state} stateLabel={stateLabel} />
     </span>
   )
+}
 
+function ToolActivityStatus({
+  state,
+  stateLabel,
+}: {
+  state: ToolActivityState
+  stateLabel: string
+}) {
+  const progressLabel =
+    state.status === 'running' && state.progress && stateLabel !== 'Running'
+      ? stateLabel.replace(/^Running · /, '')
+      : null
   return (
-    <div
-      {...props}
-      id={id}
-      role="group"
-      aria-busy={active || undefined}
-      aria-label={`${tool}: ${summary}`}
-      data-slot="tool-activity"
-      data-state={state.status}
-      data-tool={tool}
-      data-tool-activity-id={id}
-      {...resolveStyleProps(styles.root, xstyle, className, style)}
+    <span
+      data-slot="tool-activity-status"
+      {...stylex.props(styles.statusLabel)}
     >
-      {active && (
-        <VisuallyHidden role="status">
-          {summary}. {stateLabel}.
-        </VisuallyHidden>
-      )}
-      <Disclosure
-        disabled={!canDisclose}
-        summary={header}
-        variant="plain"
-        {...(defaultOpen === undefined ? {} : { defaultOpen })}
-      >
-        <div
-          data-slot="tool-activity-evidence"
-          {...stylex.props(styles.evidence)}
-        >
-          {children}
-        </div>
-      </Disclosure>
-      {state.status === 'failed' && (
-        <p role="alert" {...stylex.props(styles.error)}>
-          {state.error}
-        </p>
-      )}
-    </div>
+      <TextTransition state={state.status}>
+        {state.status !== 'succeeded' && (
+          <span {...stylex.props(styles.statusLabel)}>
+            {state.status === 'running' ? (
+              <>
+                <VisuallyHidden>Running</VisuallyHidden>
+                {progressLabel}
+              </>
+            ) : (
+              stateLabel
+            )}
+            {state.status === 'running' && state.startedAt !== undefined && (
+              <ElapsedTime startedAt={state.startedAt} />
+            )}
+          </span>
+        )}
+      </TextTransition>
+    </span>
   )
 }
 

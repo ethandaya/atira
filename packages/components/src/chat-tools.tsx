@@ -130,53 +130,85 @@ export function ShellTool({
       summary={command ?? 'Run shell command'}
       tool={part.toolName}
     >
-      <div data-slot="shell-tool-evidence" {...stylex.props(styles.stack)}>
-        {command && (
-          <CodeBlock
-            code={command}
-            copyable
-            label="Shell command"
-            language="shell"
-          />
-        )}
-        {!command && toolInput(part.state) !== undefined && (
-          <BoundedEvidenceRow label="Input" value={toolInput(part.state)!} />
-        )}
-        {output !== undefined && (
-          <BoundedToolOutput
-            label="Shell output"
-            value={output}
-            {...(outputCharacterLimit === undefined
-              ? {}
-              : { characterLimit: outputCharacterLimit })}
-          />
-        )}
-        {(workingDirectory ||
-          exitCode !== undefined ||
-          durationMs !== undefined) && (
-          <dl {...stylex.props(styles.evidence)}>
-            {workingDirectory && (
-              <EvidenceRow label="Directory" value={workingDirectory} />
-            )}
-            {exitCode !== undefined && (
-              <EvidenceRow label="Exit" value={String(exitCode)} />
-            )}
-            {durationMs !== undefined && (
-              <EvidenceRow
-                label="Duration"
-                value={formatDuration(durationMs)}
-              />
-            )}
-          </dl>
-        )}
-        {truncated && (
-          <p data-slot="tool-output-truncated" {...stylex.props(styles.notice)}>
-            The runtime truncated this output.
-          </p>
-        )}
-        <ToolTiming state={part.state} />
-      </div>
+      <ShellEvidence
+        command={command}
+        durationMs={durationMs}
+        exitCode={exitCode}
+        output={output}
+        outputCharacterLimit={outputCharacterLimit}
+        part={part}
+        truncated={truncated}
+        workingDirectory={workingDirectory}
+      />
     </ToolActivity>
+  )
+}
+
+function ShellEvidence({
+  command,
+  durationMs,
+  exitCode,
+  output,
+  outputCharacterLimit,
+  part,
+  truncated,
+  workingDirectory,
+}: {
+  command: string | undefined
+  durationMs: number | undefined
+  exitCode: number | undefined
+  output: JsonValue | undefined
+  outputCharacterLimit: number | undefined
+  part: ToolPart
+  truncated: boolean | undefined
+  workingDirectory: string | undefined
+}) {
+  const input = toolInput(part.state)
+  const hasMetadata =
+    Boolean(workingDirectory) ||
+    exitCode !== undefined ||
+    durationMs !== undefined
+  return (
+    <div data-slot="shell-tool-evidence" {...stylex.props(styles.stack)}>
+      {command ? (
+        <CodeBlock
+          code={command}
+          copyable
+          label="Shell command"
+          language="shell"
+        />
+      ) : input !== undefined ? (
+        <BoundedEvidenceRow label="Input" value={input} />
+      ) : null}
+      {output !== undefined && (
+        <BoundedToolOutput
+          label="Shell output"
+          value={output}
+          {...(outputCharacterLimit === undefined
+            ? {}
+            : { characterLimit: outputCharacterLimit })}
+        />
+      )}
+      {hasMetadata && (
+        <dl {...stylex.props(styles.evidence)}>
+          {workingDirectory && (
+            <EvidenceRow label="Directory" value={workingDirectory} />
+          )}
+          {exitCode !== undefined && (
+            <EvidenceRow label="Exit" value={String(exitCode)} />
+          )}
+          {durationMs !== undefined && (
+            <EvidenceRow label="Duration" value={formatDuration(durationMs)} />
+          )}
+        </dl>
+      )}
+      {truncated && (
+        <p data-slot="tool-output-truncated" {...stylex.props(styles.notice)}>
+          The runtime truncated this output.
+        </p>
+      )}
+      <ToolTiming state={part.state} />
+    </div>
   )
 }
 
@@ -212,64 +244,97 @@ export function FileChangeTool({
       summary={summary}
       tool={part.toolName}
     >
-      <div data-slot="file-change-evidence" {...stylex.props(styles.stack)}>
-        {files.length > 0 && (
-          <Diff
-            files={files}
-            headingLevel={4}
-            id={`${part.id}:diff`}
-            title={files.length === 1 ? 'File change' : 'File changes'}
-            variant="plain"
-          />
-        )}
-        {files.length === 0 && content && path && (
-          <CodeBlock
-            code={content}
-            filename={path}
-            label={`${path} contents`}
-          />
-        )}
-        {files.length === 0 &&
-          !(content && path) &&
-          toolInput(part.state) !== undefined && (
-            <BoundedEvidenceRow label="Input" value={toolInput(part.state)!} />
-          )}
-        {diagnostics.length > 0 && (
-          <section
-            aria-label="File diagnostics"
-            data-slot="file-change-diagnostics"
-            {...stylex.props(styles.diagnostics)}
-          >
-            <p {...stylex.props(styles.diagnosticsTitle)}>Diagnostics</p>
-            <ul {...stylex.props(styles.diagnosticList)}>
-              {diagnostics.map((diagnostic) => (
-                <li
-                  data-severity={diagnostic.severity}
-                  data-slot="file-change-diagnostic"
-                  key={diagnostic.id}
-                  {...stylex.props(styles.diagnostic)}
-                >
-                  <span dir="ltr" {...stylex.props(styles.diagnosticLocation)}>
-                    {diagnostic.path}:{diagnostic.line}:{diagnostic.column}
-                  </span>
-                  <span>{diagnostic.message}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {files.length === 0 && !(content && path) && output !== undefined && (
-          <BoundedToolOutput
-            label="File change result"
-            value={output}
-            {...(outputCharacterLimit === undefined
-              ? {}
-              : { characterLimit: outputCharacterLimit })}
-          />
-        )}
-        <ToolTiming state={part.state} />
-      </div>
+      <FileChangeEvidence
+        content={content}
+        diagnostics={diagnostics}
+        files={files}
+        output={output}
+        outputCharacterLimit={outputCharacterLimit}
+        part={part}
+        path={path}
+      />
     </ToolActivity>
+  )
+}
+
+function FileChangeEvidence({
+  content,
+  diagnostics,
+  files,
+  output,
+  outputCharacterLimit,
+  part,
+  path,
+}: {
+  content: string | undefined
+  diagnostics: readonly {
+    id: string
+    severity: string
+    path: string
+    line: number
+    column: number
+    message: string
+  }[]
+  files: readonly DiffFile[]
+  output: JsonValue | undefined
+  outputCharacterLimit: number | undefined
+  part: ToolPart
+  path: string | undefined
+}) {
+  const input = toolInput(part.state)
+  const hasContent = Boolean(content && path)
+  return (
+    <div data-slot="file-change-evidence" {...stylex.props(styles.stack)}>
+      {files.length > 0 && (
+        <Diff
+          files={files}
+          headingLevel={4}
+          id={`${part.id}:diff`}
+          title={files.length === 1 ? 'File change' : 'File changes'}
+          variant="plain"
+        />
+      )}
+      {files.length === 0 && content && path && (
+        <CodeBlock code={content} filename={path} label={`${path} contents`} />
+      )}
+      {files.length === 0 && !hasContent && input !== undefined && (
+        <BoundedEvidenceRow label="Input" value={input} />
+      )}
+      {diagnostics.length > 0 && (
+        <section
+          aria-label="File diagnostics"
+          data-slot="file-change-diagnostics"
+          {...stylex.props(styles.diagnostics)}
+        >
+          <p {...stylex.props(styles.diagnosticsTitle)}>Diagnostics</p>
+          <ul {...stylex.props(styles.diagnosticList)}>
+            {diagnostics.map((diagnostic) => (
+              <li
+                data-severity={diagnostic.severity}
+                data-slot="file-change-diagnostic"
+                key={diagnostic.id}
+                {...stylex.props(styles.diagnostic)}
+              >
+                <span dir="ltr" {...stylex.props(styles.diagnosticLocation)}>
+                  {diagnostic.path}:{diagnostic.line}:{diagnostic.column}
+                </span>
+                <span>{diagnostic.message}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {files.length === 0 && !hasContent && output !== undefined && (
+        <BoundedToolOutput
+          label="File change result"
+          value={output}
+          {...(outputCharacterLimit === undefined
+            ? {}
+            : { characterLimit: outputCharacterLimit })}
+        />
+      )}
+      <ToolTiming state={part.state} />
+    </div>
   )
 }
 
@@ -317,68 +382,97 @@ export function TaskTool({
         title={summary}
         tool={part.toolName}
       >
-        <AnimatePresence initial={false} mode="wait">
-          <PresenceSurface
-            key={transcript ? 'transcript' : 'output'}
-            kind="overlay"
-          >
-            {transcript ? (
-              <TaskTranscriptEvidence
-                description={description}
-                part={part}
-                transcript={transcript}
-              />
-            ) : (
-              <ToolEvidence
-                part={part}
-                {...(outputCharacterLimit === undefined
-                  ? {}
-                  : { outputCharacterLimit })}
-              />
-            )}
-          </PresenceSurface>
-        </AnimatePresence>
-        {blockers.length > 0 && (
-          <section
-            aria-label="Task blockers"
-            {...stylex.props(styles.diagnostics)}
-          >
-            <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
-            <ul {...stylex.props(styles.diagnosticList)}>
-              {blockers.map((blocker, index) => (
-                <li key={`${part.id}:blocker:${index}`}>{blocker}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {childSessionId && onOpenChild && (
-          <div {...stylex.props(styles.actions)}>
-            <Button
-              onClick={() => onOpenChild(childSessionId)}
-              size="compact"
-              variant="quiet"
-            >
-              Open child session
-            </Button>
-          </div>
-        )}
-        {childSessionId && !onOpenChild && !transcript && (
-          <p {...stylex.props(styles.notice)}>
-            {part.state.status === 'failed'
-              ? 'The subagent stopped before a transcript was received.'
-              : 'This runtime has not provided a child transcript.'}
-          </p>
-        )}
-        {!childSessionId && !transcript && isTerminal(part.state) && (
-          <p
-            data-slot="task-child-unavailable"
-            {...stylex.props(styles.notice)}
-          >
-            This runtime did not expose a child transcript.
-          </p>
-        )}
+        <TaskEvidence
+          blockers={blockers}
+          childSessionId={childSessionId}
+          description={description}
+          onOpenChild={onOpenChild}
+          outputCharacterLimit={outputCharacterLimit}
+          part={part}
+          transcript={transcript}
+        />
       </ToolActivity>
     </div>
+  )
+}
+
+function TaskEvidence({
+  blockers,
+  childSessionId,
+  description,
+  onOpenChild,
+  outputCharacterLimit,
+  part,
+  transcript,
+}: {
+  blockers: readonly string[]
+  childSessionId: string | undefined
+  description: string
+  onOpenChild: ((sessionId: string) => void) | undefined
+  outputCharacterLimit: number | undefined
+  part: ToolPart
+  transcript: TaskTranscript | undefined
+}) {
+  return (
+    <>
+      <AnimatePresence initial={false} mode="wait">
+        <PresenceSurface
+          key={transcript ? 'transcript' : 'output'}
+          kind="overlay"
+        >
+          {transcript ? (
+            <TaskTranscriptEvidence
+              description={description}
+              part={part}
+              transcript={transcript}
+            />
+          ) : (
+            <ToolEvidence
+              part={part}
+              {...(outputCharacterLimit === undefined
+                ? {}
+                : { outputCharacterLimit })}
+            />
+          )}
+        </PresenceSurface>
+      </AnimatePresence>
+      {blockers.length > 0 && (
+        <section
+          aria-label="Task blockers"
+          {...stylex.props(styles.diagnostics)}
+        >
+          <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
+          <ul {...stylex.props(styles.diagnosticList)}>
+            {blockers.map((blocker, index) => (
+              <li key={`${part.id}:blocker:${index}`}>{blocker}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {childSessionId && onOpenChild && (
+        <div {...stylex.props(styles.actions)}>
+          <Button
+            onClick={() => onOpenChild(childSessionId)}
+            size="compact"
+            variant="quiet"
+          >
+            Open child session
+          </Button>
+        </div>
+      )}
+      {childSessionId && !onOpenChild && !transcript && (
+        <p {...stylex.props(styles.notice)}>
+          {part.state.status === 'failed'
+            ? 'The subagent stopped before a transcript was received.'
+            : 'This runtime has not provided a child transcript.'}
+        </p>
+      )}
+      {!childSessionId && !transcript && isTerminal(part.state) && (
+        <p data-slot="task-child-unavailable" {...stylex.props(styles.notice)}>
+          This runtime did not expose a child transcript.
+        </p>
+      )}
+    </>
   )
 }
 

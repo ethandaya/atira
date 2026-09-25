@@ -30,6 +30,25 @@ export type GeneratedImageProps = NativeFigureProps &
       | { status: 'ready'; image: GeneratedImageDescriptor }
   }
 
+function useImageLoadState(image: GeneratedImageDescriptor | undefined) {
+  const [loaded, setLoaded] = useState<string>()
+  const [failed, setFailed] = useState<string>()
+  const [attempt, setAttempt] = useState(0)
+  const imageFailed = image !== undefined && failed === image.url
+
+  return {
+    attempt,
+    imageFailed,
+    loaded: image !== undefined && loaded === image.url,
+    onError: () => image && setFailed(image.url),
+    onLoad: () => image && setLoaded(image.url),
+    retry: () => {
+      setFailed(undefined)
+      setAttempt((value) => value + 1)
+    },
+  }
+}
+
 export function GeneratedImage({
   className,
   label = 'Generated image',
@@ -38,14 +57,11 @@ export function GeneratedImage({
   xstyle,
   ...props
 }: GeneratedImageProps) {
-  const [loaded, setLoaded] = useState<string>()
-  const [failed, setFailed] = useState<string>()
-  const [attempt, setAttempt] = useState(0)
   const image = state.status === 'ready' ? state.image : undefined
-  const imageFailed = image && failed === image.url
+  const loadState = useImageLoadState(image)
   const loading =
     state.status === 'generating' ||
-    (image && loaded !== image.url && !imageFailed)
+    (image !== undefined && !loadState.loaded && !loadState.imageFailed)
   return (
     <figure
       {...props}
@@ -55,76 +71,103 @@ export function GeneratedImage({
       aria-busy={loading || undefined}
       {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
-      <div {...stylex.props(styles.preview)}>
-        {image && !imageFailed && (
-          <img
-            key={`${image.id}:${attempt}`}
-            src={image.url}
-            alt={image.alt}
-            width={image.width}
-            height={image.height}
-            onLoad={() => setLoaded(image.url)}
-            onError={() => setFailed(image.url)}
-            {...stylex.props(
-              styles.image,
-              loaded !== image.url && styles.hidden,
-            )}
-          />
-        )}
-        {loading && (
-          <div role="status" {...stylex.props(styles.status)}>
-            <Spinner size="small" />
-            <span>
-              {state.status === 'generating'
-                ? 'Generating image…'
-                : 'Loading image…'}
-            </span>
-          </div>
-        )}
-        {(state.status === 'failed' || imageFailed) && (
-          <div role="alert" {...stylex.props(styles.status)}>
-            <span>
-              {state.status === 'failed'
-                ? state.error
-                : 'This image could not be loaded.'}
-            </span>
-            {imageFailed && (
-              <Button
-                size="compact"
-                variant="quiet"
-                onClick={() => {
-                  setFailed(undefined)
-                  setAttempt((value) => value + 1)
-                }}
-              >
-                Retry loading
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-      <figcaption {...stylex.props(styles.actions)}>
-        {image && !imageFailed && loaded === image.url && (
-          <>
-            <a
-              href={image.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              {...stylex.props(styles.link)}
-            >
-              Open image <ArrowUpRight aria-hidden="true" size={14} />
-            </a>
-            <a
-              href={image.downloadUrl ?? image.url}
-              download="generated-image.png"
-              {...stylex.props(styles.link)}
-            >
-              <Download aria-hidden="true" size={14} /> Download
-            </a>
-          </>
-        )}
-      </figcaption>
+      <ImagePreview
+        image={image}
+        loading={loading}
+        state={state}
+        {...loadState}
+      />
+      <ImageActions
+        image={image}
+        visible={loadState.loaded && !loadState.imageFailed}
+      />
     </figure>
+  )
+}
+
+type ImageLoadState = ReturnType<typeof useImageLoadState>
+
+function ImagePreview({
+  image,
+  loading,
+  state,
+  ...loadState
+}: {
+  image: GeneratedImageDescriptor | undefined
+  loading: boolean
+  state: GeneratedImageProps['state']
+} & ImageLoadState) {
+  return (
+    <div {...stylex.props(styles.preview)}>
+      {image && !loadState.imageFailed && (
+        <img
+          key={`${image.id}:${loadState.attempt}`}
+          src={image.url}
+          alt={image.alt}
+          width={image.width}
+          height={image.height}
+          onLoad={loadState.onLoad}
+          onError={loadState.onError}
+          {...stylex.props(styles.image, !loadState.loaded && styles.hidden)}
+        />
+      )}
+      {loading && (
+        <div role="status" {...stylex.props(styles.status)}>
+          <Spinner size="small" />
+          <span>
+            {state.status === 'generating'
+              ? 'Generating image…'
+              : 'Loading image…'}
+          </span>
+        </div>
+      )}
+      {(state.status === 'failed' || loadState.imageFailed) && (
+        <div role="alert" {...stylex.props(styles.status)}>
+          <span>
+            {state.status === 'failed'
+              ? state.error
+              : 'This image could not be loaded.'}
+          </span>
+          {loadState.imageFailed && (
+            <Button size="compact" variant="quiet" onClick={loadState.retry}>
+              Retry loading
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ImageActions({
+  image,
+  visible,
+}: {
+  image: GeneratedImageDescriptor | undefined
+  visible: boolean
+}) {
+  return (
+    <figcaption {...stylex.props(styles.actions)}>
+      {image && visible && (
+        <>
+          <a
+            href={image.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            {...stylex.props(styles.link)}
+          >
+            Open image <ArrowUpRight aria-hidden="true" size={14} />
+          </a>
+          <a
+            href={image.downloadUrl ?? image.url}
+            download="generated-image.png"
+            {...stylex.props(styles.link)}
+          >
+            <Download aria-hidden="true" size={14} /> Download
+          </a>
+        </>
+      )}
+    </figcaption>
   )
 }
 
