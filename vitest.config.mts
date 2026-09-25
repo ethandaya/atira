@@ -4,6 +4,10 @@ export default defineConfig({
   test: {
     coverage: { enabled: false },
     environment: 'node',
-    include: ['packages/**/*.test.{ts,tsx}', 'apps/**/*.test.{ts,tsx,mjs}'],
+    include: [
+      'packages/**/*.test.{ts,tsx}',
+      'apps/**/*.test.{ts,tsx}',
+      'scripts/**/*.test.ts',
+    ],
   },
 })

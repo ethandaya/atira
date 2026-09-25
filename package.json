@@ -2,6 +2,7 @@
   "name": "atira",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "React and StyleX components for agent interfaces.",
   "license": "MIT",
   "repository": {
@@ -24,7 +25,7 @@
   },
   "scripts": {
     "build": "pnpm build:library && pnpm --filter @atira/demo build",
-    "build:library": "node scripts/build-library.mjs",
+    "build:library": "node --experimental-strip-types scripts/build-library.ts",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm run doctor && pnpm build && pnpm test:browser",
     "dev": "pnpm --filter @atira/demo dev",
     "doctor": "react-doctor --project apps/demo,packages/primitives,packages/components,packages/blocks --no-score --no-supply-chain --blocking warning -y",
@@ -33,12 +34,12 @@
     "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives",
     "lint:fix": "pnpm lint --fix",
-    "precommit": "lint-staged --concurrent false --hide-unstaged",
+    "precommit": "node --experimental-strip-types node_modules/lint-staged/bin/lint-staged.js --config lint-staged.config.ts --concurrent false --hide-unstaged",
     "prepare": "husky",
-    "publish:library": "node scripts/publish-library.mjs",
-    "test": "node --test scripts/build-library.test.mjs && vitest run",
+    "publish:library": "node --experimental-strip-types scripts/publish-library.ts",
+    "test": "vitest run",
     "test:browser": "playwright test",
-    "typecheck": "pnpm --recursive --if-present typecheck && pnpm exec tsc -p apps/demo/tsconfig.backend.json"
+    "typecheck": "pnpm --recursive --if-present typecheck && pnpm exec tsc -p apps/demo/tsconfig.backend.json && pnpm exec tsc -p tsconfig.tools.json"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -49,6 +50,9 @@
     "@stylexjs/babel-plugin": "0.19.0",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
+    "@types/babel__core": "7.20.5",
+    "@types/node": "catalog:",
+    "@types/ws": "8.18.1",
     "husky": "9.1.7",
     "jsdom": "30.0.1",
     "lint-staged": "17.5.1",

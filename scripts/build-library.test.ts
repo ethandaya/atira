@@ -1,4 +1,3 @@
-import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import {
   cp,
@@ -12,8 +11,8 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { test } from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { expect, test } from 'vitest'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
@@ -24,8 +23,8 @@ test('builds ESM, declarations, and CSS without replacing a prior build on failu
     await mkdir(join(sourceRoot, 'packages'), { recursive: true })
     await mkdir(join(sourceRoot, 'scripts'))
     await cp(
-      join(root, 'scripts/build-library.mjs'),
-      join(sourceRoot, 'scripts/build-library.mjs'),
+      join(root, 'scripts/build-library.ts'),
+      join(sourceRoot, 'scripts/build-library.ts'),
     )
     for (const file of [
       'package.json',
@@ -55,58 +54,65 @@ test('builds ESM, declarations, and CSS without replacing a prior build on failu
 
     execFileSync(
       process.execPath,
-      [join(sourceRoot, 'scripts/build-library.mjs')],
+      [
+        '--experimental-strip-types',
+        join(sourceRoot, 'scripts/build-library.ts'),
+      ],
       { cwd: sourceRoot },
     )
     for (const name of ['foundations', 'primitives', 'components', 'blocks']) {
       const dist = join(sourceRoot, 'packages', name, 'dist')
-      assert.ok((await readFile(join(dist, 'styles.css'), 'utf8')).length > 100)
-      assert.match(
+      expect(
+        (await readFile(join(dist, 'styles.css'), 'utf8')).length,
+      ).toBeGreaterThan(100)
+      expect(
         await readFile(
           join(dist, name === 'foundations' ? 'themes.js' : 'index.js'),
           'utf8',
         ),
-        /export/,
-      )
-      assert.ok(
+      ).toMatch(/export/)
+      expect(
         (
           await readFile(
             join(dist, name === 'foundations' ? 'themes.d.ts' : 'index.d.ts'),
             'utf8',
           )
-        ).length > 20,
-      )
+        ).length,
+      ).toBeGreaterThan(20)
     }
-    assert.equal(
+    expect(
       await readFile(
         join(sourceRoot, 'packages/foundations/dist/nested/data.json'),
         'utf8',
       ),
-      '{"fixture":true}\n',
-    )
-    assert.doesNotMatch(
+    ).toBe('{"fixture":true}\n')
+    expect(
       await readFile(
         join(sourceRoot, 'packages/primitives/dist/button.js'),
         'utf8',
       ),
-      /stylex\.create/,
-    )
-    assert.match(
+    ).not.toMatch(/stylex\.create/)
+    expect(
       await readFile(
         join(sourceRoot, 'packages/primitives/dist/index.js'),
         'utf8',
       ),
-      /from ['"]\.\/button\.js['"]/,
-    )
-    assert.match(
+    ).toMatch(/from ['"]\.\/button\.js['"]/)
+    expect(
       await readFile(
         join(sourceRoot, 'packages/primitives/dist/index.d.ts'),
         'utf8',
       ),
-      /from ['"]\.\/button\.js['"]/,
-    )
-    await import(
-      `${new URL(`file://${join(sourceRoot, 'packages/foundations/dist/themes.js')}`)}?test=${Date.now()}`
+    ).toMatch(/from ['"]\.\/button\.js['"]/)
+    const moduleUrl = `${pathToFileURL(join(sourceRoot, 'packages/foundations/dist/themes.js')).href}?test=${Date.now()}`
+    execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        `await import(${JSON.stringify(moduleUrl)})`,
+      ],
+      { cwd: sourceRoot },
     )
 
     const names = ['foundations', 'primitives', 'components', 'blocks']
@@ -117,28 +123,30 @@ test('builds ESM, declarations, and CSS without replacing a prior build on failu
       )
     const broken = join(sourceRoot, 'packages/components/src/broken.ts')
     await writeFile(broken, 'export const broken = (\n')
-    assert.throws(() =>
+    expect(() =>
       execFileSync(
         process.execPath,
-        [join(sourceRoot, 'scripts/build-library.mjs')],
+        [
+          '--experimental-strip-types',
+          join(sourceRoot, 'scripts/build-library.ts'),
+        ],
         { cwd: sourceRoot, stdio: 'pipe' },
       ),
-    )
+    ).toThrow()
     for (const name of names)
-      assert.equal(
+      expect(
         await readFile(
           join(sourceRoot, 'packages', name, 'dist', 'previous-build'),
           'utf8',
         ),
-        name,
-      )
-    assert.ok(
+      ).toBe(name)
+    expect(
       !(await readdir(sourceRoot)).some((name) =>
         name.startsWith('.library-build-'),
       ),
-    )
+    ).toBe(true)
     await rm(broken)
   } finally {
     await rm(temporary, { recursive: true, force: true })
   }
-})
+}, 20_000)
