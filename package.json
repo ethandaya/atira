@@ -7,17 +7,24 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "pnpm --filter @pretty-amped/demo build",
+    "build": "pnpm build:library && pnpm --filter @pretty-amped/demo build",
+    "build:library": "node scripts/build-library.mjs",
     "export:library": "node scripts/export-library.mjs",
+    "pack:library": "node scripts/build-library.mjs --pack private-packages",
     "check": "pnpm test && pnpm typecheck && pnpm build && pnpm test:browser",
     "dev": "pnpm --filter @pretty-amped/demo dev",
-    "test": "node --test scripts/export-library.test.mjs && vitest run",
+    "test": "node --test scripts/export-library.test.mjs scripts/build-library.test.mjs && vitest run",
+    "test:consumers": "node scripts/test-private-consumers.mjs",
     "test:browser": "playwright test",
     "typecheck": "pnpm --recursive --if-present typecheck"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
+    "@babel/core": "7.29.7",
+    "@babel/plugin-transform-react-jsx": "7.28.6",
+    "@babel/plugin-transform-typescript": "7.28.6",
     "@playwright/test": "1.62.1",
+    "@stylexjs/babel-plugin": "0.19.0",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
     "jsdom": "30.0.1",

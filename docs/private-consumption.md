@@ -1,90 +1,51 @@
 # Use Pretty Amped privately
 
-No registry, publication, or repository visibility change is required. This is
-a **source distribution for a pnpm React workspace**, not precompiled JavaScript
-and CSS. The consuming app must compile StyleX. The recipe below uses Vite;
-other bundlers need their corresponding StyleX integration.
+Pretty Amped supports two private, local workflows. Neither publishes to a
+registry or assigns public release metadata.
 
-## Export and vendor
+## Recommended: packed compiled artifacts
 
-In the Pretty Amped checkout, with its declared pnpm version installed:
+Build four ESM tarballs containing declarations and extracted StyleX CSS:
 
 ```sh
-node scripts/export-library.mjs /absolute/path/to/nanosentry/vendor/pretty-amped
+node scripts/build-library.mjs --pack /absolute/path/to/new/package-directory
+# or, for the default ./private-packages directory:
+pnpm pack:library
 ```
 
-The parent directory must exist; the destination must not exist. Exporting does
-not install dependencies, publish anything, or include the demo, credentials,
-Lapse, runtime adapters, or tests. Catalog versions are read from pnpm's configuration;
-internal dependencies remain workspace links. All packages remain `private`.
-The command requires Node and pnpm, but no installed workspace dependencies.
-With dependencies installed, `pnpm export:library <destination>` is equivalent.
-On a clean checkout use the Node command above to avoid pnpm's automatic install
-before running package scripts (which would include the demo's private dependencies).
+The destination must not exist. The command precompiles TypeScript, JSX, StyleX
+calls, themes, and CSS. Each private manifest exposes only compiled JavaScript,
+declarations, `styles.css`, and `package.json`; it marks CSS as a side effect.
+The tarballs preserve the foundations, primitives, components, and blocks
+boundaries. They do not contain demo code, providers, credentials, tests, source,
+or build tooling.
 
-Add this entry to **NanoSentry's root** `pnpm-workspace.yaml`, retaining its
-existing package entries:
+Install all tarballs required by the chosen package. Because internal packages
+remain private and do not exist in a registry, pin local overrides in pnpm 11:
 
 ```yaml
-packages:
-  - vendor/pretty-amped/packages/*
+# pnpm-workspace.yaml in the consuming repository
+overrides:
+  '@pretty-amped/foundations': file:./vendor/pretty-amped-foundations-0.0.0.tgz
+  '@pretty-amped/primitives': file:./vendor/pretty-amped-primitives-0.0.0.tgz
+  '@pretty-amped/components': file:./vendor/pretty-amped-components-0.0.0.tgz
+  '@pretty-amped/blocks': file:./vendor/pretty-amped-blocks-0.0.0.tgz
 ```
 
-Add the packages to the React application's dependencies (use its actual path
-instead of `apps/web`):
+Then add the tarballs and the host-owned peers:
 
 ```sh
-pnpm --filter ./apps/web add '@pretty-amped/blocks@workspace:*' '@pretty-amped/components@workspace:*' '@pretty-amped/primitives@workspace:*' '@pretty-amped/foundations@workspace:*' @stylexjs/stylex@0.19.0
-pnpm --filter ./apps/web add -D @stylexjs/unplugin@0.19.0
-pnpm add -Dw @types/react@19.2.18 @types/react-dom@19.2.5
+pnpm add ./vendor/pretty-amped-foundations-0.0.0.tgz \
+  ./vendor/pretty-amped-primitives-0.0.0.tgz \
+  react@19.2.8 react-dom@19.2.8 @stylexjs/stylex@0.19.0
 ```
 
-Install the React types at the workspace root so TypeScript can resolve them
-from the vendored sibling packages, not only from the app. Keep the app's usual
-Vite client types (`vite/client`) enabled for CSS imports.
-
-The current source targets React and React DOM 19.2.8. Keep one compatible React
-instance in the host. Commit the vendored source and NanoSentry's updated lockfile
-to your private repository when ready; CI then needs no access to this repository.
-For updates, export to a new directory and review the source diff before replacing
-the previous version. Keep host adaptations outside the vendored source when possible.
-
-## Compile styles in the host
-
-Merge this into the app's Vite config. `workspaceRoot` must point to NanoSentry's
-root; this example assumes the config lives in `apps/web`.
-
-```ts
-import stylex from '@stylexjs/unplugin'
-import react from '@vitejs/plugin-react'
-import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vite'
-
-const workspaceRoot = fileURLToPath(new URL('../..', import.meta.url))
-
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    stylex.vite({
-      dev: mode === 'development',
-      runtimeInjection: false,
-      unstable_moduleResolution: { type: 'commonJS', rootDir: workspaceRoot },
-      useCSSLayers: true,
-    }),
-    react(),
-  ],
-}))
-```
-
-Keep workspace symlink resolution enabled (Vite's default); do not prebundle the
-library as an opaque dependency. Both the host and library must use the same
-StyleX compilation pipeline so token identities and generated styles agree.
-
-Import the host's nonempty global CSS file from its entry point (for example,
-`import './global.css'`). With this plugin version, a production build without
-an existing CSS asset can omit the generated styles. Check that the production
-HTML links a CSS asset containing the library's styles.
+Import CSS once for every Pretty Amped package used by the application. CSS is
+explicit rather than injected from JavaScript, so server imports remain valid:
 
 ```tsx
+import '@pretty-amped/foundations/styles.css'
+import '@pretty-amped/primitives/styles.css'
 import * as stylex from '@stylexjs/stylex'
 import { lightTheme } from '@pretty-amped/foundations/themes'
 import { Button } from '@pretty-amped/primitives'
@@ -92,14 +53,94 @@ import { Button } from '@pretty-amped/primitives'
 export function LibraryCheck() {
   return (
     <div {...stylex.props(lightTheme)}>
-      <Button onClick={() => alert('Connected')}>Check integration</Button>
+      <Button>Check integration</Button>
     </div>
   )
 }
 ```
 
-Apply the theme at the host boundary containing library components. The library
-does not install a global reset or fonts; those remain host choices. Start with
-this button in both development and a production preview before integrating
-`ChatSession`. Chat state, provider credentials, transport, and persistence remain
-NanoSentry's responsibility; exporting the UI does not export the demo backend.
+No StyleX Babel, Vite, or Next plugin is needed for these artifacts. StyleX's
+small runtime remains a peer because hosts use `stylex.props` to apply a compiled
+theme. The bundled themes are precompiled. A consumer that calls `createTheme`
+itself is authoring new StyleX and therefore still needs a StyleX compiler.
+
+The regression harness verifies a Vite React 19 production build and real
+browser interaction, plus a running built Next 15 server/client application:
+
+```sh
+pnpm test:consumers
+```
+
+It type-checks the fixtures; verifies compiled CSS, dark themes, scoped popup
+CSS, component and block leaf imports, inline/class overrides, and React
+interaction; and records the light Button entry's nonempty Rollup module graph
+to prove it does not cross into components, blocks, providers, Streamdown, or
+Zod. The packed Vite fixture enables the real StyleX plugin for host-authored
+`xstyle` and dynamic-variable precedence; the installed library itself remains
+precompiled. Next is started after its production build and checked in a browser
+for hydration. Its computed dark-theme button colors must equal the equivalent
+Vite component's colors, rather than merely carrying a theme attribute.
+
+## Source export for StyleX-aware workspaces
+
+The existing source workflow remains available when the host intentionally owns
+StyleX compilation:
+
+```sh
+node scripts/export-library.mjs /absolute/path/to/app/vendor/pretty-amped
+```
+
+The parent must exist and destination must not. Add
+`vendor/pretty-amped/packages/*` to the host's `pnpm-workspace.yaml`, install the
+workspace packages, and configure the host's StyleX integration to compile the
+vendored files. The consumer harness creates this export in isolation, installs
+workspace dependencies, builds it with the real StyleX Vite plugin, and checks
+bundled theme compilation, host-authored `xstyle` CSS, and component interaction in a browser. This
+route is appropriate for consumer-authored `createTheme` overrides. It is not
+required for ordinary use of compiled themes and components.
+
+## Customization boundaries
+
+DOM-backed leaf components accept native attributes, refs, `className`, `style`,
+and `xstyle`. StyleX overrides resolve after defaults and variants; inline
+styles resolve last. Unlayered host CSS can override the extracted CSS layers.
+Stateful convenience compositions keep their explicit controlled contracts.
+
+Menus and selects inherit their local theme by default. When their trigger sits
+inside clipping, transformed, or hidden content, pass `portalContainer` pointing
+to an unclipped themed ancestor. `ChatComposer` does this for its toolbar menus.
+Passing a container outside the theme scope also leaves that theme scope.
+
+`Message` exposes content, metadata, and action slots. `Reasoning` and
+`ToolActivity` expose controlled disclosure state and custom labels/content, but
+retain their status/disclosure anatomy. `DialogParts` and `SelectPickerParts`
+are explicitly **unstyled Base UI parts**, not styled replacements for the
+convenience wrappers. Arbitrary anatomy is not a supported promise of every
+Pretty Amped component.
+
+## Update and compatibility workflow
+
+1. Use the repository's declared Node and pnpm versions and run
+   `pnpm install --frozen-lockfile`.
+2. Run `pnpm test`, `pnpm build:library`, and `pnpm test:consumers`.
+3. Pack into a new directory. Compare tarball inventory/manifests and consumer
+   screenshots or behavior before replacing vendored files.
+4. Update all four overrides together when consuming blocks or components.
+5. Keep one React/React DOM 19 instance in the host and satisfy exact peer ranges.
+6. Commit tarballs only to the intended private repository. Publication,
+   licensing, public versioning, and registry metadata remain separate decisions.
+
+The consumer harness was run successfully on Node 26.10.0 with React/React DOM
+19.2.8, StyleX 0.19.0, Vite 8.2.2, and Next 15.5.9. The repository declares
+Node `>=22.13.0`, but this consumer matrix does not claim a successful Node 22
+run. Compiled output uses Node-compatible ESM specifier extensions and stable
+leaf subpath exports. Other bundlers may consume the standard ESM/CSS exports,
+but are not asserted by the harness. The library does not ship a reset or fonts.
+
+This is bounded private-artifact readiness, not a public release. The package
+version remains `0.0.0`, all four manifests remain private, and provenance is the
+reviewed repository revision plus the locally produced tarball inventory. There
+is no selected license, registry, signing/attestation policy, support window, or
+public publication metadata. Decide those before any public distribution. The
+compiled workflow does not promise zero-configuration support for a consumer's
+custom `createTheme`; authoring new StyleX requires a compatible compiler setup.
