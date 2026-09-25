@@ -19,7 +19,9 @@ import * as stylex from '@stylexjs/stylex'
 import { ChevronDown } from 'lucide-react'
 import {
   memo,
+  useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -106,15 +108,37 @@ export function Timeline({
     estimatedTurnHeight,
   )
   const visibleTurns = turns.slice(range.start, range.end)
-  followRef.current = follow
 
-  function changeFollow(next: FollowState) {
+  const changeFollow = useCallback((next: FollowState) => {
     followRef.current = next
     setFollow(next)
     onFollowStateChange?.(next)
-  }
+  }, [onFollowStateChange])
 
-  useLayoutEffect(() => {
+  const updateScrollEdges = useCallback((viewport: HTMLElement) => {
+    setHasContentAbove(viewport.scrollTop > 1)
+    setHasContentBelow(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1)
+  }, [])
+
+  const updateVirtualWindow = useCallback((viewport: HTMLElement) => {
+    updateScrollEdges(viewport)
+    if (!virtualized) return
+    pinOpenOrFocusedTurns(viewport, pinnedTurnIds.current)
+    const next = calculateWindowRange({
+      estimatedTurnHeight,
+      estimatedTurnGap,
+      heights: measuredHeights.current,
+      pinnedTurnIds: pinnedTurnIds.current,
+      scrollTop: viewport.scrollTop,
+      turns,
+      viewportHeight: viewport.clientHeight,
+    })
+    setWindowRange((current) =>
+      current.start === next.start && current.end === next.end ? current : next,
+    )
+  }, [estimatedTurnGap, estimatedTurnHeight, turns, updateScrollEdges, virtualized])
+
+  const measureLayout = useEffectEvent(() => {
     const viewport = viewportRef.current
     if (!viewport) return
 
@@ -159,19 +183,28 @@ export function Timeline({
       viewport.scrollTop = viewport.scrollHeight
     }
     updateVirtualWindow(viewport)
-  }, [measurementVersion, range.end, range.start, version])
+  })
+
+  // Follow changes alone must not consume the anchor before older turns arrive.
+  useLayoutEffect(() => {
+    measureLayout()
+  }, [measurementVersion, range.end, range.start, version, estimatedTurnGap, estimatedTurnHeight])
+
+  const onResize = useEffectEvent(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    updateVirtualWindow(viewport)
+    if (followRef.current.status === 'following' && !pendingAnchor.current) {
+      viewport.scrollTop = viewport.scrollHeight
+    }
+    updateScrollEdges(viewport)
+  })
 
   useEffect(() => {
     const viewport = viewportRef.current
     const measure = measureRef.current
     if (!viewport || !measure || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => {
-      updateVirtualWindow(viewport)
-      if (followRef.current.status === 'following' && !pendingAnchor.current) {
-        viewport.scrollTop = viewport.scrollHeight
-      }
-      updateScrollEdges(viewport)
-    })
+    const observer = new ResizeObserver(() => onResize())
     observer.observe(viewport)
     observer.observe(measure)
     return () => observer.disconnect()
@@ -199,30 +232,7 @@ export function Timeline({
       changeFollow(next)
     }
     previousTurnCount.current = turns.length
-  }, [follow, turns.length, version])
-
-  function updateScrollEdges(viewport: HTMLElement) {
-    setHasContentAbove(viewport.scrollTop > 1)
-    setHasContentBelow(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1)
-  }
-
-  function updateVirtualWindow(viewport: HTMLElement) {
-    updateScrollEdges(viewport)
-    if (!virtualized) return
-    pinOpenOrFocusedTurns(viewport, pinnedTurnIds.current)
-    const next = calculateWindowRange({
-      estimatedTurnHeight,
-      estimatedTurnGap,
-      heights: measuredHeights.current,
-      pinnedTurnIds: pinnedTurnIds.current,
-      scrollTop: viewport.scrollTop,
-      turns,
-      viewportHeight: viewport.clientHeight,
-    })
-    setWindowRange((current) =>
-      current.start === next.start && current.end === next.end ? current : next,
-    )
-  }
+  }, [follow, turns.length, version, changeFollow])
 
   async function loadPrevious() {
     const viewport = viewportRef.current
@@ -238,7 +248,13 @@ export function Timeline({
       })
     }
 
-    await onLoadPrevious()
+    try {
+      await onLoadPrevious()
+    } catch {
+      // The caller exposes failure through history; restoration must still finish.
+    } finally {
+      setMeasurementVersion((current) => current + 1)
+    }
   }
 
   function trackScroll(event: UIEvent<HTMLDivElement>) {
@@ -528,6 +544,8 @@ function calculateWindowRange(input: {
   let offset = 0
   let start = 0
   let end = input.turns.length
+  let pinnedStart = input.turns.length
+  let pinnedEnd = 0
 
   for (let index = 0; index < input.turns.length; index += 1) {
     const turn = input.turns[index]
@@ -536,17 +554,14 @@ function calculateWindowRange(input: {
     if (next < minimum) start = index + 1
     if (offset <= maximum) end = index + 1
     offset = next + input.estimatedTurnGap
-  }
-
-  for (const id of input.pinnedTurnIds) {
-    const index = input.turns.findIndex((turn) => turn.id === id)
-    if (index !== -1) {
-      start = Math.min(start, index)
-      end = Math.max(end, index + 1)
+    if (input.pinnedTurnIds.has(turn.id)) {
+      pinnedStart = Math.min(pinnedStart, index)
+      pinnedEnd = Math.max(pinnedEnd, index + 1)
     }
   }
 
-  return { end: Math.max(start + 1, end), start }
+  start = Math.min(start, pinnedStart)
+  return { end: Math.max(start + 1, end, pinnedEnd), start }
 }
 
 function pinOpenOrFocusedTurns(viewport: HTMLElement, pinned: Set<string>) {
