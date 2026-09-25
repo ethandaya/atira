@@ -7,8 +7,7 @@ for (const fixture of [false, true]) {
   test(`keeps every typed character and the caret during mid-prompt edits (${fixture ? 'fixture' : 'live store'})`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test' } }))
-    await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
-    await page.goto(fixture ? '/?fixture=workflow' : '/')
+    await page.goto(fixture ? '/?fixture=workflow' : '/?view=playground')
     const editor = page.getByRole('textbox', { name: 'Message', exact: true })
     const text = 'Render a black bicycle with raised handlebars and gravel wheels. Use a plain background and photorealistic lighting.'
     await editor.click()
@@ -26,66 +25,29 @@ for (const fixture of [false, true]) {
   })
 }
 
-test('shows discovery failure instead of invented models and recovers on refresh', async ({ page }) => {
-  let available = false
-  const message = 'Could not load available models from your provider. Refresh to try again.'
-  await page.route('**/api/runtime', route => route.fulfill({ json: {
-    conversationSessions: true, available, runtime: 'ChatGPT', model: 'discovered-model',
-    models: available ? [{ label: 'Discovered model', modelId: 'discovered-model', providerId: 'chatgpt' }] : [],
-    ...(!available ? { message } : {}),
-  } }))
-  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
-  await page.goto('/')
-  await expect(page.getByText(message, { exact: true }).first()).toBeVisible()
-  await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toHaveCount(0)
-  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Keep this draft')
-  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
-  available = true
-  await page.reload()
-  await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toContainText('Discovered model')
-  await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Keep this draft')
-  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
-})
-
-test('preserves model and reasoning effort across send, reload, and retry', async ({ page }) => {
-  const models = [
-    { label: 'GPT-5.6 Sol', modelId: 'gpt-5.6-sol', providerId: 'chatgpt', reasoningEfforts: ['low', 'medium'], defaultReasoningEffort: 'medium' },
-    { label: 'GPT-5.4', modelId: 'gpt-5.4', providerId: 'chatgpt', reasoningEfforts: ['low', 'medium', 'high'], defaultReasoningEffort: 'medium' },
-  ]
-  const requests: { model: typeof models[number]; retry: boolean }[] = []
-  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: models[0]!.modelId, models, runtime: 'ChatGPT' } }))
-  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
+test('preserves the configured Nanocodex model across send, reload, and retry', async ({ page }) => {
+  const model = { label: 'Nanocodex', modelId: 'nanocodex', providerId: 'nanocodex' }
+  const requests: { model: typeof model; retry: boolean }[] = []
+  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: model.modelId, models: [model], runtime: 'Nanocodex' } }))
   await page.route('**/api/chat', route => {
     requests.push(route.request().postDataJSON())
     return route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify(requests.length === 1
       ? { type: 'error', message: 'Temporary provider failure.' }
       : { type: 'completed', message: 'Recovered with the original model.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }) })
   })
-  await page.goto('/')
+  await page.goto('/?view=playground')
   const picker = page.getByRole('combobox', { name: 'Model', exact: true })
-  const effort = page.getByRole('combobox', { name: 'Reasoning effort', exact: true })
-  await expect(effort).toContainText('Medium')
-  await expect(picker).toContainText('GPT-5.6 Sol')
-  await picker.click()
-  await page.getByRole('option', { name: 'GPT-5.4', exact: true }).click()
-  await effort.click()
-  await page.getByRole('option', { name: 'High', exact: true }).click()
+  await expect(picker).toContainText('Nanocodex')
   await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test the selected model')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
   await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'failed')
-  expect(requests[0]?.model).toEqual(models[1])
-  expect(requests[0]).toMatchObject({ reasoningEffort: 'high' })
-  await expect(picker).toContainText('GPT-5.4')
+  expect(requests[0]?.model).toEqual(model)
   await page.reload()
-  await expect(picker).toContainText('GPT-5.4')
-  await expect(effort).toContainText('High')
-  await picker.click()
-  await page.getByRole('option', { name: 'GPT-5.6 Sol', exact: true }).click()
-  await expect(effort).toContainText('Medium')
+  await expect(picker).toContainText('Nanocodex')
   await page.getByRole('button', { name: 'Retry response', exact: true }).click()
   await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'complete')
-  expect(requests[1]).toMatchObject({ model: models[1], reasoningEffort: 'high', retry: true })
-  await expect(picker).toContainText('GPT-5.6 Sol')
+  expect(requests[1]).toMatchObject({ model, retry: true })
+  await expect(picker).toContainText('Nanocodex')
   const identity = page.getByRole('group', { name: 'Response author' })
   const answer = page.locator('[data-slot="turn-assistant-message"]')
   const headerBox = (await identity.boundingBox())!
@@ -111,23 +73,22 @@ test('preserves model and reasoning effort across send, reload, and retry', asyn
   expect(await identity.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
 })
 
-test('retains failed child evidence and retries the response in place', async ({ page }) => {
+test('retains failed catalog evidence and retries the response in place', async ({ page }) => {
   const requests: { input: string; turnId: string; retry: boolean }[] = []
   let releaseRetry: () => void = () => undefined
   const retryReady = new Promise<void>(resolve => { releaseRetry = resolve })
   await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: 'test', runtime: 'Test runtime' } }))
-  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
   await page.route('**/api/chat', async route => {
     requests.push(route.request().postDataJSON())
     if (requests.length > 1) await retryReady
     const events = requests.length === 1 ? [
-      { type: 'tool-started', id: 'child', tool: 'run_subagent', summary: 'Researching', input: 'Find bike stores', kind: 'task', childSessionId: 'child-session' },
-      { type: 'tool-progress', id: 'child', tool: 'run_subagent', summary: 'Researching', kind: 'task', transcript: { reasoning: 'Checking stores.', result: 'One possible supplier.', steps: [] } },
+      { type: 'tool-started', id: 'catalog', tool: 'inspect_component_catalog', summary: 'Inspecting catalog', input: 'Find bike components' },
+      { type: 'tool-completed', id: 'catalog', tool: 'inspect_component_catalog', status: 'failed', summary: 'Catalog failed', error: 'Catalog unavailable' },
       { type: 'error', message: 'network error' },
     ] : [{ type: 'completed', message: 'Research recovered.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }]
     await route.fulfill({ contentType: 'application/x-ndjson', body: events.map(event => JSON.stringify(event)).join('\n') })
   })
-  await page.goto('/')
+  await page.goto('/?view=playground')
   const editor = page.getByRole('textbox', { name: 'Message', exact: true })
   await editor.fill('Find a bike')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
@@ -135,11 +96,9 @@ test('retains failed child evidence and retries the response in place', async ({
   await expect(turn).toHaveAttribute('data-state', 'failed')
   await editor.fill('Keep my draft')
   await page.reload()
-  await page.getByRole('button', { name: /Subagent · Find bike stores/ }).click()
-  await expect(page.getByText('Checking stores.', { exact: true })).toBeVisible()
-  await expect(page.getByText('One possible supplier.', { exact: true })).toBeVisible()
-  await expect(page.getByText('Partial response', { exact: true })).toBeVisible()
-  await expect(page.getByText('The child transcript is not available in this client.')).toHaveCount(0)
+  const catalog = page.locator('[data-tool="inspect_component_catalog"]')
+  await catalog.getByRole('button').click()
+  await expect(catalog.locator('dd').filter({ hasText: 'Catalog unavailable' })).toBeVisible()
   await page.getByRole('button', { name: 'Retry response', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Conversations', exact: true })).toBeDisabled()
   expect(requests).toHaveLength(2)
@@ -155,7 +114,6 @@ test('retains failed child evidence and retries the response in place', async ({
 test('preserves and resumes conversations and drafts across reloads', async ({ page }) => {
   const contexts = new Map<string, string[]>()
   await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test runtime' } }))
-  await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
   await page.route('**/api/chat', async route => {
     const id = route.request().headers()['x-conversation-id']!
     const { input, resume } = route.request().postDataJSON()
@@ -167,7 +125,7 @@ test('preserves and resumes conversations and drafts across reloads', async ({ p
     contexts.set(id, history)
     await route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'completed', message: history.join(' / '), durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }) })
   })
-  await page.goto('/')
+  await page.goto('/?view=playground')
   const editor = page.getByRole('textbox', { name: 'Message', exact: true })
   const send = async (text: string) => {
     await editor.fill(text)
@@ -260,8 +218,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
 }
 
 test('animates presence without losing dialog focus or leaving interactive exits', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+  await page.goto('/?view=components&all=true')
   const trigger = page.getByRole('button', { name: 'Open dialog', exact: true })
   await trigger.scrollIntoViewIfNeeded()
   const samples = await trigger.evaluate(async (element) => {
@@ -289,8 +246,7 @@ test('animates presence without losing dialog focus or leaving interactive exits
 })
 
 test('keeps press motion pointer-only and disables presence motion on mobile reduced-motion', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+  await page.goto('/?view=components&all=true')
   const primary = page.getByRole('button', { name: 'Primary', exact: true })
   await primary.hover()
   await page.mouse.down()
@@ -304,7 +260,7 @@ test('keeps press motion pointer-only and disables presence motion on mobile red
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.reload()
-  await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Component gallery' })).toBeVisible()
   await page.getByRole('button', { name: 'Open dialog', exact: true }).click()
   const popup = page.getByRole('dialog')
   await expect(popup).toHaveCSS('opacity', '1')
@@ -312,53 +268,6 @@ test('keeps press motion pointer-only and disables presence motion on mobile red
   expect(await popup.evaluate((element) => element.getAnimations().length)).toBe(0)
   await page.keyboard.press('Escape')
   await expect(popup).toHaveCount(0)
-})
-
-test('presents an accessible ChatGPT device sign-in flow', async ({ page }) => {
-  await page.route('**/api/runtime', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      json: { conversationSessions: true, available: true, model: 'test-model', runtime: 'Anthropic' },
-    })
-  })
-  await page.route('**/api/auth/chatgpt**', async (route) => {
-    const path = new URL(route.request().url()).pathname
-    await route.fulfill({
-      contentType: 'application/json',
-      json: path.endsWith('/start')
-        ? {
-            expiresAt: Date.now() + 900_000,
-            pollAfterMs: 60_000,
-            state: 'pending',
-            userCode: 'ABCD-EFGH',
-            verificationUrl: 'https://auth.openai.com/codex/device',
-          }
-        : { state: 'signed_out' },
-    })
-  })
-
-  await page.goto('/')
-  const trigger = page.getByRole('button', { name: 'Sign in', exact: true })
-  await trigger.click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-  await page.getByRole('button', { name: 'Sign in with ChatGPT' }).click()
-  await expect(page.getByText('ABCD-EFGH')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Continue to OpenAI' })).toHaveAttribute(
-    'href',
-    'https://auth.openai.com/codex/device',
-  )
-  await expect(page.getByRole('dialog').getByRole('status')).toContainText(
-    'Waiting for authorization',
-  )
-
-  const results = await new AxeBuilder({ page })
-    .include('[data-slot="dialog-content"]')
-    .analyze()
-  expect(results.violations).toEqual([])
-
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Finish sign in' })).toBeFocused()
 })
 
 test('preserves detached scroll and history anchors', async ({ page }) => {
@@ -431,7 +340,24 @@ test('submits, queues, stops, edits, and restores a reverted prompt', async ({ p
 })
 
 test('keeps thinking and tool lifecycle rows geometrically stable', async ({ page }) => {
-  await page.goto('/?fixture=workflow')
+  await page.route('**/api/runtime', route => route.fulfill({ json: {
+    available: true, conversationSessions: true, model: 'test', runtime: 'Test',
+  } }))
+  await page.addInitScript(() => {
+    const original = window.fetch
+    window.fetch = async (input, options) => {
+      if (input !== '/api/chat') return original(input, options)
+      return new Response(new ReadableStream({ start(controller) {
+        window.addEventListener('lifecycle-event', event => {
+          controller.enqueue(new TextEncoder().encode(`${JSON.stringify((event as CustomEvent).detail)}\n`))
+        })
+      } }), { headers: { 'Content-Type': 'application/x-ndjson' } })
+    }
+  })
+  const emit = (detail: object) => page.evaluate(value => {
+    window.dispatchEvent(new CustomEvent('lifecycle-event', { detail: value }))
+  }, detail)
+  await page.goto('/?view=playground')
   const composer = page.locator('[data-slot="chat-composer"]')
   const message = page.getByRole('textbox', { name: 'Message' })
 
@@ -445,6 +371,7 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   const statusBounds = await elementBounds(status)
   const statusTypography = await textMetrics(status)
 
+  await emit({ type: 'reasoning-delta', text: 'Checking the interaction.' })
   const reasoning = turn.locator('[data-slot="reasoning"]')
   await expect(reasoning).toHaveAttribute('data-state', 'thinking')
   await expect(reasoning.locator('[data-slot="spinner"]')).toBeVisible()
@@ -456,6 +383,7 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   )
   expect(Math.abs(activityBounds.height - statusBounds.height)).toBeLessThanOrEqual(1)
 
+  await emit({ type: 'tool-started', id: 'check', tool: 'inspect_component_catalog', input: 'interaction', summary: 'Checking components' })
   const tool = turn.locator('[data-slot="tool-activity"]')
   await expect(tool).toHaveAttribute('data-state', 'running')
   await expect(tool.locator('[data-slot="spinner"]')).toBeVisible()
@@ -476,6 +404,7 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   const runningScroll = await viewport.evaluate(element => element.scrollTop)
   const composerTop = (await elementBounds(composer)).top
 
+  await emit({ type: 'tool-completed', id: 'check', tool: 'inspect_component_catalog', status: 'succeeded', output: 'Checked.', summary: 'Checked components' })
   await expect(tool).toHaveAttribute('data-state', 'succeeded')
   await settleLayout(page)
   const completedBounds = await elementBounds(tool)
@@ -861,8 +790,7 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
 })
 
 test('indexes gallery categories and uses compositor-safe progress motion', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Catalog' }).click()
+  await page.goto('/?view=components&all=true')
 
   const categories = page.getByRole('navigation', { name: 'Component categories' })
   await expect(categories).toBeVisible()
