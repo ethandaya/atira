@@ -109,14 +109,14 @@ test('composer action retains its DOM identity through send, queue, stop and com
 })
 
 test('actual app and catalog use the default components even with a legacy design URL', async ({ page }) => {
-  await page.goto('/?design=studio&accent=blue')
+  await page.goto('/?view=playground&design=studio&accent=blue')
   await expect(page.getByRole('combobox', { name: 'Design direction' })).toHaveCount(0)
   await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS('border-radius', '18px')
   await page.getByRole('button', { name: 'Catalog', exact: true }).click()
   await expect(page.locator('[data-slot="composer"]')).toHaveCSS('border-radius', '18px')
   expect(await page.locator('[data-slot="composer"]').evaluate(element => getComputedStyle(element).boxShadow)).toContain('0px 0px 0px 1px')
   await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS('border-radius', '18px')
-  await page.getByRole('button', { name: 'Playground', exact: true }).click()
+  await page.getByRole('link', { name: 'Live playground', exact: true }).click()
   await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS('border-radius', '18px')
 })
 
@@ -157,9 +157,14 @@ for (const theme of ['light', 'dark']) {
       await input.press('Escape')
       await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeFocused()
 
-      await page.goto('/')
+      await page.goto('/?view=playground')
       await page.getByRole('button', { name: 'Catalog', exact: true }).click()
-      if (theme === 'dark') await page.getByRole('button', { name: 'Dark', exact: true }).click()
+      if (width === 390) {
+        await page.getByRole('combobox', { name: 'Navigate catalog' }).selectOption('all')
+      } else {
+        await page.getByRole('button', { name: 'All examples', exact: true }).click()
+      }
+      if (theme === 'dark') await page.getByRole('button', { name: width === 390 ? 'Dark' : 'Dark theme', exact: true }).click()
       const sources = page.getByRole('article', { name: 'CitationList', exact: true })
       const link = sources.getByRole('link')
       await expect(link.locator('[data-slot="citation-description"]')).toBeVisible()
