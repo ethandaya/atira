@@ -23,7 +23,16 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      grepInvert: /bounds the stress fixture/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Measure the frame budget without competing workers or trace capture.
+      name: 'performance',
+      dependencies: ['chromium'],
+      testMatch: 'chat.spec.ts',
+      grep: /bounds the stress fixture/,
+      use: { ...devices['Desktop Chrome'], trace: 'off' },
     },
   ],
 })
