@@ -32,4 +32,3 @@ jobs:
       - run: pnpm build
       # Hosted runners do not provide stable frame timing for fixed performance budgets.
       - run: pnpm exec playwright test --project=chromium
-      - run: pnpm test:consumers

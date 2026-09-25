@@ -13,20 +13,11 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises'
-import { dirname, extname, join, relative, resolve } from 'node:path'
+import { dirname, extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const names = ['foundations', 'primitives', 'components', 'blocks']
-const packIndex = process.argv.indexOf('--pack')
-const packDestination =
-  packIndex === -1 ? undefined : process.argv[packIndex + 1]
-
-if (packIndex !== -1 && !packDestination) {
-  throw new Error(
-    'Usage: pnpm build:library [--pack /path/to/new-or-empty-directory]',
-  )
-}
 
 async function files(directory) {
   const entries = await readdir(directory, { withFileTypes: true })
@@ -38,62 +29,6 @@ async function files(directory) {
   }
   return output
 }
-
-function compiledExports(sourceExports) {
-  return Object.fromEntries(
-    Object.entries(sourceExports).map(([name, source]) => {
-      const stem = source
-        .replace(/^\.\/src\//, '')
-        .replace(/\.(?:tsx?|jsx?)$/, '')
-      return [
-        name,
-        {
-          types: `./dist/${stem}.d.ts`,
-          import: `./dist/${stem}.js`,
-          default: `./dist/${stem}.js`,
-        },
-      ]
-    }),
-  )
-}
-
-function releaseManifest(manifest, leaves) {
-  const output = structuredClone(manifest)
-  output.private = true
-  output.files = ['dist']
-  output.sideEffects = ['./dist/styles.css']
-  output.exports = {
-    ...compiledExports(manifest.exports),
-    ...Object.fromEntries(
-      leaves.map((leaf) => [
-        `./${leaf}`,
-        {
-          types: `./dist/${leaf}.d.ts`,
-          import: `./dist/${leaf}.js`,
-          default: `./dist/${leaf}.js`,
-        },
-      ]),
-    ),
-    './styles.css': './dist/styles.css',
-    './package.json': './package.json',
-  }
-  delete output.devDependencies
-  delete output.scripts
-  for (const dependencies of [output.dependencies, output.peerDependencies]) {
-    for (const [dependency, version] of Object.entries(dependencies ?? {})) {
-      if (version === 'catalog:') dependencies[dependency] = catalog[dependency]
-      if (version === 'workspace:*') dependencies[dependency] = '0.0.0'
-    }
-  }
-  return output
-}
-
-const catalog = JSON.parse(
-  execFileSync('pnpm', ['config', 'get', 'catalog', '--json'], {
-    cwd: root,
-    encoding: 'utf8',
-  }),
-)
 
 function nodeEsmSpecifiers() {
   const withExtension = (value) =>
@@ -219,60 +154,4 @@ try {
   await rm(buildDirectory, { recursive: true, force: true })
 }
 
-if (packDestination) {
-  const destination = resolve(packDestination)
-  await mkdir(destination)
-  const staging = join(destination, '.staging')
-  await mkdir(staging)
-  try {
-    for (const name of names) {
-      const source = join(root, 'packages', name)
-      const target = join(staging, name)
-      await mkdir(target)
-      await cp(join(source, 'dist'), join(target, 'dist'), { recursive: true })
-      const manifest = JSON.parse(
-        await readFile(join(source, 'package.json'), 'utf8'),
-      )
-      const leaves = new Set()
-      if (manifest.exports['.']) {
-        const entry = await transformFileAsync(
-          join(source, 'dist', 'index.js'),
-          {
-            ast: true,
-            code: false,
-            babelrc: false,
-            configFile: false,
-          },
-        )
-        for (const statement of entry.ast.program.body) {
-          if (
-            statement.type === 'ExportNamedDeclaration' &&
-            statement.source?.value.startsWith('./')
-          ) {
-            const leaf = statement.source.value.slice(2, -3)
-            if (leaf !== 'style-props') leaves.add(leaf)
-          }
-        }
-      }
-      await writeFile(
-        join(target, 'package.json'),
-        `${JSON.stringify(releaseManifest(manifest, [...leaves]), null, 2)}\n`,
-      )
-      execFileSync('pnpm', ['pack', '--pack-destination', destination], {
-        cwd: target,
-        stdio: 'inherit',
-      })
-    }
-  } catch (error) {
-    await rm(destination, { recursive: true, force: true })
-    throw error
-  } finally {
-    await rm(staging, { recursive: true, force: true })
-  }
-}
-
-console.log(
-  packDestination
-    ? `Built and packed private packages in ${packDestination}`
-    : 'Built private packages',
-)
+console.log('Built library packages')

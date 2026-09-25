@@ -159,22 +159,16 @@ test('question outcomes resolve and reset, and displayed source remains stable',
   ).toContainText("useState('Review the component boundary.')")
 })
 
-test('installation stays available and the catalog never initializes the runtime', async ({
-  page,
-}) => {
+test('catalog never initializes the runtime', async ({ page }) => {
   const runtimeRequests: string[] = []
   page.on('request', (request) => {
     if (request.url().includes('/api/runtime'))
       runtimeRequests.push(request.url())
   })
   await page.goto('/?view=components')
-  await page
-    .getByRole('button', { name: 'Use the library in your app' })
-    .click()
   await expect(
-    page.getByRole('region', {
-      name: 'Code in Export from this checkout',
-      exact: true,
+    page.getByRole('heading', {
+      name: 'Build agent interfaces with React and StyleX.',
     }),
   ).toBeVisible()
   expect(runtimeRequests).toEqual([])

@@ -17,10 +17,9 @@ import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
-test('builds private ESM, declarations, CSS, and installable tarballs', async () => {
+test('builds ESM, declarations, and CSS without replacing a prior build on failure', async () => {
   const temporary = await mkdtemp(join(tmpdir(), 'atira-build-'))
   const sourceRoot = join(temporary, 'source')
-  const packs = join(temporary, 'packs')
   try {
     await mkdir(join(sourceRoot, 'packages'), { recursive: true })
     await mkdir(join(sourceRoot, 'scripts'))
@@ -56,13 +55,9 @@ test('builds private ESM, declarations, CSS, and installable tarballs', async ()
 
     execFileSync(
       process.execPath,
-      [join(sourceRoot, 'scripts/build-library.mjs'), '--pack', packs],
+      [join(sourceRoot, 'scripts/build-library.mjs')],
       { cwd: sourceRoot },
     )
-    const tarballs = (await readdir(packs)).filter((path) =>
-      path.endsWith('.tgz'),
-    )
-    assert.equal(tarballs.length, 4)
     for (const name of ['foundations', 'primitives', 'components', 'blocks']) {
       const dist = join(sourceRoot, 'packages', name, 'dist')
       assert.ok((await readFile(join(dist, 'styles.css'), 'utf8')).length > 100)
@@ -80,43 +75,6 @@ test('builds private ESM, declarations, CSS, and installable tarballs', async ()
             'utf8',
           )
         ).length > 20,
-      )
-
-      const unpacked = join(temporary, 'unpacked', name)
-      await mkdir(unpacked, { recursive: true })
-      execFileSync('tar', [
-        '-xzf',
-        join(packs, `atira-${name}-0.0.0.tgz`),
-        '-C',
-        unpacked,
-      ])
-      const packageRoot = join(unpacked, 'package')
-      const manifest = JSON.parse(
-        await readFile(join(packageRoot, 'package.json'), 'utf8'),
-      )
-      assert.equal(manifest.private, true)
-      assert.deepEqual(manifest.files, ['dist'])
-      assert.ok(
-        !Object.keys(manifest.exports).some(
-          (key) =>
-            key.includes('src') ||
-            key.includes('test') ||
-            key.includes('style-props'),
-        ),
-      )
-      for (const target of Object.values(manifest.exports).flatMap((value) =>
-        typeof value === 'string' ? [value] : Object.values(value),
-      )) {
-        await readFile(join(packageRoot, target))
-      }
-      const packedFiles = execFileSync(
-        'tar',
-        ['-tzf', join(packs, `atira-${name}-0.0.0.tgz`)],
-        { encoding: 'utf8' },
-      )
-      assert.doesNotMatch(
-        packedFiles,
-        /(?:^|\/)(?:src|test-results)(?:\/|$)|\.test\.[^/]+$/m,
       )
     }
     assert.equal(
@@ -180,30 +138,6 @@ test('builds private ESM, declarations, CSS, and installable tarballs', async ()
       ),
     )
     await rm(broken)
-
-    const exportScript = join(sourceRoot, 'scripts/export-library.mjs')
-    await cp(join(root, 'scripts/export-library.mjs'), exportScript)
-    const exported = join(temporary, 'exported')
-    assert.throws(() =>
-      execFileSync(process.execPath, [exportScript, exported], {
-        cwd: sourceRoot,
-        stdio: 'pipe',
-      }),
-    )
-    await assert.rejects(readFile(join(exported, 'package.json')), {
-      code: 'ENOENT',
-    })
-    assert.ok(!(await readdir(temporary)).includes('exported'))
-    await mkdir(join(sourceRoot, 'docs'))
-    await cp(
-      join(root, 'docs/consumption.md'),
-      join(sourceRoot, 'docs/consumption.md'),
-    )
-    execFileSync(process.execPath, [exportScript, exported], {
-      cwd: sourceRoot,
-      stdio: 'pipe',
-    })
-    assert.ok((await readFile(join(exported, 'README.md'), 'utf8')).length > 0)
   } finally {
     await rm(temporary, { recursive: true, force: true })
   }

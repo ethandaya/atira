@@ -13,7 +13,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open `/` for the catalog and installation guide, or `/?view=playground` for chat.
+Open `/` for the catalog, or `/?view=playground` for chat.
 The catalog does not require credentials. Sign in with ChatGPT in the playground
 or set `OPENAI_API_KEY` on the server. `NANOCODEX_MODEL` defaults to `gpt-6-sol` and must be
 supported by the installed Nanocodex version. Each conversation uses that model.
@@ -73,13 +73,6 @@ Zod validates untrusted HTTP, stream, model, and saved-history data in the demo.
 The library receives typed props and controlled state; it does not import these
 schemas or require Nanocodex.
 
-For local packed-artifact and source consumption, see
-[installation](docs/consumption.md).
-`pnpm pack:library` produces ESM, declarations, extracted CSS, and compiled themes.
-`pnpm export:library <new-directory>` exports source for hosts that own their
-StyleX compilation pipeline. Packages remain unpublished at version `0.0.0`;
-registry publication and release versioning require separate decisions.
-
 ## Verification
 
 ```bash
@@ -87,7 +80,7 @@ pnpm check
 ```
 
 The full gate runs formatting, lint, typechecks, tests, React Doctor, production
-builds, browser tests, and consumer tests in that order. It stops at the
+builds, and browser tests in that order. It stops at the
 first failure. Oxlint covers JavaScript and TypeScript, including backend `.mjs`
 files; React Doctor covers the demo and the three React library packages.
 Warnings fail both Oxlint and React Doctor. Narrow source comments explain
@@ -115,8 +108,6 @@ The hook does not fix or stage files; it hides and restores unstaged tracked
 edits so an unstaged fix cannot mask a staged defect. Use `pnpm run doctor` for
 the full React scan; `pnpm doctor` is pnpm's unrelated built-in command.
 
-Consumer tests install packed artifacts in isolated Vite and Next applications
-and check module boundaries, CSS, StyleX overrides, interaction, and hydration.
 Browser tests cover loading, unavailable, recovery, keyboard, and narrow layouts.
 The backend typecheck covers contracts, catalog, conversations, replay, and web
 search; server orchestration is not yet fully typechecked.
