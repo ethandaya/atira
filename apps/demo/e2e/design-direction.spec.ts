@@ -343,19 +343,13 @@ for (const theme of ['light', 'dark']) {
 
       await page.goto('/?view=playground')
       await page.getByRole('button', { name: 'Catalog', exact: true }).click()
-      if (width === 390) {
-        await page
-          .getByRole('combobox', { name: 'Navigate catalog' })
-          .selectOption('all')
-      } else {
-        await page
-          .getByRole('button', { name: 'All examples', exact: true })
-          .click()
-      }
+      await expect(
+        page.getByRole('region', { name: 'Component gallery', exact: true }),
+      ).toBeVisible()
       if (theme === 'dark')
         await page
           .getByRole('button', {
-            name: width === 390 ? 'Dark' : 'Dark theme',
+            name: 'Dark theme',
             exact: true,
           })
           .click()
