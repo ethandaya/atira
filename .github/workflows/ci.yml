@@ -24,4 +24,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm check
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm run doctor
+      - run: pnpm build
+      # Hosted runners do not provide stable frame timing for fixed performance budgets.
+      - run: pnpm exec playwright test --project=chromium
+      - run: pnpm test:consumers
