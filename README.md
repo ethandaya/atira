@@ -73,6 +73,10 @@ Zod validates untrusted HTTP, stream, model, and saved-history data in the demo.
 The library receives typed props and controlled state; it does not import these
 schemas or require Nanocodex.
 
+Library releases target the public npm registry under the `@atira` scope.
+`pnpm publish:library -- --dry-run` builds the compiled package contents and
+shows the packages that a publish would upload.
+
 ## Verification
 
 ```bash

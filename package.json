@@ -35,6 +35,7 @@
     "lint:fix": "pnpm lint --fix",
     "precommit": "lint-staged --concurrent false --hide-unstaged",
     "prepare": "husky",
+    "publish:library": "node scripts/publish-library.mjs",
     "test": "node --test scripts/build-library.test.mjs && vitest run",
     "test:browser": "playwright test",
     "typecheck": "pnpm --recursive --if-present typecheck && pnpm exec tsc -p apps/demo/tsconfig.backend.json"
