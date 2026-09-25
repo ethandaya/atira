@@ -106,6 +106,7 @@ export class DemoAuth {
     for (const [id, account] of this.#accounts) {
       if (account.pending || account.lastUsed > Date.now() - 60 * 60 * 1000)
         continue
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Bound teardown concurrency and recheck eligibility after each reset.
       await this.run(id, async () => {
         await this.reset(id)
         if (account.pending > 1) return

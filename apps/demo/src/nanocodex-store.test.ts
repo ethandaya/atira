@@ -136,6 +136,25 @@ describe('NanocodexChatStore', () => {
     store.dispose()
   })
 
+  it('reports an HTTP runtime failure without reading its body', async () => {
+    const response = new Response('upstream details', { status: 503 })
+    const readBody = vi.spyOn(response, 'json')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response),
+    )
+    const store = new NanocodexChatStore()
+
+    await store.initialize()
+
+    expect(readBody).not.toHaveBeenCalled()
+    expect(store.getRuntimeSnapshot()).toEqual({
+      message: 'The local model runtime could not be reached.',
+      status: 'unavailable',
+    })
+    store.dispose()
+  })
+
   it.each(['streamed', 'partial', 'completion-only', 'segment-snapshot'])(
     'preserves text/tool chronology with a %s final answer',
     async (mode) => {

@@ -268,6 +268,13 @@ it(
           })
         ).status,
       ).toBe(403)
+      const malformedOrigin = await fetch(`${base}/api/auth/chatgpt`, {
+        headers: { ...headers, Origin: 'not a valid origin' },
+      })
+      expect(malformedOrigin.status).toBe(403)
+      expect(await malformedOrigin.json()).toEqual({
+        error: 'Cross-origin API requests are not allowed.',
+      })
       expect(
         (
           await fetch(`${base}/api/chat`, {

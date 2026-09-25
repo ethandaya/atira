@@ -181,7 +181,7 @@ async function handleRequest(request, response) {
   const origin = request.headers.origin
   if (
     request.headers['sec-fetch-site'] === 'cross-site' ||
-    (origin && new URL(origin).host !== request.headers.host)
+    (origin && URL.parse(origin)?.host !== request.headers.host)
   ) {
     throw new HttpError('Cross-origin API requests are not allowed.', 403)
   }

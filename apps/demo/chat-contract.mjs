@@ -10,13 +10,11 @@ export const modelSchema = z.object({
 })
 
 // Requests identify a catalog entry; display metadata is optional for older clients.
-const requestedModelSchema = z
-  .object({
-    label: z.string().optional(),
-    modelId: z.string(),
-    providerId: z.string(),
-  })
-  .strict()
+const requestedModelSchema = z.strictObject({
+  label: z.string().optional(),
+  modelId: z.string(),
+  providerId: z.string(),
+})
 
 export const authStatusSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('signed_out') }),
@@ -57,25 +55,21 @@ export const runtimeResponseSchema = z
   }))
 
 const turnId = z.string().regex(/^[a-z0-9:-]{1,100}$/i, 'Invalid turn ID.')
-export const cancelRequestSchema = z.object({ turnId }).strict()
-export const chatRequestSchema = z
-  .object({
-    input: z
-      .string()
-      .trim()
-      .min(1, 'Enter a message to continue.')
-      .max(8_000, 'Messages are limited to 8,000 characters.'),
-    model: requestedModelSchema.optional(),
-    resume: z.boolean().optional().default(false),
-    retry: z.boolean().optional().default(false),
-    turnId: turnId.optional(),
-  })
-  .strict()
+export const cancelRequestSchema = z.strictObject({ turnId })
+export const chatRequestSchema = z.strictObject({
+  input: z
+    .string()
+    .trim()
+    .min(1, 'Enter a message to continue.')
+    .max(8_000, 'Messages are limited to 8,000 characters.'),
+  model: requestedModelSchema.optional(),
+  resume: z.boolean().optional().default(false),
+  retry: z.boolean().optional().default(false),
+  turnId: turnId.optional(),
+})
 
-export const apiErrorSchema = z.object({ error: z.string().min(1) }).strict()
-export const cancelResponseSchema = z
-  .object({ cancelled: z.boolean() })
-  .strict()
+export const apiErrorSchema = z.strictObject({ error: z.string().min(1) })
+export const cancelResponseSchema = z.strictObject({ cancelled: z.boolean() })
 const error = z.object({
   kind: z.enum([
     'provider',

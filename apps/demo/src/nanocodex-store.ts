@@ -255,9 +255,10 @@ export class NanocodexChatStore implements ChatStore {
       const response = await fetch('/api/runtime', {
         signal: controller.signal,
       })
+      if (!response.ok) throw new Error()
       const result = runtimeResponseSchema.safeParse(await response.json())
       controller.signal.throwIfAborted()
-      if (!response.ok || !result.success) throw new Error()
+      if (!result.success) throw new Error()
       const body = result.data
 
       this.#runtime = body.available
