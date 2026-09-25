@@ -291,7 +291,13 @@ function Code({
 }: ElementProps<'code'>) {
   if ('data-block' in props) {
     return (
-      <pre data-slot="markdown-code-block" {...stylex.props(styles.codeBlock)}>
+      <pre
+        aria-label="Code block"
+        role="group"
+        tabIndex={0}
+        data-slot="markdown-code-block"
+        {...stylex.props(styles.codeBlock)}
+      >
         <code {...props} {...stylex.props(styles.blockCode)} />
       </pre>
     )
@@ -510,6 +516,10 @@ const styles = stylex.create({
     inlineSize: '100%',
     margin: 0,
     maxBlockSize: '25rem',
+    outlineColor: { default: 'transparent', ':focus-visible': colors.focus },
+    outlineOffset: '2px',
+    outlineStyle: 'solid',
+    outlineWidth: '2px',
     overflow: 'auto',
     padding: space.x3,
   },

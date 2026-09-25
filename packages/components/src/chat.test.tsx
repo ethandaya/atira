@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   ChatTurn,
   ComposerDraft,
+  JsonValue,
   PermissionRequestView,
   QuestionRequestView,
   ToolPart,
@@ -34,12 +35,59 @@ import {
   RevertDock,
 } from './requests'
 import { Reasoning } from './reasoning'
+import { GeneratedImage } from './generated-image'
+import { Thread } from './thread'
 import { ToolActivity } from './tool-activity'
 import { Turn } from './turn'
 
 afterEach(cleanup)
 
 describe('chat components', () => {
+  it('keeps requests without application handlers read-only', async () => {
+    render(<>
+      <PermissionPrompt request={permissionRequest()} />
+      <QuestionRequest request={questionRequest()} />
+    </>)
+    for (const name of ['Allow once', 'Always allow', 'Reject', 'Submit answer', 'Dismiss']) {
+      const button = screen.getByRole('button', { name })
+      expect(button.hasAttribute('disabled') || button.getAttribute('aria-disabled') === 'true').toBe(true)
+      await userEvent.click(button)
+    }
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull()
+  })
+
+  it('orders decision history independently of incoming snapshot order', async () => {
+    const request = permissionRequest()
+    const resolved = (id: string, order: number): PermissionRequestView => ({ ...request, id, order, title: id, effect: id, state: { status: 'resolved', decision: 'once' } })
+    render(<RequestRegion requests={[resolved('Latest', 9), resolved('Earlier', 2)]}
+      onPermissionDecision={vi.fn()} onQuestionAnswer={vi.fn()} onQuestionReject={vi.fn()}>{null}</RequestRegion>)
+    const toggle = screen.getByRole('button', { name: /Latest/ })
+    await userEvent.click(toggle)
+    expect(screen.getByRole('list', { name: 'Decision history' }).textContent).toMatch(/Earlier.*Latest/)
+  })
+
+  it.each(['https://images.example/image.png?signature=a%2Bb', 'data:image/png;base64,AAAA'])('preserves image URLs and accepts an application-owned download target: %s', (url) => {
+    const image = { id: 'image', url, alt: 'Diagram', width: 1, height: 1 }
+    const { rerender } = render(<GeneratedImage state={{ status: 'ready', image }} />)
+    fireEvent.load(screen.getByRole('img'))
+    expect(screen.getByRole('link', { name: 'Download' }).getAttribute('href')).toBe(url)
+    rerender(<GeneratedImage state={{ status: 'ready', image: { ...image, downloadUrl: '/downloads/diagram' } }} />)
+    expect(screen.getByRole('link', { name: 'Download' }).getAttribute('href')).toBe('/downloads/diagram')
+    expect(screen.getByRole('link', { name: 'Open image' }).getAttribute('href')).toBe(url)
+  })
+
+  it('customizes composer and generated-image labels and forwards leaf native props', () => {
+    const onKeyDown = vi.fn()
+    const { container } = render(<>
+      <Thread label="Support transcript" data-testid="thread" className="consumer" onKeyDown={onKeyDown} />
+      <GeneratedImage label="Diagram preview" state={{ status: 'generating' }} data-testid="image" />
+    </>)
+    fireEvent.keyDown(screen.getByTestId('thread'), { key: 'Escape' })
+    expect(onKeyDown).toHaveBeenCalledOnce()
+    expect(screen.getByTestId('thread').className).toContain('consumer')
+    expect(screen.getByLabelText('Diagram preview')).toBe(container.querySelector('[data-slot="generated-image"]'))
+  })
+
   it('shows queue failure reasons and only offers retry for recoverable errors', async () => {
     const onRetry = vi.fn()
     const item = { id: 'queued', draft, state: 'failed' as const, error: { kind: 'connection' as const, message: 'Connection lost. Try again.', retryable: true } }
@@ -108,8 +156,8 @@ describe('chat components', () => {
   })
 
   it('summarizes successful work while keeping running, blocked, failed and cancelled tools visible', async () => {
-    const done = toolPart('read', { kind: 'context', operation: 'read' })
-    const running: ToolPart = { ...toolPart('shell', { kind: 'shell' }), state: { status: 'running', startedAt: Date.now() - 3000, input: { command: 'pnpm test' } } }
+    const done = toolPart('read', { kind: 'context', operation: 'read', target: '/workspace/app.tsx' })
+    const running: ToolPart = { ...toolPart('shell', { command: 'pnpm test', kind: 'shell' }), state: { status: 'running', startedAt: Date.now() - 3000, input: { command: 'raw command' } } }
     const failed: ToolPart = { ...toolPart('failed', { kind: 'generic' }), state: { status: 'failed', endedAt: 2, error: { message: 'Check failed', kind: 'tool', retryable: false } } }
     const blocked: ToolPart = { ...toolPart('blocked', { kind: 'generic' }), state: { status: 'awaiting-permission', input: {}, requestId: 'permission' } }
     const cancelled: ToolPart = { ...toolPart('cancelled', { kind: 'generic' }), state: { status: 'cancelled', endedAt: 2 } }
@@ -122,7 +170,7 @@ describe('chat components', () => {
     await userEvent.click(screen.getByRole('button', { name: '1 action completed' }))
     await userEvent.click(screen.getByRole('button', { name: /Complete\s*Read \/workspace\/app.tsx/ }))
     expect(screen.getByText('result')).not.toBeNull()
-    rerender(<MessageParts activityPresentation="summary" message={{ ...message, parts: [done, { ...running, state: { status: 'succeeded', input: { command: 'pnpm test' }, endedAt: Date.now(), output: 'All passed' } }, failed, blocked, cancelled] }} />)
+    rerender(<MessageParts activityPresentation="summary" message={{ ...message, parts: [done, { ...running, state: { status: 'succeeded', input: { command: 'raw command' }, endedAt: Date.now(), output: 'All passed' } }, failed, blocked, cancelled] }} />)
     expect(container.querySelectorAll('[data-slot="activity-current"]')).toHaveLength(3)
     expect(screen.queryByLabelText('Elapsed time')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: /Complete\s*pnpm test/ }))
@@ -151,7 +199,7 @@ describe('chat components', () => {
   })
 
   it('uses a specialized tool renderer and a lossless generic fallback', () => {
-    const read = toolPart('read', { kind: 'context', operation: 'read' })
+    const read = toolPart('read', { kind: 'context', operation: 'read', target: '/workspace/app.tsx' })
     const unknown = toolPart('mcp_custom', { kind: 'generic' })
     const message: ChatMessage = {
       createdAt: 1,
@@ -177,6 +225,7 @@ describe('chat components', () => {
       presentation: {
         agent: { id: 'review', label: 'Review agent' },
         childSessionId: 'child-session',
+        description: 'Check alignment',
         kind: 'task',
         transcript: {
           reasoning: 'I checked the activity hierarchy.',
@@ -221,6 +270,7 @@ describe('chat components', () => {
         },
         agent: { id: 'research', label: 'Research agent' },
         childSessionId: 'running-child-session',
+        description: 'Compare transcript density patterns',
         kind: 'task',
       },
       state: {
@@ -454,6 +504,19 @@ describe('chat components', () => {
     )
   })
 
+  it.each(['resolved', 'expired'] as const)('clears the local permission lock when %s', (status) => {
+    const request = permissionRequest()
+    const { container, rerender } = render(<PermissionPrompt request={request} onDecision={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
+    rerender(<PermissionPrompt request={{
+      ...request,
+      state: status === 'resolved' ? { status, decision: 'once' } : { status },
+    }} />)
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Permission decision' })).toBeNull()
+  })
+
   it('unlocks a failed permission request for an explicit retry', async () => {
     const onDecision = vi.fn()
     const request = permissionRequest()
@@ -483,6 +546,16 @@ describe('chat components', () => {
 
     expect(onDecision).toHaveBeenCalledTimes(2)
     expect(onDecision).toHaveBeenLastCalledWith('once')
+  })
+
+  it('does not carry a local permission decision into another session with the same request ID', async () => {
+    const request = permissionRequest()
+    const onDecision = vi.fn()
+    const { rerender } = render(<PermissionPrompt request={request} onDecision={onDecision} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+    rerender(<PermissionPrompt request={{ ...request, origin: { sessionId: 'other-session' } }} onDecision={onDecision} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Reject' }))
+    expect(onDecision.mock.calls).toEqual([['once'], ['reject']])
   })
 
   it('returns stable question and option IDs', async () => {
@@ -580,6 +653,21 @@ describe('chat components', () => {
     )
   })
 
+  it.each(['request', 'session'])('resets answers when the %s identity changes without a caller key', async (identity) => {
+    const request = questionRequest()
+    const onAnswer = vi.fn()
+    const { rerender } = render(<QuestionRequest onAnswer={onAnswer} request={request} />)
+    await userEvent.click(screen.getByRole('checkbox', { name: 'StyleX' }))
+    rerender(<QuestionRequest onAnswer={onAnswer} request={{
+      ...request,
+      ...(identity === 'request' ? { id: 'next-request' } : { origin: { sessionId: 'next-session' } }),
+    }} />)
+    expect(screen.getByRole('checkbox', { name: 'StyleX' }).getAttribute('aria-checked')).toBe('false')
+    await userEvent.click(screen.getByRole('button', { name: 'Submit answer' }))
+    expect(onAnswer).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toBe('Choose at least one answer.')
+  })
+
   it('locks a question request after the first valid answer', async () => {
     const onAnswer = vi.fn()
     render(
@@ -598,6 +686,22 @@ describe('chat components', () => {
     expect(
       screen.getByRole('button', { name: 'Submit answer' }).dataset.state,
     ).toBe('disabled')
+  })
+
+  it('replaces local submission with the controlled resolved outcome', async () => {
+    const request = questionRequest()
+    const onReject = vi.fn()
+    const { rerender } = render(<QuestionRequest onReject={onReject} request={request} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(onReject).toHaveBeenCalledOnce()
+    expect(screen.getByRole('form').getAttribute('aria-busy')).toBe('true')
+
+    rerender(<QuestionRequest onReject={onReject} request={{ ...request, state: { status: 'resolved', decision: { type: 'reject' } } }} />)
+
+    expect(screen.getByRole('heading', { name: 'Question dismissed.' })).toBeTruthy()
+    expect(screen.getByRole('form').getAttribute('aria-busy')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Submit answer' })).toBeNull()
   })
 
   it('renders immutable answer labels from structured option IDs', () => {
@@ -764,6 +868,11 @@ describe('chat components', () => {
       screen.getByRole('heading', { name: 'Use the network?' }),
     )
 
+    rerender(region([{ ...request, origin: { sessionId: 'other-session' }, title: 'Approve the other session?' }]))
+    expect(document.activeElement).toBe(
+      screen.getByRole('heading', { name: 'Approve the other session?' }),
+    )
+
     rerender(region([]))
     expect(document.activeElement).toBe(
       screen.getByRole('textbox', { name: 'Message' }),
@@ -775,7 +884,7 @@ describe('chat components', () => {
       callId: 'shell-call',
       id: 'shell-part',
       metadata: { durationMs: 1_200, exitCode: 0 },
-      presentation: { kind: 'shell' },
+      presentation: { command: 'printf hello', durationMs: 1_200, exitCode: 0, kind: 'shell' },
       state: {
         endedAt: 2,
         input: { command: 'printf hello' },
@@ -866,6 +975,48 @@ describe('chat components', () => {
     )
   })
 
+  it('uses explicit presentation fields instead of conflicting raw aliases', () => {
+    const parts: ToolPart[] = [
+      explicitTool('context', { kind: 'context', operation: 'read', target: 'explicit-context' }, { path: 'raw-context' }),
+      explicitTool('shell', { command: 'explicit-command', kind: 'shell', workingDirectory: '/explicit-directory' }, { command: 'raw-command', cwd: '/raw-directory' }),
+      explicitTool('file', { content: 'explicit-content', diagnostics: [], files: [], kind: 'file-change', operation: 'write', path: 'explicit-file' }, { content: 'raw-content', path: 'raw-file' }),
+      explicitTool('task', { description: 'explicit-task', kind: 'task' }, { prompt: 'raw-task' }),
+      explicitTool('web', { kind: 'web', operation: 'search', target: 'explicit-web' }, { query: 'raw-web' }),
+      explicitTool('skill', { kind: 'skill', name: 'explicit-skill' }, { skill: 'raw-skill' }),
+    ]
+    const { container } = render(<MessageParts message={{
+      createdAt: 1,
+      delivery: { status: 'confirmed' },
+      id: 'explicit-presentations',
+      parts,
+      role: 'assistant',
+      turnId: 'turn',
+    }} />)
+
+    for (const value of ['explicit-context', 'explicit-command', 'explicit-file', 'explicit-task', 'explicit-web', 'explicit-skill']) {
+      expect(container.textContent).toContain(value)
+    }
+    for (const value of ['raw-context', 'raw-command', 'raw-file', 'raw-task', 'raw-web', 'raw-skill']) {
+      expect(container.querySelector(`[title*="${value}"]`)).toBeNull()
+    }
+  })
+
+  it('does not derive specialized summaries from raw-only tool input', () => {
+    const parts: ToolPart[] = [
+      explicitTool('context', { kind: 'context', operation: 'read' }, { filePath: 'guessed-context' }),
+      explicitTool('shell', { kind: 'shell' }, { cmd: 'guessed-command' }),
+      explicitTool('file', { diagnostics: [], files: [], kind: 'file-change', operation: 'edit' }, { filename: 'guessed-file' }),
+      explicitTool('task', { kind: 'task' }, { description: 'guessed-task' }),
+      explicitTool('web', { kind: 'web', operation: 'fetch' }, { url: 'https://guessed.example' }),
+      explicitTool('skill', { kind: 'skill' }, { name: 'guessed-skill' }),
+    ]
+    render(<MessageParts message={{ createdAt: 1, delivery: { status: 'confirmed' }, id: 'raw-only', parts, role: 'assistant', turnId: 'turn' }} />)
+
+    for (const summary of ['Read', 'Run shell command', 'Edit file', 'Subagent · Run task', 'Fetch web', 'Load skill']) {
+      expect(screen.getByRole('button', { name: new RegExp(summary) })).not.toBeNull()
+    }
+  })
+
 })
 
 const capabilities: ChatCapabilities = {
@@ -931,6 +1082,21 @@ function toolPart(
       output: 'result',
       status: 'succeeded',
     },
+    toolName,
+    type: 'tool',
+  }
+}
+
+function explicitTool(
+  toolName: string,
+  presentation: ToolPart['presentation'],
+  input: JsonValue,
+): ToolPart {
+  return {
+    callId: `${toolName}-explicit-call`,
+    id: `${toolName}-explicit-part`,
+    presentation,
+    state: { endedAt: 2, input, status: 'succeeded' },
     toolName,
     type: 'tool',
   }

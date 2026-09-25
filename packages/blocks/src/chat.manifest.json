@@ -28,8 +28,8 @@
       "actions": ["all named ChatStore actions and optional application-owned file or child-session callbacks"],
       "sideEffects": ["Subscribes through useSyncExternalStore", "Routes named user actions to ChatStore"],
       "accessibility": ["Provides stable session and connection metadata", "Keeps one primary interactive owner in the bottom region"],
-      "examples": ["Mount ChatSession with OpenCodeChatStore or NanocodexChatStore"],
-      "nonExamples": ["Import OpenCode SDK types into ChatSession props"]
+      "examples": ["Mount ChatSession with an application-owned ChatStore"],
+      "nonExamples": ["Import provider SDK types into ChatSession props"]
     }
   ]
 }

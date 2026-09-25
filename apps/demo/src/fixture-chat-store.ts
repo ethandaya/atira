@@ -381,7 +381,7 @@ export class FixtureChatStore implements ChatStore {
           {
             callId: `${toolId}:call`,
             id: toolId,
-            presentation: { kind: 'web', operation: 'search' },
+            presentation: { kind: 'web', operation: 'search', target: text },
             state: {
               input: { query: text },
               startedAt: now + 1_250,
@@ -725,21 +725,21 @@ function createToolFixtureTurn(index: number): ChatTurn {
     completedTool(
       'context-read',
       'read',
-      { kind: 'context', operation: 'read' },
+      { kind: 'context', operation: 'read', target: 'packages/components/src/turn.tsx' },
       { path: 'packages/components/src/turn.tsx' },
       'export function Turn() {}',
     ),
     completedTool(
       'context-grep',
       'grep',
-      { kind: 'context', operation: 'grep' },
+      { kind: 'context', operation: 'grep', target: 'data-slot' },
       { pattern: 'data-slot' },
       '12 matches',
     ),
     completedTool(
       'shell',
       'shell',
-      { kind: 'shell' },
+      { command: 'pnpm typecheck', durationMs: 420, exitCode: 0, kind: 'shell', outputTruncated: false, workingDirectory: '/workspace' },
       { command: 'pnpm typecheck' },
       'Done',
     ),
@@ -779,6 +779,8 @@ function createToolFixtureTurn(index: number): ChatTurn {
         ],
         kind: 'file-change',
         operation: 'edit',
+        path: 'src/interface.ts',
+        content: 'const density = "comfortable"',
       },
       { path: 'src/interface.ts' },
       'Updated',
@@ -789,6 +791,7 @@ function createToolFixtureTurn(index: number): ChatTurn {
       {
         agent: { id: 'review', label: 'Review agent' },
         childSessionId: 'fixture-child-session',
+        description: 'Review the chat surface',
         kind: 'task',
         transcript: {
           reasoning: 'I compared the activity states and transcript hierarchy.',
@@ -811,14 +814,14 @@ function createToolFixtureTurn(index: number): ChatTurn {
     completedTool(
       'web',
       'webfetch',
-      { kind: 'web', operation: 'fetch' },
+      { kind: 'web', operation: 'fetch', target: 'https://example.com/reference' },
       { url: 'https://example.com/reference' },
       'Reference loaded.',
     ),
     completedTool(
       'skill',
       'skill',
-      { kind: 'skill' },
+      { kind: 'skill', name: 'ui-review' },
       { name: 'ui-review' },
       'Skill loaded.',
     ),
@@ -901,7 +904,7 @@ function createStressTurn(index: number, large: boolean): ChatTurn {
           callId: 'large-output-call',
           id: 'large-output-tool',
           metadata: { truncated: false },
-          presentation: { kind: 'shell' as const },
+          presentation: { command: 'generate-large-output', kind: 'shell' as const, outputTruncated: false },
           state: {
             endedAt: index + 2,
             input: { command: 'generate-large-output' },

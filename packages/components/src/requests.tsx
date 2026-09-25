@@ -8,7 +8,7 @@ import type {
   RevertedPrompt,
   TodoListView,
 } from '@pretty-amped/foundations/chat'
-import { selectActiveRequest } from '@pretty-amped/foundations/chat-invariants'
+import { compareRequestOrder, selectActiveRequest } from '@pretty-amped/foundations/chat-invariants'
 import {
   chatAppearance,
   colors,
@@ -46,7 +46,11 @@ export type PermissionPromptProps = {
   request: PermissionRequestView
 }
 
-export function PermissionPrompt({
+export function PermissionPrompt(props: PermissionPromptProps) {
+  return <PermissionPromptContent key={`${props.request.origin.sessionId}:${props.request.id}`} {...props} />
+}
+
+function PermissionPromptContent({
   availableDecisions = ['once', 'always', 'reject'],
   onDecision,
   request,
@@ -57,6 +61,7 @@ export function PermissionPrompt({
     requestId: string
   }>()
   const localDecision =
+    (request.state.status === 'pending' || request.state.status === 'failed') &&
     localSubmission?.requestId === request.id
       ? localSubmission.decision
       : undefined
@@ -73,9 +78,9 @@ export function PermissionPrompt({
   }, [request.id, request.state.status])
 
   function decide(decision: PermissionDecision) {
-    if (!actionable) return
+    if (!actionable || !onDecision) return
     setLocalSubmission({ decision, requestId: request.id })
-    onDecision?.(decision)
+    onDecision(decision)
   }
 
   return (
@@ -133,7 +138,7 @@ export function PermissionPrompt({
           >
             {availableDecisions.includes('reject') && (
               <Button
-                disabled={submitting}
+                disabled={submitting || !onDecision}
                 focusableWhenDisabled={submitting && activeDecision === 'reject'}
                 onClick={() => decide('reject')}
                 size="compact"
@@ -145,7 +150,7 @@ export function PermissionPrompt({
             {availableDecisions.includes('always') && (
               <Button
                 aria-label="Always allow"
-                disabled={submitting}
+                disabled={submitting || !onDecision}
                 focusableWhenDisabled={submitting && activeDecision === 'always'}
                 onClick={() => decide('always')}
                 size="compact"
@@ -157,7 +162,7 @@ export function PermissionPrompt({
             {availableDecisions.includes('once') && (
               <Button
                 aria-label="Allow once"
-                disabled={submitting}
+                disabled={submitting || !onDecision}
                 focusableWhenDisabled={submitting && activeDecision === 'once'}
                 onClick={() => decide('once')}
                 size="compact"
@@ -179,7 +184,11 @@ export type QuestionRequestProps = {
   request: QuestionRequestView
 }
 
-export function QuestionRequest({
+export function QuestionRequest(props: QuestionRequestProps) {
+  return <QuestionRequestForm key={`${props.request.origin.sessionId}:${props.request.id}`} {...props} />
+}
+
+function QuestionRequestForm({
   onAnswer,
   onReject,
   request,
@@ -191,7 +200,8 @@ export function QuestionRequest({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [questionIndex, setQuestionIndex] = useState(0)
   const [submittingRequestId, setSubmittingRequestId] = useState<string>()
-  const submittingLocally = submittingRequestId === request.id
+  const submittingLocally = submittingRequestId === request.id &&
+    (request.state.status === 'pending' || request.state.status === 'failed')
   const submitting =
     request.state.status === 'submitting' || submittingLocally
   const actionable =
@@ -221,7 +231,7 @@ export function QuestionRequest({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!actionable) return
+    if (!actionable || !onAnswer) return
 
     const questionsToValidate = isLastQuestion
       ? request.questions
@@ -269,7 +279,7 @@ export function QuestionRequest({
       }
     })
     setSubmittingRequestId(request.id)
-    onAnswer?.({ answers })
+    onAnswer({ answers })
   }
 
   return (
@@ -292,7 +302,9 @@ export function QuestionRequest({
               tabIndex={-1}
               {...stylex.props(styles.title)}
             >
-              A question needs your input
+              {request.state.status === 'resolved' || request.state.status === 'expired'
+                ? questionStatus(request)
+                : 'A question needs your input'}
             </h2>
             {request.origin.label && (
               <p {...stylex.props(styles.origin)}>{request.origin.label}</p>
@@ -311,7 +323,7 @@ export function QuestionRequest({
           {activeQuestion && (
             <PresenceSurface key={activeQuestion.id} kind="content" immediate={questionIndex === 0}>
             <QuestionControl
-              actionable={actionable}
+              actionable={actionable && !!onAnswer}
               error={errors[activeQuestion.id]}
               question={activeQuestion}
               updateValue={updateValue}
@@ -345,11 +357,11 @@ export function QuestionRequest({
               </Button>
             )}
             <Button
-              disabled={!actionable}
+              disabled={!actionable || !onReject}
               onClick={() => {
-                if (!actionable) return
+                if (!actionable || !onReject) return
                 setSubmittingRequestId(request.id)
-                onReject?.()
+                onReject()
               }}
               size="compact"
               variant="quiet"
@@ -357,7 +369,7 @@ export function QuestionRequest({
               Dismiss
             </Button>
             <Button
-              disabled={!actionable}
+              disabled={!actionable || !onAnswer}
               focusableWhenDisabled={submitting}
               size="compact"
               type="submit"
@@ -637,7 +649,8 @@ export function RequestRegion({
   todos,
 }: RequestRegionProps) {
   const active = selectActiveRequest(requests)
-  const resolved = requests.filter(request => request.state.status === 'resolved')
+  const activeKey = active ? `${active.origin.sessionId}:${active.id}` : undefined
+  const resolved = requests.filter(request => request.state.status === 'resolved').sort(compareRequestOrder)
   const latestDecision = resolved.at(-1)
   const regionRef = useRef<HTMLDivElement>(null)
   const previousRequest = useRef<string | undefined>(undefined)
@@ -649,7 +662,7 @@ export function RequestRegion({
     const region = regionRef.current
     const previous = previousRequest.current
 
-    if (active && active.id !== previousRequest.current) {
+    if (activeKey && activeKey !== previousRequest.current) {
       const focusedComposer = document.activeElement?.closest(
         '[data-slot="chat-composer"]',
       )
@@ -672,7 +685,7 @@ export function RequestRegion({
       }
     }
 
-    if (!active && previous) {
+    if (!activeKey && previous) {
       const revisionUnchanged =
         capturedRevision.current === undefined ||
         draftRevision === capturedRevision.current
@@ -691,8 +704,8 @@ export function RequestRegion({
       capturedRevision.current = undefined
     }
 
-    previousRequest.current = active?.id
-  }, [active, draftRevision])
+    previousRequest.current = activeKey
+  }, [activeKey, draftRevision])
 
   return (
     <div
@@ -732,10 +745,9 @@ export function RequestRegion({
             {reverted || children}
           </div>
           <AnimatePresence initial={false}>
-          {active && <PresenceSurface key={active.id} kind="content" data-slot="active-request-layer" {...stylex.props(styles.requestLayer)}>
+          {active && <PresenceSurface key={activeKey} kind="content" data-slot="active-request-layer" {...stylex.props(styles.requestLayer)}>
             {active.type === 'permission' ? (
               <PermissionPrompt
-                key={active.id}
                 {...(permissionDecisions === undefined
                   ? {}
                   : { availableDecisions: permissionDecisions })}
@@ -744,7 +756,6 @@ export function RequestRegion({
               />
             ) : (
               <QuestionRequest
-                key={active.id}
                 onAnswer={(response) => onQuestionAnswer(active, response)}
                 onReject={() => onQuestionReject(active)}
                 request={active}

@@ -41,16 +41,9 @@ export function ImageGenerationTool({ part }: { part: ToolPart }) {
 
 export function ContextTool(props: ChatToolProps) {
   const { part } = props
-  const operation =
-    part.presentation.kind === 'context'
-      ? part.presentation.operation
-      : 'read'
-  const target = firstString(toolInput(part.state), [
-    'filePath',
-    'path',
-    'pattern',
-    'query',
-  ])
+  const presentation = part.presentation.kind === 'context' ? part.presentation : undefined
+  const operation = presentation?.operation ?? 'read'
+  const target = presentation?.target
 
   return (
     <ToolShell
@@ -106,27 +99,28 @@ export function ShellTool({
   outputCharacterLimit,
   part,
 }: ChatToolProps) {
-  const input = toolInput(part.state)
-  const command =
-    firstString(input, ['command', 'cmd']) ??
-    (input === undefined ? '' : formatJson(input))
+  const presentation = part.presentation.kind === 'shell' ? part.presentation : undefined
+  const command = presentation?.command
   const output = toolOutput(part.state)
-  const workingDirectory = firstString(input, ['cwd', 'workdir', 'workingDirectory'])
-  const exitCode = firstNumber(part.metadata, ['exitCode', 'exit'])
-  const durationMs = firstNumber(part.metadata, ['durationMs', 'duration'])
-  const truncated = firstBoolean(part.metadata, ['truncated'])
+  const workingDirectory = presentation?.workingDirectory
+  const exitCode = presentation?.exitCode
+  const durationMs = presentation?.durationMs
+  const truncated = presentation?.outputTruncated
 
   return (
     <ToolActivity
       {...(defaultOpen === undefined ? {} : { defaultOpen })}
       id={part.id}
       state={activityState(part.state)}
-      summary={command || 'Run shell command'}
+      summary={command ?? 'Run shell command'}
       tool={part.toolName}
     >
       <div data-slot="shell-tool-evidence" {...stylex.props(styles.stack)}>
         {command && (
           <CodeBlock code={command} copyable label="Shell command" language="shell" />
+        )}
+        {!command && toolInput(part.state) !== undefined && (
+          <BoundedEvidenceRow label="Input" value={toolInput(part.state)!} />
         )}
         {output !== undefined && (
           <BoundedToolOutput
@@ -166,10 +160,9 @@ export function FileChangeTool({
   outputCharacterLimit,
   part,
 }: ChatToolProps) {
-  const input = toolInput(part.state)
-  const path = firstString(input, ['filePath', 'path', 'filename'])
   const presentation =
     part.presentation.kind === 'file-change' ? part.presentation : undefined
+  const path = presentation?.path
   const operation = presentation?.operation ?? 'edit'
   const files: readonly DiffFile[] = (presentation?.files ?? []).map(
     (file) => ({
@@ -179,7 +172,7 @@ export function FileChangeTool({
     }),
   )
   const diagnostics = presentation?.diagnostics ?? []
-  const content = firstString(input, ['content'])
+  const content = presentation?.content
   const output = toolOutput(part.state)
   const summary =
     files.length > 1
@@ -207,6 +200,9 @@ export function FileChangeTool({
         {files.length === 0 && content && path && (
           <CodeBlock code={content} filename={path} label={`${path} contents`} />
         )}
+        {files.length === 0 && !(content && path) && toolInput(part.state) !== undefined && (
+          <BoundedEvidenceRow label="Input" value={toolInput(part.state)!} />
+        )}
         {diagnostics.length > 0 && (
           <section
             aria-label="File diagnostics"
@@ -231,7 +227,7 @@ export function FileChangeTool({
             </ul>
           </section>
         )}
-        {files.length === 0 && !content && output !== undefined && (
+        {files.length === 0 && !(content && path) && output !== undefined && (
           <BoundedToolOutput
             label="File change result"
             value={output}
@@ -258,8 +254,7 @@ export function TaskTool({
 }: TaskToolProps) {
   const presentation =
     part.presentation.kind === 'task' ? part.presentation : undefined
-  const input = toolInput(part.state)
-  const description = firstString(input, ['description', 'prompt']) ?? 'Run task'
+  const description = presentation?.description ?? 'Run task'
   const childSessionId = presentation?.childSessionId
   const blockers = presentation?.blockers ?? []
   const agent = presentation?.agent
@@ -432,12 +427,9 @@ function TaskTranscriptEvidence({
 }
 
 export function WebTool(props: ChatToolProps) {
-  const input = toolInput(props.part.state)
-  const target = firstString(input, ['url', 'query'])
-  const operation =
-    props.part.presentation.kind === 'web'
-      ? props.part.presentation.operation
-      : 'fetch'
+  const presentation = props.part.presentation.kind === 'web' ? props.part.presentation : undefined
+  const target = presentation?.target
+  const operation = presentation?.operation ?? 'fetch'
 
   return (
     <ToolShell
@@ -460,8 +452,7 @@ export function WebTool(props: ChatToolProps) {
 }
 
 export function SkillTool(props: ChatToolProps) {
-  const input = toolInput(props.part.state)
-  const name = firstString(input, ['name', 'skill'])
+  const name = props.part.presentation.kind === 'skill' ? props.part.presentation.name : undefined
   return <ToolShell {...props} summary={name ? `Load ${name}` : 'Load skill'} />
 }
 
@@ -542,6 +533,14 @@ function ToolEvidence({
   )
 }
 
+function useBoundedToolValue(value: JsonValue, limit = 12_000) {
+  const [revealed, setRevealed] = useState(false)
+  const formatted = stripAnsi(formatJson(value))
+  const truncated = formatted.length > limit
+  const visible = truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
+  return { revealed, setRevealed, truncated, visible }
+}
+
 function BoundedEvidenceRow({
   characterLimit,
   label,
@@ -551,11 +550,7 @@ function BoundedEvidenceRow({
   label: string
   value: JsonValue
 }) {
-  const [revealed, setRevealed] = useState(false)
-  const formatted = stripAnsi(formatJson(value))
-  const limit = characterLimit ?? 12_000
-  const truncated = formatted.length > limit
-  const visible = truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
+  const { revealed, setRevealed, truncated, visible } = useBoundedToolValue(value, characterLimit)
 
   return (
     <PresenceSurface kind="overlay" {...stylex.props(styles.evidenceRow)}>
@@ -588,11 +583,7 @@ function BoundedToolOutput({
   label: string
   value: JsonValue
 }) {
-  const [revealed, setRevealed] = useState(false)
-  const formatted = stripAnsi(formatJson(value))
-  const limit = characterLimit ?? 12_000
-  const truncated = formatted.length > limit
-  const visible = truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
+  const { revealed, setRevealed, truncated, visible } = useBoundedToolValue(value, characterLimit)
 
   return (
     <div {...stylex.props(styles.stack)}>
@@ -681,54 +672,18 @@ function toolOutput(state: ToolState): JsonValue | undefined {
   return state.status === 'succeeded' ? state.output : undefined
 }
 
-function firstString(
-  value: JsonValue | undefined,
-  keys: readonly string[],
-): string | undefined {
-  if (!value || Array.isArray(value) || typeof value !== 'object') return undefined
-  const record = value as Readonly<Record<string, JsonValue>>
-
-  for (const key of keys) {
-    const candidate = record[key]
-    if (typeof candidate === 'string' && candidate) return candidate
-  }
-  return undefined
-}
-
-function firstNumber(
-  value: Readonly<Record<string, JsonValue>> | undefined,
-  keys: readonly string[],
-) {
-  if (!value) return undefined
-  for (const key of keys) {
-    const candidate = value[key]
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
-  }
-  return undefined
-}
-
-function firstBoolean(
-  value: Readonly<Record<string, JsonValue>> | undefined,
-  keys: readonly string[],
-) {
-  if (!value) return undefined
-  for (const key of keys) {
-    const candidate = value[key]
-    if (typeof candidate === 'boolean') return candidate
-  }
-  return undefined
-}
-
 function formatJson(value: JsonValue) {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 }
 
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: 'numeric',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
 function formatTime(value: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(value)
+  return timeFormatter.format(value)
 }
 
 function formatDuration(value: number) {

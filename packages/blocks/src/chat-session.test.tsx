@@ -28,7 +28,7 @@ describe('ChatSession', () => {
     const onOpenChild = vi.fn()
     render(
       <ChatSession
-        label="OpenCode session"
+        label="Chat session"
         onOpenChild={onOpenChild}
         showRevertActions
         store={store}
@@ -104,6 +104,7 @@ const snapshot: ChatSnapshot = {
               presentation: {
                 agent: { id: 'task', label: 'Task agent' },
                 childSessionId: 'child-session',
+                description: 'Run child task',
                 kind: 'task',
               },
               state: {

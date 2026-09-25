@@ -73,9 +73,13 @@ export function selectActiveRequest(
       const priority = requestPriority(left) - requestPriority(right)
       if (priority !== 0) return priority
 
-      const order = left.order - right.order
-      return order === 0 ? left.id.localeCompare(right.id) : order
+      return compareRequestOrder(left, right)
     })[0]
+}
+
+export function compareRequestOrder(left: ChatRequest, right: ChatRequest) {
+  return left.order - right.order || left.id.localeCompare(right.id) ||
+    left.origin.sessionId.localeCompare(right.origin.sessionId)
 }
 
 function requestPriority(request: ChatRequest) {

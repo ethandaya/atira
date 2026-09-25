@@ -75,8 +75,8 @@ export function AssistantSequence({
         const next = visible[index + 1]!
         const grouped = activityPresentation === 'summary'
           ? isActivityPart(part) && isActivityPart(next)
-          : part.type === 'tool' && part.presentation.kind === 'context'
-            && next.type === 'tool' && next.presentation.kind === 'context'
+          : part.type === 'tool' && next.type === 'tool'
+            && isDefaultContextPart(part, renderers) && isDefaultContextPart(next, renderers)
         if (!grouped) break
         parts.push(next)
         index++
@@ -108,17 +108,13 @@ export function AssistantSequence({
           data-slot="turn-assistant-message"
           data-message-id={row.message.id}
           data-state={row.message.delivery.status}
-          role="region"
-          aria-label="Assistant message"
           {...stylex.props(styles.assistantRow)}
         >
             {activity ? <div data-slot="activity-sequence" data-state={row.parts.some(isActiveActivityPart) ? 'active' : 'complete'} {...stylex.props(styles.activitySequence)}>
               {activityPresentation === 'summary'
                 ? <ActivitySummary parts={row.parts} renderers={renderers} toolActions={toolActions} />
-                : context
-                  ? <div data-slot="tool-renderer" data-renderer="context" data-tool-kind="context">
-                      {row.parts.length === 1 ? <ContextTool part={part} /> : <ContextToolGroup parts={row.parts as ToolPart[]} />}
-                    </div>
+                : context && part.type === 'tool' && isDefaultContextPart(part, renderers)
+                  ? <DefaultContextParts parts={collectDefaultContextParts(row.parts, renderers)} />
                   : <Part part={part} renderers={renderers} toolActions={toolActions} />}
             </div> : <Part part={part} renderers={renderers} toolActions={toolActions} />}
         </ActivitySlot>
@@ -293,27 +289,16 @@ function ToolSequence({
     const part = parts[index]
     if (!part) continue
 
-    if (part.presentation.kind === 'context') {
+    if (isDefaultContextPart(part, renderers)) {
       const contextParts: ToolPart[] = [part]
       while (index + 1 < parts.length) {
         const next = parts[index + 1]
-        if (next?.presentation.kind !== 'context') break
+        if (!next || !isDefaultContextPart(next, renderers)) break
         contextParts.push(next)
         index += 1
       }
       content.push(
-        <div
-          data-renderer="context"
-          data-slot="tool-renderer"
-          data-tool-kind="context"
-          key={part.id}
-        >
-          {contextParts.length === 1 ? (
-            <ContextTool part={part} />
-          ) : (
-            <ContextToolGroup parts={contextParts} />
-          )}
-        </div>,
+        <DefaultContextParts key={part.id} parts={contextParts} />,
       )
       continue
     }
@@ -371,17 +356,17 @@ function Part({
         </Reasoning>
       )
     case 'tool': {
-      const renderer = renderers.find((candidate) => candidate.supports(part))
+      const renderer = selectedToolRenderer(part, renderers)
       return (
         <div
-          data-renderer={renderer?.id ?? 'generic'}
+          data-renderer={renderer.id}
           data-slot="tool-renderer"
           data-tool-kind={part.presentation.kind}
           {...stylex.props(
             part.presentation.kind === 'image' && styles.imageOutput,
           )}
         >
-          {(renderer ?? genericRenderer).render(part, toolActions)}
+          {renderer.render(part, toolActions)}
         </div>
       )
     }
@@ -454,6 +439,12 @@ function Part({
   }
 }
 
+const contextRenderer: ToolRenderer = renderer(
+  'context',
+  (part) => part.presentation.kind === 'context',
+  ContextTool,
+)
+
 const defaultToolRenderers: readonly ToolRenderer[] = [
   renderer('image', (part) => part.presentation.kind === 'image', ImageGenerationTool),
   renderer('shell', (part) => part.presentation.kind === 'shell', ShellTool),
@@ -476,6 +467,7 @@ const defaultToolRenderers: readonly ToolRenderer[] = [
   },
   renderer('web', (part) => part.presentation.kind === 'web', WebTool),
   renderer('skill', (part) => part.presentation.kind === 'skill', SkillTool),
+  contextRenderer,
   renderer('generic', () => true, GenericTool),
 ]
 
@@ -491,6 +483,34 @@ function renderer(
     render: (part) => <Component part={part} />,
     supports,
   }
+}
+
+function selectedToolRenderer(part: ToolPart, renderers: readonly ToolRenderer[]) {
+  return renderers.find((candidate) => candidate.supports(part)) ?? genericRenderer
+}
+
+function isDefaultContextPart(
+  part: ToolPart,
+  renderers: readonly ToolRenderer[],
+) {
+  return selectedToolRenderer(part, renderers) === contextRenderer
+}
+
+function collectDefaultContextParts(
+  parts: readonly MessagePart[],
+  renderers: readonly ToolRenderer[],
+) {
+  return parts.filter(
+    (part): part is ToolPart => part.type === 'tool' && isDefaultContextPart(part, renderers),
+  )
+}
+
+function DefaultContextParts({ parts }: { parts: readonly ToolPart[] }) {
+  const first = parts[0]
+  if (!first) return null
+  return <div data-slot="tool-renderer" data-renderer="context" data-tool-kind="context">
+    {parts.length === 1 ? <ContextTool part={first} /> : <ContextToolGroup parts={parts} />}
+  </div>
 }
 
 function formatJson(value: unknown) {
