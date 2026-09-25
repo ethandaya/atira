@@ -53,6 +53,13 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react'
+import {
+  editableDraftText,
+  editableSelection,
+  insertDraftReference,
+  projectTextareaEdit,
+  removeDraftReference,
+} from './composer-draft'
 
 export type ComposerCommand = Readonly<{
   description?: string
@@ -91,6 +98,7 @@ export type ChatComposerProps = {
   actions?: ReactNode
   activity: SessionActivity
   capabilities: ChatCapabilities
+  composerLabel?: string
   commands?: readonly ComposerCommand[]
   draft: ComposerDraft
   error?: ChatError
@@ -108,12 +116,15 @@ export type ChatComposerProps = {
   references?: readonly ComposerReference[]
 }
 
+const noCommands: readonly ComposerCommand[] = []
+
 export function ChatComposer({
   accept,
   actions,
   activity,
   capabilities,
-  commands = [],
+  composerLabel = 'Message composer',
+  commands = noCommands,
   draft,
   error,
   onDraftChange,
@@ -126,6 +137,7 @@ export function ChatComposer({
   placeholder,
   references = [],
 }: ChatComposerProps) {
+  const formRef = useRef<HTMLFormElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [activeMenu, setActiveMenu] = useState<ActiveComposerMenu>()
@@ -202,15 +214,19 @@ export function ChatComposer({
 
   function updateText(next: string) {
     const control = textareaRef.current
-    const anchor = control?.selectionStart ?? next.length
-    const focus = control?.selectionEnd ?? next.length
+    const start = control?.selectionStart ?? next.length
+    const end = control?.selectionEnd ?? next.length
+    const backward = control?.selectionDirection === 'backward'
     onDraftChange(
-      replaceDraftText(draft, next, anchor, focus),
+      projectTextareaEdit(draft, next, {
+        anchor: backward ? end : start,
+        focus: backward ? start : end,
+      }),
     )
     setActiveMenu(
       detectComposerMenu(
         next,
-        focus,
+        backward ? start : end,
         draft.mode,
         commands.length > 0,
         references.length > 0,
@@ -231,16 +247,14 @@ export function ChatComposer({
       return
     }
     onDraftChange(
-      replaceDraftText(
-        draft,
-        value,
-        control.selectionDirection === 'backward'
+      projectTextareaEdit(draft, value, {
+        anchor: control.selectionDirection === 'backward'
           ? control.selectionEnd
           : control.selectionStart,
-        control.selectionDirection === 'backward'
+        focus: control.selectionDirection === 'backward'
           ? control.selectionStart
           : control.selectionEnd,
-      ),
+      }),
     )
   }
 
@@ -262,7 +276,7 @@ export function ChatComposer({
         selection.direction,
       )
     }
-  }, [draft.revision, value])
+  }, [draft, value])
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -341,7 +355,7 @@ export function ChatComposer({
     const insertion = `${needsSpace ? ' ' : ''}${command.value} `
     const next = replaceMenuToken(value, activeMenu, insertion)
     const offset = activeMenu.start + insertion.length
-    onDraftChange(replaceDraftText(draft, next, offset, offset))
+    onDraftChange(projectTextareaEdit(draft, next, { anchor: offset, focus: offset }))
     setActiveMenu(undefined)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
@@ -350,27 +364,27 @@ export function ChatComposer({
     if (!activeMenu) return
     const nextText = replaceMenuToken(value, activeMenu, '')
     const offset = activeMenu.start
-    const next = replaceDraftText(draft, nextText, offset, offset)
-    onDraftChange({
-      ...next,
-      segments: [
-        ...next.segments,
-        {
-          id: `reference-${reference.id}-${next.revision}`,
-          label: reference.label,
-          referenceType: reference.referenceType,
-          type: 'reference',
-          value: reference.value,
-        },
-      ],
+    const next = projectTextareaEdit(draft, nextText, {
+      anchor: offset,
+      focus: offset,
     })
+    onDraftChange(
+      insertDraftReference(next, offset, {
+        id: `reference-${reference.id}-${next.revision}`,
+        label: reference.label,
+        referenceType: reference.referenceType,
+        type: 'reference',
+        value: reference.value,
+      }),
+    )
     setActiveMenu(undefined)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   return (
     <form
-      aria-label="Message composer"
+      ref={formRef}
+      aria-label={composerLabel}
       data-dragging={dragging || undefined}
       data-mode={draft.mode}
       data-selection-anchor={`${draft.selection.anchor.segmentId}:${draft.selection.anchor.offset}`}
@@ -405,7 +419,17 @@ export function ChatComposer({
         draft={draft}
         {...(onRemoveReference === undefined
           ? {}
-          : { onRemove: onRemoveReference })}
+          : {
+              onRemove: (segment: Extract<DraftSegment, { type: 'reference' }>) => {
+                if (
+                  draft.selection.anchor.segmentId === segment.id ||
+                  draft.selection.focus.segmentId === segment.id
+                ) {
+                  onDraftChange(removeDraftReference(draft, segment.id))
+                }
+                onRemoveReference(segment)
+              },
+            })}
       />
       <AttachmentTray
         attachments={draft.attachments}
@@ -458,6 +482,7 @@ export function ChatComposer({
             <ActionMenu
               items={composerMenuItems}
               label="Composer actions"
+              portalContainer={formRef}
               side="top"
               trigger={<Plus aria-hidden="true" size={18} strokeWidth={1.75} />}
             />
@@ -479,6 +504,7 @@ export function ChatComposer({
                 onSelect={selectCommand}
                 open={activeMenu?.kind === 'command'}
                 placeholder="Filter commands…"
+                portalContainer={formRef}
                 triggerLabel="/"
               />
             )}
@@ -500,6 +526,7 @@ export function ChatComposer({
                 onSelect={selectReference}
                 open={activeMenu?.kind === 'reference'}
                 placeholder="Filter references…"
+                portalContainer={formRef}
                 triggerLabel="@"
               />
             )}
@@ -507,6 +534,7 @@ export function ChatComposer({
           {capabilities.models.length > 0 && (
             <SelectPicker
               label="Model"
+              portalContainer={formRef}
               onValueChange={(id) => {
                 const model = capabilities.models.find(
                   (item) => modelOptionValue(item) === id,
@@ -534,6 +562,7 @@ export function ChatComposer({
           {draft.model?.reasoningEfforts && draft.model.reasoningEfforts.length > 0 && (
             <SelectPicker
               label="Reasoning effort"
+              portalContainer={formRef}
               onValueChange={(reasoningEffort) => onDraftChange({ ...draft, reasoningEffort, revision: draft.revision + 1 })}
               options={draft.model.reasoningEfforts.map(value => ({
                 label: value === 'xhigh' ? 'Extra high' : value.charAt(0).toUpperCase() + value.slice(1),
@@ -789,45 +818,6 @@ function submitLabel(intent: SubmitIntent | undefined) {
   return 'Send'
 }
 
-function editableDraftText(draft: ComposerDraft) {
-  return draft.segments
-    .filter((segment): segment is Extract<DraftSegment, { type: 'text' }> =>
-      segment.type === 'text',
-    )
-    .map((segment) => segment.text)
-    .join('')
-}
-
-function editableSelection(draft: ComposerDraft): {
-  direction: 'backward' | 'forward' | 'none'
-  end: number
-  start: number
-} {
-  const anchor = editablePointOffset(draft, draft.selection.anchor)
-  const focus = editablePointOffset(draft, draft.selection.focus)
-  return {
-    direction: anchor === focus ? 'none' : anchor > focus ? 'backward' : 'forward',
-    end: Math.max(anchor, focus),
-    start: Math.min(anchor, focus),
-  }
-}
-
-function editablePointOffset(
-  draft: ComposerDraft,
-  point: ComposerDraft['selection']['anchor'],
-) {
-  let offset = 0
-  for (const segment of draft.segments) {
-    if (segment.id === point.segmentId) {
-      return segment.type === 'text'
-        ? Math.min(offset + point.offset, editableDraftText(draft).length)
-        : offset
-    }
-    if (segment.type === 'text') offset += segment.text.length
-  }
-  return editableDraftText(draft).length
-}
-
 function detectComposerMenu(
   text: string,
   offset: number,
@@ -874,34 +864,6 @@ function formatBytes(bytes: number) {
   if (bytes < 1_000) return `${bytes} B`
   if (bytes < 1_000_000) return `${Math.round(bytes / 1_000)} KB`
   return `${(bytes / 1_000_000).toFixed(1)} MB`
-}
-
-function replaceDraftText(
-  draft: ComposerDraft,
-  text: string,
-  anchorOffset: number,
-  focusOffset: number,
-): ComposerDraft {
-  const firstText = draft.segments.find((segment) => segment.type === 'text')
-  const segmentId = firstText?.id ?? `text-${draft.revision + 1}`
-  let replaced = false
-  const segments = draft.segments.map((segment) => {
-    if (segment.type !== 'text') return segment
-    if (replaced) return { ...segment, text: '' }
-    replaced = true
-    return { ...segment, text }
-  })
-  if (!replaced) segments.unshift({ id: segmentId, text, type: 'text' })
-
-  return {
-    ...draft,
-    revision: draft.revision + 1,
-    segments,
-    selection: {
-      anchor: { offset: anchorOffset, segmentId },
-      focus: { offset: focusOffset, segmentId },
-    },
-  }
 }
 
 const styles = stylex.create({
