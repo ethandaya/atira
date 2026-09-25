@@ -11,7 +11,6 @@
   "dependencies": {
     "@fontsource-variable/geist": "catalog:",
     "@fontsource-variable/geist-mono": "catalog:",
-    "@opencode-ai/sdk": "1.18.27",
     "@pretty-amped/blocks": "workspace:*",
     "@pretty-amped/components": "workspace:*",
     "@pretty-amped/foundations": "workspace:*",
@@ -23,13 +22,11 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@aiforui/lapse": "^0.19.0",
     "@stylexjs/unplugin": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "opencode-ai": "1.18.27",
     "typescript": "catalog:",
     "unplugin": "catalog:",
     "vite": "catalog:"
