@@ -16,7 +16,7 @@
     "test": "node --test scripts/export-library.test.mjs scripts/build-library.test.mjs && vitest run",
     "test:consumers": "node scripts/test-private-consumers.mjs",
     "test:browser": "playwright test",
-    "typecheck": "pnpm --recursive --if-present typecheck"
+    "typecheck": "pnpm --recursive --if-present typecheck && pnpm exec tsc -p apps/demo/tsconfig.backend.json"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -29,6 +29,7 @@
     "@testing-library/user-event": "14.6.7",
     "jsdom": "30.0.1",
     "typescript": "catalog:",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "ws": "8.18.3"
   }
 }

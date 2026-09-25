@@ -12,7 +12,6 @@ for (const width of [1100, 390]) {
       await page.setViewportSize({ width, height: 900 })
       await page.emulateMedia({ colorScheme })
       await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test' } }))
-      await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
       await page.addInitScript(markdown => {
         const original = window.fetch
         window.fetch = async (input, options) => {
@@ -28,7 +27,7 @@ for (const width of [1100, 390]) {
           } }), { headers: { 'Content-Type': 'application/x-ndjson' } })
         }
       }, comparison)
-      await page.goto('/')
+      await page.goto('/?view=playground')
       await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Compare these framesets')
       await page.getByRole('button', { name: 'Send', exact: true }).click()
       const table = page.getByRole('table')

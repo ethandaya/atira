@@ -17,9 +17,10 @@
     "@pretty-amped/primitives": "workspace:*",
     "@stylexjs/stylex": "catalog:",
     "lucide-react": "catalog:",
-    "nanocodex": "0.5.0",
+    "nanocodex": "0.6.5",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@stylexjs/unplugin": "catalog:",
