@@ -29,6 +29,30 @@ export type TurnProps = NativeListItemProps & {
   turn: ChatTurn
 }
 
+function getTurnPresentation(turn: ChatTurn) {
+  const active = ['queued', 'running', 'retrying'].includes(turn.state.status)
+  const assistant = turn.assistant.filter((message) =>
+    message.parts.some(isRenderableAssistantPart),
+  )
+  const hasActiveIndicator = turn.assistant.some((message) =>
+    message.parts.some(isActiveAssistantIndicator),
+  )
+  const lastPart = turn.assistant.at(-1)?.parts.at(-1)
+  const hasStreamingText =
+    lastPart?.type === 'text' &&
+    lastPart.state.status === 'streaming' &&
+    lastPart.markdown.trim().length > 0
+
+  return {
+    active,
+    assistant,
+    showPending:
+      active &&
+      (turn.state.status !== 'running' ||
+        !(hasActiveIndicator || hasStreamingText)),
+  }
+}
+
 export function Turn({
   activityPresentation = 'expanded',
   actions,
@@ -37,24 +61,7 @@ export function Turn({
   turn,
   ...props
 }: TurnProps) {
-  const active =
-    turn.state.status === 'queued' ||
-    turn.state.status === 'running' ||
-    turn.state.status === 'retrying'
-  const assistant = turn.assistant.filter((message) =>
-    message.parts.some(isRenderableAssistantPart),
-  )
-  const hasActiveAssistantIndicator = turn.assistant.some((message) =>
-    message.parts.some(isActiveAssistantIndicator),
-  )
-  const lastPart = turn.assistant.at(-1)?.parts.at(-1)
-  const streamingText =
-    lastPart?.type === 'text' &&
-    lastPart.state.status === 'streaming' &&
-    lastPart.markdown.trim().length > 0
-  const showStatus =
-    turn.state.status !== 'running' ||
-    !(hasActiveAssistantIndicator || streamingText)
+  const { active, assistant, showPending } = getTurnPresentation(turn)
 
   return (
     <li
@@ -81,38 +88,12 @@ export function Turn({
 
         <LayoutGroup id={turn.id}>
           <div data-slot="turn-assistant" {...stylex.props(styles.assistant)}>
-            {(turn.agent || turn.model) && (
-              <div
-                aria-label="Response author"
-                role="group"
-                data-slot="turn-identity"
-                {...stylex.props(styles.identity)}
-              >
-                {turn.agent && (
-                  <span
-                    data-slot="turn-agent"
-                    {...stylex.props(styles.agentName)}
-                  >
-                    <VisuallyHidden>Agent: </VisuallyHidden>
-                    {turn.agent.label}
-                  </span>
-                )}
-                {turn.model && (
-                  <span
-                    data-slot="turn-model"
-                    {...stylex.props(styles.modelName)}
-                  >
-                    <VisuallyHidden>Model: </VisuallyHidden>
-                    {turn.model.label}
-                  </span>
-                )}
-              </div>
-            )}
+            <ResponseIdentity agent={turn.agent} model={turn.model} />
             <AssistantSequence
               messages={assistant}
               activityPresentation={activityPresentation}
               pending={
-                active && showStatus ? (
+                showPending ? (
                   <TurnStatus
                     state={turn.state}
                     compact={assistant.length > 0}
@@ -135,6 +116,37 @@ export function Turn({
         )}
       </article>
     </li>
+  )
+}
+
+function ResponseIdentity({
+  agent,
+  model,
+}: {
+  agent: ChatTurn['agent'] | undefined
+  model: ChatTurn['model'] | undefined
+}) {
+  if (!agent && !model) return null
+  return (
+    <div
+      aria-label="Response author"
+      role="group"
+      data-slot="turn-identity"
+      {...stylex.props(styles.identity)}
+    >
+      {agent && (
+        <span data-slot="turn-agent" {...stylex.props(styles.agentName)}>
+          <VisuallyHidden>Agent: </VisuallyHidden>
+          {agent.label}
+        </span>
+      )}
+      {model && (
+        <span data-slot="turn-model" {...stylex.props(styles.modelName)}>
+          <VisuallyHidden>Model: </VisuallyHidden>
+          {model.label}
+        </span>
+      )}
+    </div>
   )
 }
 
