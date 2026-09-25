@@ -90,8 +90,36 @@ and release versioning require separate decisions.
 
 ```bash
 pnpm check
-pnpm test:consumers
 ```
+
+The full gate runs formatting, lint, typechecks, tests, React Doctor, production
+builds, browser tests, and private-consumer tests in that order. It stops at the
+first failure. Oxlint covers JavaScript and TypeScript, including backend `.mjs`
+files; React Doctor covers the demo and the three React library packages.
+Oxlint warnings and React Doctor errors fail the gate. Doctor warnings remain
+visible for review: its component-size, bundle, and lifecycle heuristics are
+not all correctness defects in a composable library. Doctor's remote scoring
+and supply-chain scan are disabled; this is not a dependency security audit.
+
+For focused iteration:
+
+```bash
+pnpm exec oxfmt --write <changed-paths>
+pnpm lint
+pnpm lint:fix
+pnpm doctor:changed --base <review-base>
+```
+
+Review automatic fixes before staging; do not use dangerous fixes or disable
+rules just to pass checks. `pnpm format` formats the full repository; keep a
+formatting migration separate from behavioral changes. Generated outputs,
+lockfiles, local Amp data, and vendored skills are excluded from formatting.
+
+Installation runs `prepare` to install the Husky hook. `pnpm precommit` checks
+staged formatting and lint, plus React Doctor when React-package files change.
+The hook does not fix or stage files; it hides and restores unstaged tracked
+edits so an unstaged fix cannot mask a staged defect. Use `pnpm run doctor` for
+the full React scan; `pnpm doctor` is pnpm's unrelated built-in command.
 
 Consumer tests install packed artifacts in isolated Vite and Next applications
 and check module boundaries, CSS, StyleX overrides, interaction, and hydration.
