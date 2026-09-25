@@ -18,7 +18,7 @@ import {
   Shimmer,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
-import { type ReactElement, type ReactNode } from 'react'
+import { memo, type ReactElement, type ReactNode, useMemo } from 'react'
 
 import {
   ContextTool,
@@ -44,6 +44,9 @@ export type ToolActions = Readonly<{
   onOpenChild?: (sessionId: string) => void
 }>
 
+const noToolActions: ToolActions = {}
+const noToolRenderers: readonly ToolRenderer[] = []
+
 export type MessagePartsProps = {
   activityPresentation?: 'expanded' | 'summary'
   message: ChatMessage
@@ -52,14 +55,24 @@ export type MessagePartsProps = {
   toolRenderers?: readonly ToolRenderer[]
 }
 
+type AssistantRow = Readonly<{
+  key: string
+  message: ChatMessage
+  parts: readonly MessagePart[]
+}>
+
+type MessagePartGroup =
+  | Readonly<{ key: string; kind: 'activity'; parts: readonly MessagePart[] }>
+  | Readonly<{ key: string; kind: 'part'; part: MessagePart }>
+
 /** One ordered presence owner for the whole turn, including its next activity.
  * Provider message boundaries must not create separate animation timelines. */
 export function AssistantSequence({
   messages,
   pending,
   activityPresentation = 'expanded',
-  toolActions = {},
-  toolRenderers = [],
+  toolActions = noToolActions,
+  toolRenderers = noToolRenderers,
 }: {
   messages: readonly ChatMessage[]
   pending?: ReactNode
@@ -67,34 +80,11 @@ export function AssistantSequence({
   toolActions?: ToolActions
   toolRenderers?: readonly ToolRenderer[]
 }) {
-  const renderers = [...toolRenderers, ...defaultToolRenderers]
-  const rows: { key: string; message: ChatMessage; parts: MessagePart[] }[] = []
-  for (const message of messages) {
-    const visible = message.parts.filter((part) =>
-      part.type === 'text'
-        ? part.markdown.trim().length > 0
-        : part.type !== 'tool' || part.presentation.kind !== 'todo',
-    )
-    for (let index = 0; index < visible.length; index++) {
-      const part = visible[index]!
-      const parts = [part]
-      // Keep existing context receipts and opt-in summary disclosures intact.
-      while (index + 1 < visible.length) {
-        const next = visible[index + 1]!
-        const grouped =
-          activityPresentation === 'summary'
-            ? isActivityPart(part) && isActivityPart(next)
-            : part.type === 'tool' &&
-              next.type === 'tool' &&
-              isDefaultContextPart(part, renderers) &&
-              isDefaultContextPart(next, renderers)
-        if (!grouped) break
-        parts.push(next)
-        index++
-      }
-      rows.push({ key: `${message.id}:${part.id}`, message, parts })
-    }
-  }
+  const renderers = useMemo(
+    () => [...toolRenderers, ...defaultToolRenderers],
+    [toolRenderers],
+  )
+  const rows = groupAssistantRows(messages, activityPresentation, renderers)
   return (
     <div
       data-slot="assistant-sequence"
@@ -104,81 +94,129 @@ export function AssistantSequence({
         const row = rows[index]
         // These append-only positions persist when pending becomes an activity.
         // Keep the outer slot out of AnimatePresence: it must never fade away.
-        if (!row)
-          return (
-            <ActivitySlot
-              key={index}
-              state="pending"
-              data-handoff-slot={index}
-              data-slot="activity-pending"
-              {...stylex.props(styles.assistantRow)}
-            >
-              {pending}
-            </ActivitySlot>
-          )
-        const part = row.parts[0]!
-        const activity = isActivityPart(part)
-        // Static attachments and notices are not activity handoffs.
-        if (!activity && part.type !== 'text')
-          return (
-            <Part
-              key={index}
-              part={part}
-              renderers={renderers}
-              toolActions={toolActions}
-            />
-          )
-        const context =
-          part.type === 'tool' && part.presentation.kind === 'context'
         return (
-          <ActivitySlot
+          <AssistantSequenceRow
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Preserve the pending slot DOM node when real activity takes its position.
             key={index}
-            state={row.key}
-            data-handoff-slot={index}
-            data-slot="turn-assistant-message"
-            data-message-id={row.message.id}
-            data-state={row.message.delivery.status}
-            {...stylex.props(styles.assistantRow)}
-          >
-            {activity ? (
-              <div
-                data-slot="activity-sequence"
-                data-state={
-                  row.parts.some(isActiveActivityPart) ? 'active' : 'complete'
-                }
-                {...stylex.props(styles.activitySequence)}
-              >
-                {activityPresentation === 'summary' ? (
-                  <ActivitySummary
-                    parts={row.parts}
-                    renderers={renderers}
-                    toolActions={toolActions}
-                  />
-                ) : context &&
-                  part.type === 'tool' &&
-                  isDefaultContextPart(part, renderers) ? (
-                  <DefaultContextParts
-                    parts={collectDefaultContextParts(row.parts, renderers)}
-                  />
-                ) : (
-                  <Part
-                    part={part}
-                    renderers={renderers}
-                    toolActions={toolActions}
-                  />
-                )}
-              </div>
-            ) : (
-              <Part
-                part={part}
-                renderers={renderers}
-                toolActions={toolActions}
-              />
-            )}
-          </ActivitySlot>
+            index={index}
+            pending={pending}
+            presentation={activityPresentation}
+            renderers={renderers}
+            row={row}
+            toolActions={toolActions}
+          />
         )
       })}
     </div>
+  )
+}
+
+function groupAssistantRows(
+  messages: readonly ChatMessage[],
+  presentation: 'expanded' | 'summary',
+  renderers: readonly ToolRenderer[],
+) {
+  const rows: AssistantRow[] = []
+  for (const message of messages) {
+    const visible = message.parts.filter(isVisibleAssistantPart)
+    for (let index = 0; index < visible.length; index += 1) {
+      const part = visible[index]!
+      const parts = [part]
+      while (index + 1 < visible.length) {
+        const next = visible[index + 1]!
+        const grouped =
+          presentation === 'summary'
+            ? isActivityPart(part) && isActivityPart(next)
+            : part.type === 'tool' &&
+              next.type === 'tool' &&
+              isDefaultContextPart(part, renderers) &&
+              isDefaultContextPart(next, renderers)
+        if (!grouped) break
+        parts.push(next)
+        index += 1
+      }
+      rows.push({ key: `${message.id}:${part.id}`, message, parts })
+    }
+  }
+  return rows
+}
+
+function isVisibleAssistantPart(part: MessagePart) {
+  return part.type === 'text'
+    ? part.markdown.trim().length > 0
+    : part.type !== 'tool' || part.presentation.kind !== 'todo'
+}
+
+function AssistantSequenceRow({
+  index,
+  pending,
+  presentation,
+  renderers,
+  row,
+  toolActions,
+}: {
+  index: number
+  pending: ReactNode
+  presentation: 'expanded' | 'summary'
+  renderers: readonly ToolRenderer[]
+  row: AssistantRow | undefined
+  toolActions: ToolActions
+}) {
+  if (!row) {
+    return (
+      <ActivitySlot
+        state="pending"
+        data-handoff-slot={index}
+        data-slot="activity-pending"
+        {...stylex.props(styles.assistantRow)}
+      >
+        {pending}
+      </ActivitySlot>
+    )
+  }
+  const part = row.parts[0]!
+  const activity = isActivityPart(part)
+  // Static attachments and notices are not activity handoffs.
+  if (!activity && part.type !== 'text') {
+    return <Part part={part} renderers={renderers} toolActions={toolActions} />
+  }
+  return (
+    <ActivitySlot
+      state={row.key}
+      data-handoff-slot={index}
+      data-slot="turn-assistant-message"
+      data-message-id={row.message.id}
+      data-state={row.message.delivery.status}
+      {...stylex.props(styles.assistantRow)}
+    >
+      {activity ? (
+        <div
+          data-slot="activity-sequence"
+          data-state={
+            row.parts.some(isActiveActivityPart) ? 'active' : 'complete'
+          }
+          {...stylex.props(styles.activitySequence)}
+        >
+          {presentation === 'summary' ? (
+            <ActivitySummary
+              parts={row.parts}
+              renderers={renderers}
+              toolActions={toolActions}
+            />
+          ) : part.type === 'tool' &&
+            part.presentation.kind === 'context' &&
+            isDefaultContextPart(part, renderers) ? (
+            <DefaultContextParts
+              parts={collectDefaultContextParts(row.parts, renderers)}
+            />
+          ) : (
+            <Part part={part} renderers={renderers} toolActions={toolActions} />
+          )}
+        </div>
+      ) : (
+        <Part part={part} renderers={renderers} toolActions={toolActions} />
+      )}
+    </ActivitySlot>
   )
 }
 
@@ -186,53 +224,14 @@ export function MessageParts({
   activityPresentation = 'expanded',
   message,
   suppressTodoTools = true,
-  toolActions = {},
-  toolRenderers = [],
+  toolActions = noToolActions,
+  toolRenderers = noToolRenderers,
 }: MessagePartsProps) {
-  const renderers = [...toolRenderers, ...defaultToolRenderers]
-  const content: ReactElement[] = []
-
-  for (let index = 0; index < message.parts.length; index += 1) {
-    const part = message.parts[index]
-    if (!part) continue
-
-    if (isActivityPart(part)) {
-      const activityParts: MessagePart[] = [part]
-      while (index + 1 < message.parts.length) {
-        const next = message.parts[index + 1]
-        if (!next || !isActivityPart(next)) break
-        activityParts.push(next)
-        index += 1
-      }
-
-      const visibleParts = suppressTodoTools
-        ? activityParts.filter(
-            (item) => item.type !== 'tool' || item.presentation.kind !== 'todo',
-          )
-        : activityParts
-      if (visibleParts.length > 0) {
-        content.push(
-          <ActivitySequence
-            key={part.id}
-            presentation={activityPresentation}
-            parts={visibleParts}
-            renderers={renderers}
-            toolActions={toolActions}
-          />,
-        )
-      }
-      continue
-    }
-
-    content.push(
-      <Part
-        key={part.id}
-        part={part}
-        toolActions={toolActions}
-        renderers={renderers}
-      />,
-    )
-  }
+  const renderers = useMemo(
+    () => [...toolRenderers, ...defaultToolRenderers],
+    [toolRenderers],
+  )
+  const groups = groupMessageParts(message.parts, suppressTodoTools)
 
   return (
     <div
@@ -241,9 +240,54 @@ export function MessageParts({
       data-state={message.delivery.status}
       {...stylex.props(styles.root)}
     >
-      {content}
+      {groups.map((group) =>
+        group.kind === 'activity' ? (
+          <ActivitySequence
+            key={group.key}
+            presentation={activityPresentation}
+            parts={group.parts}
+            renderers={renderers}
+            toolActions={toolActions}
+          />
+        ) : (
+          <Part
+            key={group.key}
+            part={group.part}
+            toolActions={toolActions}
+            renderers={renderers}
+          />
+        ),
+      )}
     </div>
   )
+}
+
+function groupMessageParts(
+  parts: readonly MessagePart[],
+  suppressTodoTools: boolean,
+) {
+  const groups: MessagePartGroup[] = []
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]!
+    if (!isActivityPart(part)) {
+      groups.push({ key: part.id, kind: 'part', part })
+      continue
+    }
+    const activityParts = [part]
+    while (index + 1 < parts.length && isActivityPart(parts[index + 1]!)) {
+      activityParts.push(parts[index + 1]!)
+      index += 1
+    }
+    const visibleParts = suppressTodoTools
+      ? activityParts.filter(
+          (item) => item.type !== 'tool' || item.presentation.kind !== 'todo',
+        )
+      : activityParts
+    if (visibleParts.length > 0) {
+      groups.push({ key: part.id, kind: 'activity', parts: visibleParts })
+    }
+  }
+  return groups
 }
 
 function ActivitySequence({
@@ -329,12 +373,8 @@ function ActivitySummary({
   renderers: readonly ToolRenderer[]
   toolActions: ToolActions
 }) {
-  const completed = parts.filter((part) =>
-    part.type === 'tool'
-      ? part.state.status === 'succeeded'
-      : part.type === 'reasoning' && part.state.status !== 'streaming',
-  )
-  const attention = parts.filter((part) => !completed.includes(part))
+  const completed = parts.filter(isCompletedActivityPart)
+  const attention = parts.filter((part) => !isCompletedActivityPart(part))
   const tools = completed.filter((part) => part.type === 'tool')
   const reasoning = completed.filter((part) => part.type === 'reasoning')
   return (
@@ -377,6 +417,12 @@ function ActivitySummary({
       )}
     </div>
   )
+}
+
+function isCompletedActivityPart(part: MessagePart) {
+  return part.type === 'tool'
+    ? part.state.status === 'succeeded'
+    : part.type === 'reasoning' && part.state.status !== 'streaming'
 }
 
 function ToolSequence({
@@ -429,7 +475,7 @@ function ToolSequence({
   )
 }
 
-function Part({
+const Part = memo(function Part({
   part,
   renderers,
   toolActions,
@@ -448,24 +494,7 @@ function Part({
         </Markdown>
       )
     case 'reasoning':
-      return (
-        <Reasoning
-          state={
-            part.state.status === 'streaming'
-              ? { status: 'thinking' }
-              : {
-                  ...(part.startedAt !== undefined && part.endedAt !== undefined
-                    ? {
-                        duration: formatDuration(part.endedAt - part.startedAt),
-                      }
-                    : {}),
-                  status: 'complete',
-                }
-          }
-        >
-          {part.text}
-        </Reasoning>
-      )
+      return <ReasoningPart part={part} />
     case 'tool': {
       const renderer = selectedToolRenderer(part, renderers)
       return (
@@ -482,26 +511,7 @@ function Part({
       )
     }
     case 'attachment':
-      return (
-        <div
-          data-attachment-id={part.attachment.id}
-          data-slot="message-attachment"
-          data-state={part.state.status}
-          {...stylex.props(styles.attachment)}
-        >
-          {part.attachment.previewUrl && part.attachment.kind === 'image' && (
-            <img
-              alt=""
-              src={part.attachment.previewUrl}
-              {...stylex.props(styles.preview)}
-            />
-          )}
-          <span dir="auto" {...stylex.props(styles.attachmentName)}>
-            {part.attachment.name}
-          </span>
-          <span {...stylex.props(styles.partStatus)}>{part.state.status}</span>
-        </div>
-      )
+      return <AttachmentPart part={part} />
     case 'compaction':
       return (
         <p data-slot="compaction-notice" {...stylex.props(styles.notice)}>
@@ -548,6 +558,50 @@ function Part({
         </details>
       )
   }
+})
+
+function ReasoningPart({
+  part,
+}: {
+  part: Extract<MessagePart, { type: 'reasoning' }>
+}) {
+  const state =
+    part.state.status === 'streaming'
+      ? ({ status: 'thinking' } as const)
+      : ({
+          ...(part.startedAt !== undefined && part.endedAt !== undefined
+            ? { duration: formatDuration(part.endedAt - part.startedAt) }
+            : {}),
+          status: 'complete',
+        } as const)
+  return <Reasoning state={state}>{part.text}</Reasoning>
+}
+
+function AttachmentPart({
+  part,
+}: {
+  part: Extract<MessagePart, { type: 'attachment' }>
+}) {
+  return (
+    <div
+      data-attachment-id={part.attachment.id}
+      data-slot="message-attachment"
+      data-state={part.state.status}
+      {...stylex.props(styles.attachment)}
+    >
+      {part.attachment.previewUrl && part.attachment.kind === 'image' && (
+        <img
+          alt=""
+          src={part.attachment.previewUrl}
+          {...stylex.props(styles.preview)}
+        />
+      )}
+      <span dir="auto" {...stylex.props(styles.attachmentName)}>
+        {part.attachment.name}
+      </span>
+      <span {...stylex.props(styles.partStatus)}>{part.state.status}</span>
+    </div>
+  )
 }
 
 const contextRenderer: ToolRenderer = renderer(

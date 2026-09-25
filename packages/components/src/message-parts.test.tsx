@@ -42,6 +42,59 @@ describe.each([
     ),
   ],
 ])('%s context rendering', (_, renderSequence) => {
+  it('skips unchanged tools during text updates and renders changed tool state', () => {
+    const tool = context('custom', 'custom')
+    const renderTool = vi.fn((part: ToolPart) => (
+      <span>{part.state.status}</span>
+    ))
+    const renderers = [{ ...customContext, render: renderTool }]
+    const first: ChatMessage = {
+      ...message([tool]),
+      parts: [
+        tool,
+        {
+          id: 'text',
+          type: 'text',
+          markdown: 'First',
+          state: { status: 'streaming' },
+        },
+      ],
+    }
+    const { container, rerender } = render(renderSequence(first, renderers))
+    expect(renderTool).toHaveBeenCalledTimes(1)
+
+    const next: ChatMessage = {
+      ...first,
+      parts: [
+        tool,
+        {
+          id: 'text',
+          type: 'text',
+          markdown: 'Next',
+          state: { status: 'streaming' },
+        },
+      ],
+    }
+    rerender(renderSequence(next, renderers))
+    expect(renderTool).toHaveBeenCalledTimes(1)
+    expect(container.textContent).toContain('Next')
+
+    rerender(
+      renderSequence(
+        {
+          ...next,
+          parts: [
+            { ...tool, state: { status: 'queued', input: {} } },
+            next.parts[1]!,
+          ],
+        },
+        renderers,
+      ),
+    )
+    expect(renderTool).toHaveBeenCalledTimes(2)
+    expect(container.textContent).toContain('queued')
+  })
+
   it('groups adjacent defaults while dispatching custom and mixed context tools independently', () => {
     const parts = [
       context('default-1'),

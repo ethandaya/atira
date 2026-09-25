@@ -87,23 +87,28 @@ export function Markdown({ children, status, ...props }: MarkdownProps) {
 
 const SettledMarkdown = memo(
   function SettledMarkdown({ chunks }: { chunks: readonly string[] }) {
-    return chunks.map((chunk, index) => (
-      <Streamdown
-        className={stylex.props(styles.content).className ?? ''}
-        components={markdownComponents}
-        controls={false}
-        dir="auto"
-        disallowedElements={disallowedElements}
-        isAnimating={false}
-        key={index}
-        linkSafety={linkSafety}
-        mode="static"
-        parseIncompleteMarkdown={false}
-        skipHtml
-      >
-        {chunk}
-      </Streamdown>
-    ))
+    let sourceOffset = 0
+    return chunks.map((chunk) => {
+      const start = sourceOffset
+      sourceOffset += chunk.length
+      return (
+        <Streamdown
+          className={stylex.props(styles.content).className ?? ''}
+          components={markdownComponents}
+          controls={false}
+          dir="auto"
+          disallowedElements={disallowedElements}
+          isAnimating={false}
+          key={start}
+          linkSafety={linkSafety}
+          mode="static"
+          parseIncompleteMarkdown={false}
+          skipHtml
+        >
+          {chunk}
+        </Streamdown>
+      )
+    })
   },
   (previous, next) =>
     previous.chunks.length === next.chunks.length &&
