@@ -1,6 +1,10 @@
+// @ts-check
 const endpoint = 'https://api.openai.com/v1/responses'
 const maxSources = 8
 
+/**
+ * @param {{apiKey?: string, model: string, query: unknown, request?: typeof fetch, signal?: AbortSignal}} options
+ */
 export async function searchWeb({
   apiKey,
   model,
@@ -56,6 +60,7 @@ export async function searchWeb({
   }
 }
 
+/** @param {unknown} payload */
 function responseText(payload) {
   if (isRecord(payload) && typeof payload.output_text === 'string') {
     return payload.output_text.trim()
@@ -72,9 +77,11 @@ function responseText(payload) {
     .trim()
 }
 
+/** @param {unknown} payload */
 function responseSources(payload) {
   if (!isRecord(payload) || !Array.isArray(payload.output)) return []
 
+  /** @type {unknown[]} */
   const candidates = []
   for (const item of payload.output) {
     if (!isRecord(item)) continue
@@ -95,23 +102,27 @@ function responseSources(payload) {
     }
   }
 
+  /** @type {{title: string, url: string}[]} */
   const sources = []
+  /** @type {Set<string>} */
   const seen = new Set()
   for (const candidate of candidates) {
-    if (!isRecord(candidate) || !safeHttpUrl(candidate.url) || seen.has(candidate.url)) {
+    if (!isRecord(candidate) || typeof candidate.url !== 'string' || !safeHttpUrl(candidate.url) || seen.has(candidate.url)) {
       continue
     }
-    seen.add(candidate.url)
+    const url = candidate.url
+    seen.add(url)
     sources.push({
       title: typeof candidate.title === 'string' && candidate.title.trim()
         ? candidate.title.trim().replaceAll(/\s+/g, ' ').slice(0, 200)
-        : new URL(candidate.url).hostname,
-      url: candidate.url,
+        : new URL(url).hostname,
+      url,
     })
   }
   return sources
 }
 
+/** @param {unknown} value */
 function safeHttpUrl(value) {
   if (typeof value !== 'string') return false
   try {
@@ -122,6 +133,7 @@ function safeHttpUrl(value) {
   }
 }
 
+/** @returns {value is Record<string, unknown>} @param {unknown} value */
 function isRecord(value) {
   return typeof value === 'object' && value !== null
 }

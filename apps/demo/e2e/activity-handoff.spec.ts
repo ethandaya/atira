@@ -7,7 +7,6 @@ for (const width of [1100, 390]) {
     await page.setViewportSize({ width, height: 900 })
     await page.emulateMedia({ reducedMotion: width === 390 ? 'reduce' : 'no-preference' })
     await page.route('**/api/runtime', route => route.fulfill({ json: { available: true, conversationSessions: true, model: 'test', runtime: 'Test' } }))
-    await page.route('**/api/auth/chatgpt', route => route.fulfill({ json: { state: 'signed_out' } }))
     await page.addInitScript(() => {
       const original = window.fetch
       window.fetch = async (input, options) => {
@@ -19,7 +18,7 @@ for (const width of [1100, 390]) {
         } }), { headers: { 'Content-Type': 'application/x-ndjson' } })
       }
     })
-    await page.goto('/')
+    await page.goto('/?view=playground')
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Research the interaction, delegate a review, then check the implementation.')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
     const turn = page.locator('[data-slot="turn"]').last()
@@ -28,8 +27,8 @@ for (const width of [1100, 390]) {
     await expect(pending).toBeVisible()
     const calls = [
       { id: 'research', tool: 'search_web', summary: 'Research interaction patterns', input: 'Shared layout interactions' },
-      { id: 'reviewer', tool: 'run_subagent', kind: 'task', summary: 'Review the findings', agent: { id: 'reviewer', label: 'Design review' }, input: 'Check the findings' },
-      { id: 'check', tool: 'shell', summary: 'Check implementation', input: 'pnpm typecheck' },
+      { id: 'reviewer', tool: 'inspect_component_catalog', summary: 'Review the findings', input: 'Check the findings' },
+      { id: 'followup', tool: 'search_web', summary: 'Research implementation guidance', input: 'Accessible activity handoffs' },
     ]
     const emit = (detail: object) => page.evaluate(value => window.dispatchEvent(new CustomEvent('handoff-event', { detail: value })), detail)
     const completed: { node: Awaited<ReturnType<typeof owner.elementHandle>>; top: number }[] = []

@@ -1,140 +1,208 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
-import { rm } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
-import { createServer } from 'node:net'
+import { createServer } from 'node:http'
 import { setTimeout as delay } from 'node:timers/promises'
 import { expect, it } from 'vitest'
-import { GeneratedImageStore } from './image-generation.mjs'
+import { WebSocketServer } from 'ws'
 
-it('resumes isolated runtime histories, scopes cancellation, and rejects lost context over HTTP', { timeout: 30_000 }, async () => {
-  const reservation = createServer()
-  reservation.listen(0, '127.0.0.1')
-  await once(reservation, 'listening')
-  const port = reservation.address().port
-  await new Promise((resolve) => reservation.close(resolve))
-  // Only the provider transport is faked; the real server and runtime history run.
-  // Reject every other outbound fetch so the test cannot call a real provider.
-  const preload = `
-    import { setTimeout as delay } from 'node:timers/promises';
-    let failedOnce = false;
-    globalThis.fetch = async (url, options) => {
-      if (url === 'https://api.anthropic.com/v1/models?limit=1000') return Response.json({
-        data: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5'].map(id => ({ id, display_name: id })), has_more: false,
-      });
-      if (url !== 'https://api.anthropic.com/v1/messages') throw new Error('Unexpected outbound request');
-      const { messages, model } = JSON.parse(options.body);
-      const inputs = messages.filter(m => m.role === 'user').map(m => m.content);
-      if (inputs.at(-1) === 'which model') return Response.json({ content: [{ type: 'text', text: model + ': ' + inputs.join(' / ') }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } });
-      if (inputs.at(-1) === 'retry me' && model !== 'claude-haiku-4-5') throw new Error('Retry used the wrong model');
-      if (inputs.at(-1) === 'retry me' && !failedOnce) { failedOnce = true; throw new Error('network error'); }
-      if (inputs.at(-1) === 'find bike parts') throw new Error('network error');
-      if (inputs.at(-1) === 'disconnect') await delay(300, undefined, { signal: options.signal });
-      if (inputs.at(-1) === 'wait') await delay(10000, undefined, { signal: options.signal });
-      return Response.json({ content: [{ type: 'text', text: inputs.join(' / ') }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } });
-    };
-  `
-  const child = spawn(process.execPath, ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, 'server.mjs'], {
+it('runs Nanocodex through an isolated Responses transport and replays turns', { timeout: 30_000 }, async () => {
+  const providerRequests = []
+  const provider = new WebSocketServer({ host: '127.0.0.1', port: 0 })
+  await once(provider, 'listening')
+  provider.on('connection', socket => socket.on('message', bytes => {
+    const body = JSON.parse(bytes.toString())
+    if (body.generate === false) {
+      socket.send(JSON.stringify({ type: 'response.completed', response: { id: 'warmup', usage: null } }))
+      return
+    }
+    providerRequests.push(body)
+    if (JSON.stringify(body.input).includes('Hold this response')) return
+    const hasToolOutput = body.input.some(item => item.type === 'function_call_output')
+    const listAgents = JSON.stringify(body.input).includes('List runtime agents')
+    const completed = hasToolOutput
+      ? {
+          id: 'resp2',
+          status: 'completed',
+          end_turn: true,
+          output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'DONE' }] }],
+          usage: null,
+        }
+      : {
+          id: 'resp1',
+          status: 'completed',
+          end_turn: false,
+          output: [{ type: 'function_call', call_id: 'call1', name: listAgents ? 'list_agents' : 'inspect_component_catalog', arguments: listAgents ? '{}' : '{"query":"button"}' }],
+          usage: null,
+        }
+    if (hasToolOutput) socket.send(JSON.stringify({ type: 'response.output_text.delta', item_id: 'message', output_index: 0, content_index: 0, delta: 'DONE' }))
+    socket.send(JSON.stringify({ type: 'response.completed', response: completed }))
+  }))
+  const providerPort = provider.address().port
+
+  const port = await reservePort()
+  const child = spawn(process.execPath, ['server.mjs'], {
     cwd: new URL('.', import.meta.url),
-    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: 'isolated-test-key' },
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1',
+      NANOCODEX_API_BASE_URL: `http://127.0.0.1:${providerPort}/v1`,
+      NANOCODEX_WEBSOCKET_URL: `ws://127.0.0.1:${providerPort}/v1/responses`,
+      NANOCODEX_MODEL: 'gpt-6-sol',
+      OPENAI_API_KEY: 'isolated-test-key',
+      PORT: String(port),
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
   child.stdout.on('data', chunk => { output += chunk })
   child.stderr.on('data', chunk => { output += chunk })
   const base = `http://127.0.0.1:${port}`
-  let imageDirectory
+
   try {
-    let ready
-    for (let attempt = 0; attempt < 100; attempt++) {
-      ready = await fetch(`${base}/api/runtime`).catch(() => undefined)
-      if (ready?.ok) break
-      if (child.exitCode !== null) throw new Error(`Isolated demo server exited: ${output}`)
-      await delay(100)
-    }
-    expect(ready?.ok).toBe(true)
-    const runtime = await ready.json()
-    const haiku = runtime.models.find(model => model.modelId === 'claude-haiku-4-5')
-    const opus = runtime.models.find(model => model.modelId === 'claude-opus-4-6')
-    expect(haiku).toMatchObject({ providerId: 'anthropic' })
-    const cookie = ready.headers.get('set-cookie').split(';')[0]
-    const owner = cookie.split('=')[1]
-    imageDirectory = new URL(`../../.amp/data/generated-images/${owner}/`, import.meta.url)
-    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='
-    const image = await new GeneratedImageStore(fileURLToPath(new URL('../../.amp/data/generated-images/', import.meta.url))).save(owner, png, 'Test image')
-    const ownImage = await fetch(`${base}${image.url}?download=1`, { headers: { Cookie: cookie } })
-    expect(ownImage.status).toBe(200)
-    expect(ownImage.headers.get('content-type')).toBe('image/png')
-    expect(ownImage.headers.get('content-disposition')).toContain('attachment')
-    expect(Buffer.from(await ownImage.arrayBuffer())).toEqual(Buffer.from(png, 'base64'))
-    expect((await fetch(`${base}${image.url}`, { headers: { Cookie: `pretty_amped_session=${randomUUID()}` } })).status).toBe(404)
-    const a = randomUUID()
-    const b = randomUUID()
-    const headers = (id, owner = cookie) => ({ Cookie: owner, 'X-Conversation-Id': id, 'Content-Type': 'application/json' })
-    const chat = (id, input, resume = false, owner = cookie, turn = {}) => fetch(`${base}/api/chat`, {
-      method: 'POST', headers: headers(id, owner), body: JSON.stringify({ input, resume, ...turn }),
+    const runtime = await waitForServer(base, child, () => output)
+    expect(await runtime.json()).toMatchObject({
+      available: true,
+      model: 'gpt-6-sol',
+      models: [
+        { label: 'GPT-6 Sol', modelId: 'gpt-6-sol' },
+        { label: 'GPT-6 Luna', modelId: 'gpt-6-luna' },
+        { label: 'GPT-6 Astra', modelId: 'gpt-6-astra' },
+      ],
+      runtime: 'Nanocodex',
     })
-    const final = async (response) => {
-      expect(response.status).toBe(200)
-      const events = (await response.text()).trim().split('\n').map(JSON.parse)
-      return events.find(event => event.type === 'completed')?.message
-    }
-    expect(await final(await chat(a, 'alpha'))).toBe('alpha')
-    expect(await final(await chat(b, 'beta'))).toBe('beta')
-    expect(await final(await chat(a, 'continue', true))).toBe('alpha / continue')
-    const stranger = `pretty_amped_session=${randomUUID()}`
-    expect((await chat(a, 'steal context', true, stranger)).status).toBe(409)
-
-    const reconnectId = randomUUID()
-    const reconnectTurn = randomUUID()
-    const detached = await chat(reconnectId, 'disconnect', false, cookie, { turnId: reconnectTurn })
-    await detached.body.cancel()
-    const replayUrl = `${base}/api/chat?turnId=${reconnectTurn}`
-    expect((await fetch(replayUrl, { headers: headers(reconnectId, stranger) })).status).toBe(404)
-    const replay = await fetch(replayUrl, { headers: headers(reconnectId) })
-    expect(await final(replay)).toBe('disconnect')
-    expect(await final(await fetch(replayUrl, { headers: headers(reconnectId) }))).toBe('disconnect')
-    expect(await final(await chat(reconnectId, 'next', true))).toBe('disconnect / next')
-
-    const running = await chat(b, 'wait', true)
-    const wrongCancel = await fetch(`${base}/api/cancel`, { method: 'POST', headers: headers(a) })
-    expect(await wrongCancel.json()).toEqual({ cancelled: false })
-    const cancel = await fetch(`${base}/api/cancel`, { method: 'POST', headers: headers(b) })
-    expect(cancel.status).toBe(202)
-    expect(await running.text()).toContain('"cancelled"')
-
-    await fetch(`${base}/api/session`, { method: 'DELETE', headers: headers(a) })
-    const expired = await chat(a, 'resume without context', true)
-    expect(expired.status).toBe(409)
-    expect((await expired.json()).error).toContain('expired or changed')
-    expect(await final(await chat(b, 'still here', true))).toBe('beta / wait / still here')
+    const cookie = runtime.headers.get('set-cookie').split(';')[0]
+    const conversationId = randomUUID()
     const turnId = randomUUID()
-    expect(await (await chat(b, 'retry me', true, cookie, { turnId, model: haiku })).text()).toContain('"error"')
-    const recovered = await final(await chat(b, 'retry me', true, cookie, { turnId, retry: true, model: opus }))
-    expect(recovered).toBe('beta / wait / still here / retry me')
-    // If completion was lost in transit, retry replays it instead of calling tools again.
-    expect(await final(await chat(b, 'retry me', true, cookie, { turnId, retry: true }))).toBe(recovered)
-    expect((await chat(b, 'different input', true, cookie, { turnId, retry: true })).status).toBe(409)
-    expect(await final(await chat(b, 'next', true))).toBe('beta / wait / still here / retry me / next')
-    expect((await chat(b, 'retry me', true, cookie, { turnId, retry: true })).status).toBe(409)
-    const c = randomUUID()
-    expect(await (await chat(c, 'find bike parts')).text()).toContain('"error"')
-    expect(await final(await chat(c, 'continue', true))).toBe('find bike parts / continue')
-    const d = randomUUID()
-    expect((await chat(d, 'invalid', false, cookie, { model: { modelId: 'made-up', providerId: 'anthropic' } })).status).toBe(400)
-    expect((await chat(d, 'invalid', false, cookie, { model: { ...haiku, providerId: 'chatgpt' } })).status).toBe(400)
-    expect((await chat(d, 'invalid effort', false, cookie, { model: haiku, reasoningEffort: 'high' })).status).toBe(400)
-    expect(await final(await chat(d, 'which model', false, cookie, { model: haiku }))).toBe('claude-haiku-4-5: which model')
-    expect(await final(await chat(d, 'which model', true, cookie, { model: opus }))).toBe('claude-opus-4-6: which model / which model')
-  } finally {
-    if (child.exitCode === null) {
-      const exited = once(child, 'exit')
-      child.kill('SIGTERM')
-      const forceExit = setTimeout(() => child.kill('SIGKILL'), 2_000)
-      await exited
-      clearTimeout(forceExit)
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json', 'X-Conversation-Id': conversationId }
+    const body = JSON.stringify({ input: 'Find the button component', turnId })
+
+    const response = await fetch(`${base}/api/chat`, { method: 'POST', headers, body })
+    expect(response.status).toBe(200)
+    const events = await streamEvents(response)
+    if (events.some(event => event.type === 'error')) {
+      await delay(100)
+      throw new Error(`Runtime error: ${JSON.stringify({ events, output, providerRequests: providerRequests.length })}`)
     }
-    if (imageDirectory) await rm(imageDirectory, { recursive: true, force: true })
+    expect(events.map(event => event.type)).toEqual([
+      'started',
+      'tool-started',
+      'tool-completed',
+      'assistant-delta',
+      'assistant-message',
+      'completed',
+    ])
+    expect(events.find(event => event.type === 'tool-started')).toMatchObject({ input: 'button', tool: 'inspect_component_catalog' })
+    expect(events.find(event => event.type === 'tool-completed')).toMatchObject({ status: 'succeeded', tool: 'inspect_component_catalog' })
+    expect(events.find(event => event.type === 'tool-completed').output).toContain('Button')
+    expect(events.find(event => event.type === 'completed')).toMatchObject({ message: 'DONE' })
+    expect(providerRequests).toHaveLength(2)
+    expect(providerRequests[0].model).toBe('gpt-6-sol')
+    expect(providerRequests[1].input).toContainEqual(expect.objectContaining({ type: 'function_call_output', call_id: 'call1' }))
+
+    const replay = await fetch(`${base}/api/chat?turnId=${turnId}`, { headers })
+    expect(await streamEvents(replay)).toEqual(events)
+    const retry = await fetch(`${base}/api/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ input: 'Find the button component', retry: true, turnId }),
+    })
+    expect(await streamEvents(retry)).toEqual(events)
+    expect(providerRequests).toHaveLength(2)
+
+    const other = await fetch(`${base}/api/chat`, {
+      method: 'POST',
+      headers: { ...headers, 'X-Conversation-Id': randomUUID() },
+      body: JSON.stringify({
+        input: 'List runtime agents',
+        model: { modelId: 'gpt-6-luna', providerId: 'openai' },
+        reasoningEffort: 'low',
+        turnId: randomUUID(),
+      }),
+    })
+    const nativeEvents = await streamEvents(other)
+    expect(nativeEvents.at(-1)).toMatchObject({ message: 'DONE', type: 'completed' })
+    expect(nativeEvents).toContainEqual(expect.objectContaining({ type: 'tool-started', tool: 'list_agents', input: '{}' }))
+    expect(nativeEvents).toContainEqual(expect.objectContaining({ type: 'tool-completed', tool: 'list_agents', status: 'succeeded' }))
+    expect(providerRequests).toHaveLength(4)
+    expect(providerRequests[2]).toMatchObject({
+      model: 'gpt-6-luna',
+      reasoning: { effort: 'low' },
+    })
+
+    const activeId = randomUUID()
+    const active = await fetch(`${base}/api/chat`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ input: 'Hold this response', turnId: activeId, resume: true }),
+    })
+    await expect.poll(() => providerRequests.length).toBe(5)
+    const cancel = (requestHeaders, id) => fetch(`${base}/api/cancel`, {
+      method: 'POST', headers: requestHeaders, body: JSON.stringify({ turnId: id }),
+    })
+    expect(await (await cancel({ ...headers, Cookie: '' }, activeId)).json()).toEqual({ cancelled: false })
+    expect(await (await cancel({ ...headers, 'X-Conversation-Id': randomUUID() }, activeId)).json()).toEqual({ cancelled: false })
+    expect(await (await cancel(headers, turnId)).json()).toEqual({ cancelled: false })
+    expect(await (await cancel(headers, activeId)).json()).toEqual({ cancelled: true })
+    expect((await streamEvents(active)).at(-1)).toEqual({ type: 'cancelled' })
+    expect(providerRequests).toHaveLength(5)
+
+    const foreignReplay = await fetch(`${base}/api/chat?turnId=${activeId}`, {
+      headers: { ...headers, Cookie: '' },
+    })
+    expect(foreignReplay.status).toBe(404)
+    expect((await fetch(`${base}/api/images/removed`, { headers })).status).toBe(404)
+    const auth = await fetch(`${base}/api/auth/chatgpt`, { headers })
+    expect(auth.headers.get('cache-control')).toBe('no-store')
+    expect(await auth.json()).toEqual({ state: 'signed_out' })
+    expect((await fetch(`${base}/api/auth/chatgpt`, { method: 'POST', headers: { ...headers, Origin: 'https://foreign.example' } })).status).toBe(403)
+    expect((await fetch(`${base}/api/chat`, { method: 'POST', headers: { ...headers, 'Sec-Fetch-Site': 'cross-site' }, body })).status).toBe(403)
+    const logoutTurn = await fetch(`${base}/api/chat`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ input: 'Hold this response for logout', turnId: randomUUID(), resume: true }),
+    })
+    await expect.poll(() => providerRequests.length).toBe(6)
+    expect((await fetch(`${base}/api/auth/chatgpt`, { method: 'DELETE', headers })).status).toBe(200)
+    expect((await streamEvents(logoutTurn)).at(-1)).toEqual({ type: 'cancelled' })
+    expect((await fetch(`${base}/api/chat?turnId=${turnId}`, { headers })).status).toBe(404)
+  } finally {
+    await stopChild(child)
+    await new Promise(resolve => provider.close(resolve))
   }
 })
+
+async function streamEvents(response) {
+  expect(response.status).toBe(200)
+  return (await response.text()).trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
+}
+
+async function listen(server) {
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+}
+
+async function reservePort() {
+  const server = createServer()
+  await listen(server)
+  const port = server.address().port
+  await new Promise(resolve => server.close(resolve))
+  return port
+}
+
+async function waitForServer(base, child, getOutput) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const response = await fetch(`${base}/api/runtime`).catch(() => undefined)
+    if (response?.ok) return response
+    if (child.exitCode !== null) throw new Error(`Isolated demo server exited: ${getOutput()}`)
+    await delay(100)
+  }
+  throw new Error(`Isolated demo server did not start: ${getOutput()}`)
+}
+
+async function stopChild(child) {
+  if (child.exitCode !== null) return
+  const exited = once(child, 'exit')
+  child.kill('SIGTERM')
+  const forceExit = setTimeout(() => child.kill('SIGKILL'), 2_000)
+  await exited
+  clearTimeout(forceExit)
+}

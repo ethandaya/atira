@@ -6,84 +6,20 @@ import type {
   ChatStore,
   ChatTurn,
   ComposerDraft,
-  GeneratedImageDescriptor,
   PermissionDecision,
   QuestionResponse,
   QueuedPrompt,
   RevertedPrompt,
   SubmitIntent,
-  TaskActivity,
-  TaskTranscript,
   ToolPart,
 } from '@pretty-amped/foundations/chat'
 import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
+import { runtimeResponseSchema, savedHistorySchema, streamEventSchema, type StreamEvent } from '../chat-contract.mjs'
 
 export type RuntimeState =
   | { status: 'loading' }
   | { model: string; runtime: string; status: 'ready'; retryTurns?: boolean; models?: ChatCapabilities['models'] }
   | { message: string; status: 'unavailable' }
-
-type Usage = Readonly<{
-  outputTokens: number
-  totalTokens: number
-}>
-
-type StreamToolPresentation = Readonly<{
-  activity?: TaskActivity | undefined
-  agent?: Readonly<{ id: string; label: string }> | undefined
-  childSessionId?: string | undefined
-  image?: GeneratedImageDescriptor | undefined
-  kind?: 'task' | 'image' | undefined
-  transcript?: TaskTranscript | undefined
-}>
-
-type StreamEvent =
-  | { type: 'started' }
-  | { type: 'provider-started' }
-  | { type: 'provider-retry'; attempt: number }
-  | { text: string; type: 'assistant-delta' }
-  | { text: string; type: 'assistant-message' }
-  | { text: string; type: 'reasoning-delta' }
-  | {
-      activity?: StreamToolPresentation['activity']
-      agent?: StreamToolPresentation['agent']
-      childSessionId?: string | undefined
-      id: string
-      input?: string
-      image?: GeneratedImageDescriptor | undefined
-      kind?: 'task' | 'image' | undefined
-      summary: string
-      tool: string
-      type: 'tool-started'
-    }
-  | {
-      activity?: StreamToolPresentation['activity']
-      agent?: StreamToolPresentation['agent']
-      childSessionId?: string | undefined
-      id: string
-      image?: GeneratedImageDescriptor | undefined
-      kind?: 'task' | 'image' | undefined
-      summary: string
-      tool: string
-      type: 'tool-progress'
-    }
-  | {
-      activity?: StreamToolPresentation['activity']
-      agent?: StreamToolPresentation['agent']
-      childSessionId?: string | undefined
-      error?: string
-      id: string
-      image?: GeneratedImageDescriptor | undefined
-      kind?: 'task' | 'image' | undefined
-      output?: string
-      status: 'succeeded' | 'failed'
-      summary: string
-      tool: string
-      type: 'tool-completed'
-    }
-  | { durationMs: number; message: string; type: 'completed'; usage: Usage }
-  | { type: 'cancelled' }
-  | { message: string; type: 'error' }
 
 const unavailableCapabilities: ChatCapabilities = {
   agents: [],
@@ -106,11 +42,22 @@ type SavedConversation = {
   hasContext: boolean
 }
 
+type JsonDefined<T> = T extends readonly (infer Item)[]
+  ? JsonDefined<Item>[]
+  : T extends object
+    ? { [Key in keyof T as undefined extends T[Key] ? never : Key]: JsonDefined<T[Key]> } &
+      { [Key in keyof T as undefined extends T[Key] ? Key : never]?: JsonDefined<Exclude<T[Key], undefined>> }
+    : T
+type ParsedSavedHistory = ReturnType<typeof savedHistorySchema.parse>
+type SavedHistoryContract = { activeId: string; conversations: SavedConversation[] }
+const savedHistoryTypeAgreement: JsonDefined<ParsedSavedHistory> extends SavedHistoryContract ? true : never = true
+
 const conversationStorageKey = 'pretty-amped:conversations:v1'
 
 export class NanocodexChatStore implements ChatStore {
   readonly #listeners = new Set<() => void>()
-  #activeController: AbortController | undefined
+  #runtimeController: AbortController | undefined
+  #turnController: AbortController | undefined
   #cancelNotification: (() => void) | undefined
   #disposed = false
   #failedDraft: ComposerDraft | undefined
@@ -136,10 +83,13 @@ export class NanocodexChatStore implements ChatStore {
       this.#storage = storage ?? (typeof window === 'undefined' ? undefined : window.sessionStorage)
       const saved = this.#storage?.getItem(conversationStorageKey)
       if (saved) {
-        const data = JSON.parse(saved)
-        if (!Array.isArray(data.conversations) || !data.conversations.every(isSavedConversation)) {
-          throw new Error('Invalid conversation history')
-        }
+        // JSON cannot contain explicit undefined values; schema-checked optional
+        // fields therefore satisfy the library's exact optional property types.
+        const parsed = savedHistorySchema.parse(JSON.parse(saved))
+        // JSON cannot represent explicit undefined, and the compile-time agreement
+        // above checks the schema's recursively defined shape against ChatStore.
+        const data = parsed as JsonDefined<typeof parsed>
+        void savedHistoryTypeAgreement
         this.#conversations = data.conversations
         const current = this.#conversations.find((item) => item.id === data.activeId)
         if (current) this.#restore(current)
@@ -219,41 +169,33 @@ export class NanocodexChatStore implements ChatStore {
 
   async initialize() {
     this.#disposed = false
+    this.#runtimeController?.abort()
     const controller = new AbortController()
-    this.#activeController = controller
+    this.#runtimeController = controller
 
     try {
       const response = await fetch('/api/runtime', { signal: controller.signal })
-      const body: unknown = await response.json()
-      if (!response.ok || !isRecord(body)) throw new Error()
+      const result = runtimeResponseSchema.safeParse(await response.json())
+      controller.signal.throwIfAborted()
+      if (!response.ok || !result.success) throw new Error()
+      const body = result.data
 
-      this.#runtime =
-        body.conversationSessions !== true
-          ? { status: 'unavailable', message: 'Restart the demo server to enable resumable conversations.' }
-          : body.available === true &&
-        typeof body.model === 'string' &&
-        typeof body.runtime === 'string'
-          ? { model: body.model, runtime: body.runtime, status: 'ready', retryTurns: body.retryTurns === true,
-              models: Array.isArray(body.models) ? body.models.filter((model): model is ChatCapabilities['models'][number] =>
-                isRecord(model) && typeof model.modelId === 'string' && typeof model.providerId === 'string' && typeof model.label === 'string') : [],
-            }
-          : {
-              message: typeof body.message === 'string' ? body.message : 'Add a supported server-side provider key to run the playground.',
-              status: 'unavailable',
-            }
-    } catch (error) {
-      if (isAbort(error)) return
+      this.#runtime = body.available
+        ? { model: body.model, runtime: body.runtime, status: 'ready', retryTurns: body.retryTurns, models: body.models }
+        : { message: body.message ?? 'Sign in with ChatGPT or set OPENAI_API_KEY on the server.', status: 'unavailable' }
+    } catch {
+      if (controller.signal.aborted) return
       this.#runtime = {
         message: 'The local model runtime could not be reached.',
         status: 'unavailable',
       }
     } finally {
-      if (this.#activeController === controller) this.#activeController = undefined
+      if (this.#runtimeController === controller) this.#runtimeController = undefined
     }
 
     this.#snapshot = {
       ...this.#snapshot,
-      capabilities: capabilities(this.#runtime, false),
+      capabilities: capabilities(this.#runtime, this.#snapshot.activity.status !== 'idle'),
     }
     const models = this.#snapshot.capabilities.models
     const defaultModel = this.#runtime.status === 'ready' ? this.#runtime.model : undefined
@@ -262,7 +204,8 @@ export class NanocodexChatStore implements ChatStore {
     if (selected) this.#snapshot = { ...this.#snapshot, composer: { ...this.#snapshot.composer, model: selected } }
     this.#commit()
     const pending = this.#snapshot.turns.at(-1)
-    if (pending && ['queued', 'running', 'retrying'].includes(pending.state.status)) {
+    if (pending && !this.#turnController && ['queued', 'running', 'retrying'].includes(pending.state.status)) {
+      this.#snapshot = { ...this.#snapshot, activity: { status: 'idle' } }
       const input = pending.user.parts.filter(part => part.type === 'text').map(part => part.markdown).join('\n')
       await this.#send(createDraft(input), pending, true)
     }
@@ -272,7 +215,10 @@ export class NanocodexChatStore implements ChatStore {
     if (this.#disposed) return
     this.persist()
     this.#disposed = true
-    this.#activeController?.abort()
+    this.#runtimeController?.abort()
+    this.#turnController?.abort()
+    this.#runtimeController = undefined
+    this.#turnController = undefined
     this.#cancelNotification?.()
     this.#cancelNotification = undefined
     this.#listeners.clear()
@@ -293,6 +239,7 @@ export class NanocodexChatStore implements ChatStore {
   async #send(draft: ComposerDraft, retry?: ChatTurn, reconnect = false) {
     const input = composerDraftText(draft).trim()
     if (
+      this.#disposed ||
       !input ||
       this.#runtime.status !== 'ready' ||
       this.#snapshot.activity.status !== 'idle'
@@ -307,9 +254,12 @@ export class NanocodexChatStore implements ChatStore {
     const model = retry?.model ?? draft.model ?? this.#snapshot.capabilities.models[0]
     const requestedEffort = retry ? retry.reasoningEffort : draft.reasoningEffort
     const reasoningEffort = requestedEffort && model?.reasoningEfforts?.includes(requestedEffort)
-      ? requestedEffort : model?.defaultReasoningEffort
+      ? requestedEffort
+      : model?.defaultReasoningEffort
     const effort = reasoningEffort ? { reasoningEffort } : {}
-    const clearedDraft = retry ? this.#snapshot.composer : { ...createDraft('', draft.revision + 1), ...(model ? { model } : {}), ...effort }
+    const clearedDraft = retry
+      ? this.#snapshot.composer
+      : { ...createDraft('', draft.revision + 1), ...(model ? { model } : {}), ...effort }
     const turn: ChatTurn = {
       assistant: [],
       id: turnId,
@@ -337,7 +287,7 @@ export class NanocodexChatStore implements ChatStore {
     let terminal = false
 
     this.#failedDraft = undefined
-    this.#activeController = controller
+    this.#turnController = controller
     this.#snapshot = {
       ...this.#snapshot,
       activity: { status: 'busy', turnId },
@@ -352,12 +302,20 @@ export class NanocodexChatStore implements ChatStore {
     try {
       let response = await fetch(reconnect ? `/api/chat?turnId=${encodeURIComponent(turnId)}` : '/api/chat', {
         ...(reconnect ? {} : {
-          body: JSON.stringify({ input, model, reasoningEffort, resume: this.#hasContext, turnId, retry: Boolean(retry) }),
+          body: JSON.stringify({
+            input,
+            model: model && { modelId: model.modelId, providerId: model.providerId },
+            reasoningEffort,
+            resume: this.#hasContext,
+            turnId,
+            retry: Boolean(retry),
+          }),
         }),
         headers: { 'Content-Type': 'application/json', ...this.#conversationHeaders() },
         method: reconnect ? 'GET' : 'POST',
         signal: controller.signal,
       })
+      controller.signal.throwIfAborted()
       if (!response.ok) throw new Error(await responseError(response))
 
       accepted = true
@@ -369,6 +327,7 @@ export class NanocodexChatStore implements ChatStore {
             response = await fetch(`/api/chat?turnId=${encodeURIComponent(turnId)}`, {
               headers: this.#conversationHeaders(), signal: controller.signal,
             })
+            controller.signal.throwIfAborted()
             if (!response.ok) throw new Error(await responseError(response))
           }
           // Rebuild from the server's full replay so text and tool events cannot duplicate.
@@ -378,19 +337,9 @@ export class NanocodexChatStore implements ChatStore {
             state: { startedAt: now, status: 'running' },
             user: { ...current.user, delivery: { status: 'confirmed' } },
           }))
-          let providerBaseline: ChatMessage | undefined
           await readEvents(response, (event) => {
+            controller.signal.throwIfAborted()
             if (event.type === 'started') return
-            if (event.type === 'provider-started') {
-              providerBaseline = this.#snapshot.turns.find(turn => turn.id === turnId)?.assistant[0]
-              this.#updateTurn(turnId, turn => ({ ...turn, state: { status: 'running', startedAt: now } }))
-              return
-            }
-            if (event.type === 'provider-retry') {
-              if (providerBaseline) this.#updateAssistant(turnId, assistantMessageId, () => providerBaseline!)
-              this.#updateTurn(turnId, turn => ({ ...turn, state: { status: 'retrying', attempt: event.attempt, error: chatError('Temporary provider failure.', true) } }))
-              return
-            }
             if (event.type === 'completed') {
               terminal = true
               this.#completeTurn(turnId, assistantMessageId, event, now)
@@ -415,7 +364,7 @@ export class NanocodexChatStore implements ChatStore {
         }
       }
     } catch (error) {
-      if (isAbort(error)) return
+      if (controller.signal.aborted) return
       const failure = error instanceof Error
         ? error.message
         : 'The response could not be completed.'
@@ -439,21 +388,25 @@ export class NanocodexChatStore implements ChatStore {
         }
       }
     } finally {
-      if (this.#activeController === controller) this.#activeController = undefined
-      if (this.#snapshot.activity.status !== 'idle') {
+      if (this.#turnController === controller) this.#turnController = undefined
+      if (!controller.signal.aborted && this.#snapshot.activity.status !== 'idle') {
         this.#snapshot = {
           ...this.#snapshot,
           activity: { status: 'idle' },
           capabilities: capabilities(this.#runtime, false),
         }
       }
-      this.#commit()
+      if (!controller.signal.aborted) this.#commit()
     }
   }
 
-  async stop(_turnId: string) {
-    if (this.#snapshot.activity.status === 'idle') return
-    await fetch('/api/cancel', { method: 'POST', headers: this.#conversationHeaders() })
+  async stop(turnId: string) {
+    if (this.#snapshot.activity.status === 'idle' || this.#snapshot.activity.turnId !== turnId) return
+    await fetch('/api/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.#conversationHeaders() },
+      body: JSON.stringify({ turnId }),
+    })
   }
 
   updateDraft(draft: ComposerDraft) {
@@ -617,14 +570,6 @@ export class NanocodexChatStore implements ChatStore {
   }
 }
 
-function isSavedConversation(value: unknown): value is SavedConversation {
-  return isRecord(value) && typeof value.id === 'string' && /^[0-9a-f-]{36}$/i.test(value.id)
-    && typeof value.title === 'string' && typeof value.hasContext === 'boolean'
-    && isRecord(value.composer) && Array.isArray(value.composer.segments)
-    && Array.isArray(value.composer.attachments) && Array.isArray(value.turns)
-    && value.turns.every((turn) => isRecord(turn) && isRecord(turn.state) && isRecord(turn.user) && Array.isArray(turn.user.parts) && Array.isArray(turn.assistant))
-}
-
 export function createDraft(text = '', revision = 0): ComposerDraft {
   const id = createId('draft-text')
   return {
@@ -654,7 +599,7 @@ function applyStreamEvent(
   message: ChatMessage,
   event: Exclude<
     StreamEvent,
-    { type: 'started' | 'completed' | 'cancelled' | 'error' | 'provider-started' | 'provider-retry' }
+    { type: 'started' | 'completed' | 'cancelled' | 'error' }
   >,
   startedAt: number,
 ) {
@@ -678,13 +623,13 @@ function applyStreamEvent(
     }
   }
   if (event.type === 'tool-started') {
-    const presentation = toolPresentation(event.tool, event)
+    const presentation = toolPresentation(event.tool, event.input)
     const tool: ToolPart = {
       callId: event.id,
       id: event.id,
       presentation,
       state: {
-        input: toolEventInput(event.input, presentation),
+        input: event.input ?? '',
         startedAt: Date.now(),
         status: 'running',
       },
@@ -697,29 +642,11 @@ function applyStreamEvent(
     }
   }
 
-  if (event.type === 'tool-progress') {
-    const existing = message.parts.find(
-      (part): part is ToolPart => part.type === 'tool' && part.callId === event.id,
-    )
-    if (!existing) return message
-    const presentation = mergeToolPresentation(
-      existing.presentation,
-      toolPresentation(event.tool, event),
-    )
-    return {
-      ...message,
-      parts: upsertPart(message.parts, { ...existing, presentation }),
-    }
-  }
-
   const existing = message.parts.find(
     (part): part is ToolPart => part.type === 'tool' && part.callId === event.id,
   )
   const input = existing && 'input' in existing.state ? existing.state.input : {}
-  const eventPresentation = toolPresentation(event.tool, event)
-  const presentation = existing
-    ? mergeToolPresentation(existing.presentation, eventPresentation)
-    : eventPresentation
+  const presentation = existing?.presentation ?? toolPresentation(event.tool)
   const tool: ToolPart = {
     callId: event.id,
     id: event.id,
@@ -872,57 +799,12 @@ function toolInput(part: ToolPart) {
 
 function toolPresentation(
   tool: string,
-  event?: StreamToolPresentation,
+  input?: string,
 ): ToolPart['presentation'] {
-  const value = tool.toLowerCase()
-  if (event?.kind === 'image' || value === 'generate_image') {
-    return { kind: 'image', ...(event?.image ? { image: event.image } : {}) }
-  }
-  if (event?.kind === 'task' || value === 'run_subagent') {
-    return {
-      ...(event?.activity === undefined ? {} : { activity: event.activity }),
-      ...(event?.agent === undefined ? {} : { agent: event.agent }),
-      ...(event?.childSessionId === undefined
-        ? {}
-        : { childSessionId: event.childSessionId }),
-      kind: 'task',
-      ...(event?.transcript === undefined
-        ? {}
-        : { transcript: event.transcript }),
-    }
-  }
-  if (value === 'search_web' || value.includes('websearch')) {
-    return { kind: 'web', operation: 'search' }
-  }
-  if (value.includes('search') || value === 'inspect_component_catalog') {
-    return { kind: 'context', operation: 'grep' }
-  }
-  if (value === 'read') return { kind: 'context', operation: 'read' }
-  if (value === 'bash' || value === 'shell') return { kind: 'shell' }
-  if (value === 'write' || value === 'edit') {
-    return { diagnostics: [], files: [], kind: 'file-change', operation: value }
-  }
+  const target = input === undefined ? {} : { target: input }
+  if (tool === 'search_web') return { kind: 'web', operation: 'search', ...target }
+  if (tool === 'inspect_component_catalog') return { kind: 'context', operation: 'grep', ...target }
   return { kind: 'generic' }
-}
-
-function mergeToolPresentation(
-  existing: ToolPart['presentation'],
-  next: ToolPart['presentation'],
-): ToolPart['presentation'] {
-  if (existing.kind === 'image' && next.kind === 'image') return { ...existing, ...next }
-  return existing.kind === 'task' && next.kind === 'task'
-    ? { ...existing, ...next }
-    : existing
-}
-
-function toolEventInput(
-  input: string | undefined,
-  presentation: ToolPart['presentation'],
-) {
-  if (!input) return {}
-  return presentation.kind === 'task'
-    ? { description: input }
-    : { query: input }
 }
 
 function capabilities(runtime: RuntimeState, busy: boolean): ChatCapabilities {
@@ -965,166 +847,11 @@ async function readEvents(
 
 function parseEvent(line: string): StreamEvent | null {
   if (!line.trim()) return null
-  let value: unknown
   try {
-    value = JSON.parse(line)
+    const result = streamEventSchema.safeParse(JSON.parse(line))
+    return result.success ? result.data : null
   } catch {
     return null
-  }
-  if (!isRecord(value) || typeof value.type !== 'string') return null
-  if (value.type === 'started' || value.type === 'cancelled' || value.type === 'provider-started') return { type: value.type }
-  if (value.type === 'provider-retry' && Number.isInteger(value.attempt) && (value.attempt as number) >= 2 && (value.attempt as number) <= 3) return { type: 'provider-retry', attempt: value.attempt as number }
-  if (
-    (value.type === 'assistant-delta' ||
-      value.type === 'assistant-message' ||
-      value.type === 'reasoning-delta') &&
-    typeof value.text === 'string'
-  ) {
-    return { text: value.text, type: value.type }
-  }
-  if (
-    (value.type === 'tool-started' || value.type === 'tool-progress') &&
-    typeof value.id === 'string' &&
-    typeof value.summary === 'string' &&
-    typeof value.tool === 'string' &&
-    (value.type === 'tool-progress' ||
-      value.input === undefined ||
-      typeof value.input === 'string')
-  ) {
-    const presentation = streamToolPresentation(value)
-    return {
-      id: value.id,
-      ...(value.type === 'tool-started' && value.input !== undefined
-        ? { input: value.input as string }
-        : {}),
-      ...presentation,
-      summary: value.summary,
-      tool: value.tool,
-      type: value.type,
-    }
-  }
-  if (
-    value.type === 'tool-completed' &&
-    typeof value.id === 'string' &&
-    typeof value.summary === 'string' &&
-    typeof value.tool === 'string' &&
-    (value.status === 'succeeded' || value.status === 'failed') &&
-    (value.output === undefined || typeof value.output === 'string') &&
-    (value.error === undefined || typeof value.error === 'string')
-  ) {
-    const presentation = streamToolPresentation(value)
-    return {
-      ...presentation,
-      ...(value.error === undefined ? {} : { error: value.error }),
-      id: value.id,
-      ...(value.output === undefined ? {} : { output: value.output }),
-      status: value.status,
-      summary: value.summary,
-      tool: value.tool,
-      type: 'tool-completed',
-    }
-  }
-  if (value.type === 'error' && typeof value.message === 'string') {
-    return { message: value.message, type: 'error' }
-  }
-  if (
-    value.type === 'completed' &&
-    typeof value.durationMs === 'number' &&
-    typeof value.message === 'string' &&
-    isRecord(value.usage) &&
-    typeof value.usage.outputTokens === 'number' &&
-    typeof value.usage.totalTokens === 'number'
-  ) {
-    return {
-      durationMs: value.durationMs,
-      message: value.message,
-      type: 'completed',
-      usage: {
-        outputTokens: value.usage.outputTokens,
-        totalTokens: value.usage.totalTokens,
-      },
-    }
-  }
-  return null
-}
-
-function streamToolPresentation(
-  value: Record<string, unknown>,
-): StreamToolPresentation {
-  const agent = isRecord(value.agent) &&
-    typeof value.agent.id === 'string' &&
-    typeof value.agent.label === 'string'
-      ? { id: value.agent.id, label: value.agent.label }
-      : undefined
-  const activity = taskActivity(value.activity)
-  const transcript = taskTranscript(value.transcript)
-  const image = isRecord(value.image) &&
-    typeof value.image.id === 'string' &&
-    typeof value.image.url === 'string' && /^\/api\/images\/[a-zA-Z0-9-]+$/.test(value.image.url) &&
-    typeof value.image.alt === 'string' &&
-    typeof value.image.width === 'number' && Number.isFinite(value.image.width) && value.image.width > 0 &&
-    typeof value.image.height === 'number' && Number.isFinite(value.image.height) && value.image.height > 0
-      ? { id: value.image.id, url: value.image.url, alt: value.image.alt, width: value.image.width, height: value.image.height }
-      : undefined
-  return {
-    ...(activity === undefined ? {} : { activity }),
-    ...(agent === undefined ? {} : { agent }),
-    ...(image === undefined ? {} : { image }),
-    ...(typeof value.childSessionId === 'string'
-      ? { childSessionId: value.childSessionId }
-      : {}),
-    ...(value.kind === 'task' || value.kind === 'image' ? { kind: value.kind } : {}),
-    ...(transcript === undefined ? {} : { transcript }),
-  }
-}
-
-function taskActivity(value: unknown): TaskActivity | undefined {
-  if (!isRecord(value) || typeof value.summary !== 'string') return undefined
-  return {
-    ...(typeof value.detail === 'string' ? { detail: value.detail } : {}),
-    summary: value.summary,
-    ...(typeof value.tool === 'string' ? { tool: value.tool } : {}),
-  }
-}
-
-function taskTranscript(value: unknown): TaskTranscript | undefined {
-  if (
-    !isRecord(value) ||
-    typeof value.result !== 'string' ||
-    !Array.isArray(value.steps)
-  ) {
-    return undefined
-  }
-
-  const steps = value.steps.flatMap((item) => {
-    if (
-      !isRecord(item) ||
-      typeof item.id !== 'string' ||
-      typeof item.summary !== 'string' ||
-      typeof item.tool !== 'string' ||
-      (item.status !== 'succeeded' && item.status !== 'failed')
-    ) {
-      return []
-    }
-    return [
-      {
-        ...(typeof item.error === 'string' ? { error: item.error } : {}),
-        id: item.id,
-        ...(typeof item.input === 'string' ? { input: item.input } : {}),
-        ...(typeof item.output === 'string' ? { output: item.output } : {}),
-        status: item.status,
-        summary: item.summary,
-        tool: item.tool,
-      } satisfies TaskTranscript['steps'][number],
-    ]
-  })
-
-  return {
-    ...(typeof value.reasoning === 'string' && value.reasoning
-      ? { reasoning: value.reasoning }
-      : {}),
-    result: value.result,
-    steps,
   }
 }
 

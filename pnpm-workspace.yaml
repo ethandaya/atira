@@ -2,6 +2,10 @@ packages:
   - packages/*
   - apps/*
 
+allowBuilds:
+  '@mongodb-js/zstd': false
+  node-liblzma: false
+
 catalog:
   '@base-ui/react': 1.7.0
   '@fontsource-variable/geist': 5.3.0
@@ -22,3 +26,5 @@ catalog:
 minimumReleaseAgeExclude:
   - '@vitejs/plugin-react@6.1.1'
   - lucide-react@1.41.0
+  - nanocodex-tools@0.6.5
+  - nanocodex@0.6.5

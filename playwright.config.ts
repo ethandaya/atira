@@ -14,7 +14,8 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm --filter @pretty-amped/demo dev -- --host 127.0.0.1 --port 4173',
-    reuseExistingServer: true,
+    env: { VITE_TEST_FIXTURES: 'true' },
+    reuseExistingServer: false,
     timeout: 120_000,
     url: 'http://127.0.0.1:4173/?fixture=workflow',
   },
