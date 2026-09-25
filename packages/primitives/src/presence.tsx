@@ -1,3 +1,4 @@
+// react-doctor-disable-next-line react-doctor/use-lazy-motion -- Standalone presence primitives need layout features without a consumer-owned LazyMotion provider.
 import {
   AnimatePresence,
   motion,
