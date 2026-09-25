@@ -9,6 +9,10 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { Check, ChevronDown } from 'lucide-react'
+import { useRef, type ComponentProps } from 'react'
+
+/** Unstyled Base UI parts for custom select composition. */
+export const SelectPickerParts = Select
 
 export type SelectPickerOption = Readonly<{
   description?: string
@@ -24,6 +28,7 @@ export type SelectPickerProps = {
   onValueChange: (value: string) => void
   options: readonly SelectPickerOption[]
   placeholder?: string
+  portalContainer?: ComponentProps<typeof Select.Portal>['container']
   value?: string
 }
 
@@ -34,9 +39,12 @@ export function SelectPicker({
   onValueChange,
   options,
   placeholder = 'Select',
+  portalContainer,
   value,
 }: SelectPickerProps) {
+  const portalContainerRef = useRef<HTMLSpanElement>(null)
   return (
+    <span ref={portalContainerRef} data-slot="select-picker" {...stylex.props(styles.container)}>
     <Select.Root
       disabled={disabled}
       items={options}
@@ -64,7 +72,7 @@ export function SelectPicker({
           />
         </Select.Icon>
       </Select.Trigger>
-      <Select.Portal>
+      <Select.Portal container={portalContainer ?? portalContainerRef}>
         <Select.Positioner
           alignItemWithTrigger={false}
           sideOffset={4}
@@ -103,10 +111,14 @@ export function SelectPicker({
         </Select.Positioner>
       </Select.Portal>
     </Select.Root>
+    </span>
   )
 }
 
 const styles = stylex.create({
+  container: {
+    display: 'inline-flex',
+  },
   visuallyHidden: {
     blockSize: '1px',
     clip: 'rect(0 0 0 0)',

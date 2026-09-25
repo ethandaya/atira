@@ -8,7 +8,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { AnimatePresence, PresenceSurface } from './presence'
 
 export type ActionMenuItem = Readonly<{
@@ -24,6 +24,7 @@ export type ActionMenuProps = {
   disabled?: boolean
   items: readonly ActionMenuItem[]
   label: string
+  portalContainer?: ComponentProps<typeof Menu.Portal>['container']
   side?: 'top' | 'bottom'
   trigger: ReactNode
 }
@@ -32,13 +33,16 @@ export function ActionMenu({
   disabled = false,
   items,
   label,
+  portalContainer,
   side = 'bottom',
   trigger,
 }: ActionMenuProps) {
+  const portalContainerRef = useRef<HTMLSpanElement>(null)
   const [open, setOpen] = useState(false)
   const [immediate, setImmediate] = useState(false)
   return (
-    <Menu.Root open={open} onOpenChange={(next, details) => {
+    <span ref={portalContainerRef} data-slot="action-menu" {...stylex.props(styles.container)}>
+    <Menu.Root modal={false} open={open} onOpenChange={(next, details) => {
       setImmediate(details.event.type.startsWith('key'))
       setOpen(next)
     }}>
@@ -53,7 +57,7 @@ export function ActionMenu({
         {trigger}
       </Menu.Trigger>
       <AnimatePresence initial={false}>
-      {open && <Menu.Portal keepMounted>
+      {open && <Menu.Portal keepMounted container={portalContainer ?? portalContainerRef}>
         <Menu.Positioner
           align="start"
           side={side}
@@ -100,10 +104,14 @@ export function ActionMenu({
       </Menu.Portal>}
       </AnimatePresence>
     </Menu.Root>
+    </span>
   )
 }
 
 const styles = stylex.create({
+  container: {
+    display: 'inline-flex',
+  },
   trigger: {
     alignItems: 'center',
     appearance: 'none',

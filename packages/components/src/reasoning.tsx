@@ -9,6 +9,8 @@ import {
   StateTransition,
   TextTransition,
   VisuallyHidden,
+  resolveStyleProps,
+  type StyleProps,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
@@ -23,7 +25,7 @@ type NativeDivProps = Omit<
   'children' | 'className' | 'style'
 >
 
-export type ReasoningProps = NativeDivProps & {
+export type ReasoningProps = NativeDivProps & StyleProps & {
   children: ReactNode
   defaultOpen?: boolean
   label?: ReactNode
@@ -34,12 +36,15 @@ export type ReasoningProps = NativeDivProps & {
 
 export function Reasoning({
   children,
+  className,
   defaultOpen,
   label,
   onOpenChange,
   open,
   ref,
   state,
+  style,
+  xstyle,
   ...props
 }: ReasoningProps) {
   const isThinking = state.status === 'thinking'
@@ -52,7 +57,7 @@ export function Reasoning({
       aria-busy={isThinking || undefined}
       data-slot="reasoning"
       data-state={state.status}
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       <VisuallyHidden role="status">
         {isThinking ? 'Reasoning is in progress.' : 'Reasoning is complete.'}

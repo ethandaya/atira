@@ -4,7 +4,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button } from '@pretty-amped/primitives'
+import { Button, resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useId, type ComponentPropsWithRef } from 'react'
 
@@ -24,7 +24,7 @@ type NativeSectionProps = Omit<
   'children' | 'className' | 'id' | 'style' | 'title'
 >
 
-type ArtifactBaseProps = NativeSectionProps & {
+type ArtifactBaseProps = NativeSectionProps & StyleProps & {
   description?: string
   headingLevel?: 2 | 3 | 4 | 5 | 6
   id: string
@@ -62,6 +62,7 @@ const stateLabels: Record<ArtifactState['status'], string> = {
 export function Artifact(props: ArtifactProps) {
   const {
     description,
+    className,
     headingLevel = 2,
     id,
     kind,
@@ -69,7 +70,9 @@ export function Artifact(props: ArtifactProps) {
     onOpen,
     openLabel = 'Open artifact',
     state,
+    style,
     title,
+    xstyle,
     ...sectionProps
   } = props
   const titleId = useId()
@@ -85,7 +88,7 @@ export function Artifact(props: ArtifactProps) {
       data-kind={kind}
       data-slot="artifact"
       data-state={state.status}
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       <div data-slot="artifact-content" {...stylex.props(styles.content)}>
         <div data-slot="artifact-heading" {...stylex.props(styles.heading)}>

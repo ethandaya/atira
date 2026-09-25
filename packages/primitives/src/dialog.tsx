@@ -4,6 +4,9 @@ import * as stylex from '@stylexjs/stylex'
 import { useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, PresenceSurface } from './presence'
 
+/** Unstyled Base UI parts for layouts that cannot use the convenience wrapper. */
+export const DialogParts = BaseDialog
+
 export type DialogProps = {
   actions?: ReactNode
   children: ReactNode

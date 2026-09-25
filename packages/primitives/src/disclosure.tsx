@@ -10,13 +10,14 @@ import * as stylex from '@stylexjs/stylex'
 import { ChevronRight } from 'lucide-react'
 import { useState, type ComponentPropsWithRef, type ReactNode } from 'react'
 import { AnimatePresence, PresenceSurface } from './presence'
+import { resolveStyleProps, type StyleProps } from './style-props'
 
 type NativeDivProps = Omit<
   ComponentPropsWithRef<'div'>,
   'children' | 'className' | 'style'
 >
 
-export type DisclosureProps = NativeDivProps & {
+export type DisclosureProps = NativeDivProps & StyleProps & {
   children: ReactNode
   defaultOpen?: boolean
   disabled?: boolean
@@ -28,12 +29,15 @@ export type DisclosureProps = NativeDivProps & {
 
 export function Disclosure({
   children,
+  className,
   defaultOpen,
   disabled,
   onOpenChange,
   open,
   summary,
+  style,
   variant = 'default',
+  xstyle,
   ...props
 }: DisclosureProps) {
   const [immediate, setImmediate] = useState(true)
@@ -51,7 +55,7 @@ export function Disclosure({
       }}
       open={isOpen}
       data-slot="disclosure"
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       <Collapsible.Trigger
         render={(triggerProps, state) => (

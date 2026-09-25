@@ -1,18 +1,21 @@
 import type { GeneratedImageDescriptor } from '@pretty-amped/foundations/chat'
 import { colors, motion, radii, space, type } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, Spinner } from '@pretty-amped/primitives'
+import { Button, Spinner, resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Download, ArrowUpRight } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ComponentPropsWithRef } from 'react'
 
-export type GeneratedImageProps = {
+type NativeFigureProps = Omit<ComponentPropsWithRef<'figure'>, 'children' | 'className' | 'style'>
+
+export type GeneratedImageProps = NativeFigureProps & StyleProps & {
+  label?: string
   state:
     | { status: 'generating' }
     | { status: 'failed'; error: string }
     | { status: 'ready'; image: GeneratedImageDescriptor }
 }
 
-export function GeneratedImage({ state }: GeneratedImageProps) {
+export function GeneratedImage({ className, label = 'Generated image', state, style, xstyle, ...props }: GeneratedImageProps) {
   const [loaded, setLoaded] = useState<string>()
   const [failed, setFailed] = useState<string>()
   const [attempt, setAttempt] = useState(0)
@@ -20,7 +23,7 @@ export function GeneratedImage({ state }: GeneratedImageProps) {
   const imageFailed = image && failed === image.url
   const loading = state.status === 'generating' || (image && loaded !== image.url && !imageFailed)
   return (
-    <figure data-slot="generated-image" data-state={state.status} aria-label="Generated image" aria-busy={loading || undefined} {...stylex.props(styles.root)}>
+    <figure {...props} data-slot="generated-image" data-state={state.status} aria-label={label} aria-busy={loading || undefined} {...resolveStyleProps(styles.root, xstyle, className, style)}>
       <div {...stylex.props(styles.preview)}>
         {image && !imageFailed && (
           <img key={`${image.id}:${attempt}`} src={image.url} alt={image.alt} width={image.width} height={image.height}
@@ -38,7 +41,7 @@ export function GeneratedImage({ state }: GeneratedImageProps) {
       <figcaption {...stylex.props(styles.actions)}>
         {image && !imageFailed && loaded === image.url && (<>
           <a href={image.url} target="_blank" rel="noopener noreferrer" {...stylex.props(styles.link)}>Open image <ArrowUpRight aria-hidden="true" size={14} /></a>
-          <a href={`${image.url}${image.url.includes('?') ? '&' : '?'}download=1`} download="generated-image.png" {...stylex.props(styles.link)}><Download aria-hidden="true" size={14} /> Download</a>
+          <a href={image.downloadUrl ?? image.url} download="generated-image.png" {...stylex.props(styles.link)}><Download aria-hidden="true" size={14} /> Download</a>
         </>)}
       </figcaption>
     </figure>

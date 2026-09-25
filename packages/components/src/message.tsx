@@ -7,6 +7,7 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
+import { resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
 
 export type MessageActor = 'user' | 'assistant' | 'system'
 
@@ -15,7 +16,7 @@ type NativeListItemProps = Omit<
   'children' | 'className' | 'style'
 >
 
-export type MessageProps = NativeListItemProps & {
+export type MessageProps = NativeListItemProps & StyleProps & {
   actions?: ReactNode
   actor: MessageActor
   children: ReactNode
@@ -23,26 +24,24 @@ export type MessageProps = NativeListItemProps & {
   meta?: ReactNode
 }
 
-const defaultLabels: Record<MessageActor, string> = {
-  assistant: 'Assistant message',
-  system: 'System message',
-  user: 'Your message',
-}
-
 export function Message({
   actions,
   actor,
   children,
-  label = defaultLabels[actor],
+  className,
+  label,
   meta,
+  style,
+  xstyle,
   ...props
 }: MessageProps) {
+  const rootStyle = resolveStyleProps([styles.item, alignment[actor]], xstyle, className, style)
   return (
     <li
       {...props}
       data-actor={actor}
       data-slot="message"
-      {...stylex.props(styles.item, alignment[actor])}
+      {...rootStyle}
     >
       <article
         aria-label={label}

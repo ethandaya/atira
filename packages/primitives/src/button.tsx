@@ -10,13 +10,14 @@ import {
 import * as stylex from '@stylexjs/stylex'
 import { motion as animate, useReducedMotion } from 'motion/react'
 import { useState, type ComponentPropsWithRef } from 'react'
+import { resolveStyleProps, type StyleProps } from './style-props'
 
 type NativeButtonProps = Omit<
   ComponentPropsWithRef<'button'>,
   'className' | 'style'
 >
 
-export type ButtonProps = NativeButtonProps & {
+export type ButtonProps = NativeButtonProps & StyleProps & {
   focusableWhenDisabled?: boolean
   size?: 'chip' | 'compact' | 'regular' | 'icon'
   variant?: 'primary' | 'secondary' | 'outline' | 'quiet' | 'danger'
@@ -25,13 +26,22 @@ export type ButtonProps = NativeButtonProps & {
 export function Button({
   disabled = false,
   focusableWhenDisabled = false,
+  className,
   size = 'regular',
+  style,
   type: buttonType = 'button',
   variant = 'secondary',
+  xstyle,
   ...props
 }: ButtonProps) {
   const reduced = useReducedMotion()
   const [pressed, setPressed] = useState(false)
+  const resolvedStyle = resolveStyleProps(
+    [styles.root, sizes[size], variants[variant], disabled && styles.disabled],
+    xstyle,
+    className,
+    style,
+  )
   return (
     <BaseButton
       render={<animate.button
@@ -55,12 +65,7 @@ export function Button({
       data-slot="button"
       data-state={disabled ? 'disabled' : 'enabled'}
       data-variant={variant}
-      {...stylex.props(
-        styles.root,
-        sizes[size],
-        variants[variant],
-        disabled && styles.disabled,
-      )}
+      {...resolvedStyle}
     />
   )
 }

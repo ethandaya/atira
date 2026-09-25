@@ -9,13 +9,14 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
+import { resolveStyleProps, type StyleProps } from './style-props'
 
 type NativeTextareaProps = Omit<
   ComponentPropsWithRef<'textarea'>,
   'className' | 'defaultValue' | 'disabled' | 'id' | 'name' | 'style' | 'value'
 >
 
-export type TextareaFieldProps = NativeTextareaProps & {
+export type TextareaFieldProps = NativeTextareaProps & StyleProps & {
   defaultValue?: string
   description?: ReactNode
   disabled?: boolean
@@ -30,6 +31,7 @@ export type TextareaFieldProps = NativeTextareaProps & {
 }
 
 export function TextareaField({
+  className,
   defaultValue,
   description,
   disabled,
@@ -40,10 +42,13 @@ export function TextareaField({
   name,
   onValueChange,
   ref,
+  style,
   value,
   variant = 'outlined',
+  xstyle,
   ...props
 }: TextareaFieldProps) {
+  const controlStyle = resolveStyleProps([styles.control, variant === 'outlined' ? styles.outlined : styles.plain, invalid && styles.invalid], xstyle, className, style)
   return (
     <Field.Root
       disabled={disabled}
@@ -66,11 +71,7 @@ export function TextareaField({
         render={<textarea {...props} ref={ref} />}
         value={value}
         data-slot="textarea-field-control"
-        {...stylex.props(
-          styles.control,
-          variant === 'outlined' ? styles.outlined : styles.plain,
-          invalid && styles.invalid,
-        )}
+        {...controlStyle}
       />
       {description && (
         <Field.Description
@@ -116,7 +117,7 @@ const styles = stylex.create({
     fontFamily: type.family,
     fontSize: {
       default: type.sizeInput,
-      '@media (min-width: 48rem)': type.sizeBody,
+      '@media (min-width: 48rem) and (hover: hover) and (pointer: fine)': type.sizeBody,
     },
     fontWeight: type.weightRegular,
     inlineSize: '100%',

@@ -283,6 +283,7 @@ export type ToolState =
 export type GeneratedImageDescriptor = Readonly<{
   id: string
   url: string
+  downloadUrl?: string
   alt: string
   width: number
   height: number
@@ -290,25 +291,39 @@ export type GeneratedImageDescriptor = Readonly<{
 
 export type ToolPresentation =
   | { kind: 'image'; image?: GeneratedImageDescriptor }
-  | { kind: 'context'; operation: 'read' | 'list' | 'glob' | 'grep' }
-  | { kind: 'shell' }
   | {
+      kind: 'context'
+      operation: 'read' | 'list' | 'glob' | 'grep'
+      target?: string
+    }
+  | {
+      command?: string
+      durationMs?: number
+      exitCode?: number
+      kind: 'shell'
+      outputTruncated?: boolean
+      workingDirectory?: string
+    }
+  | {
+      content?: string
       diagnostics: readonly FileDiagnostic[]
       files: readonly FileChangeFile[]
       kind: 'file-change'
       operation: 'edit' | 'write' | 'patch'
+      path?: string
     }
   | {
       activity?: TaskActivity
       agent?: AgentIdentity
       blockers?: readonly string[]
       childSessionId?: string
+      description?: string
       kind: 'task'
       transcript?: TaskTranscript
     }
-  | { kind: 'web'; operation: 'fetch' | 'search' }
+  | { kind: 'web'; operation: 'fetch' | 'search'; target?: string }
   | { kind: 'todo' }
-  | { kind: 'skill' }
+  | { kind: 'skill'; name?: string }
   | { kind: 'generic' }
 
 export type ToolPart = Readonly<{

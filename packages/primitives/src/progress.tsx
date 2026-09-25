@@ -1,9 +1,12 @@
 import { Progress as BaseProgress } from '@base-ui/react/progress'
 import { colors, motion, radii, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import type { ReactNode } from 'react'
+import type { ComponentPropsWithRef, ReactNode } from 'react'
+import { resolveStyleProps, type StyleProps } from './style-props'
 
-export type ProgressProps = {
+type NativeProgressProps = Omit<ComponentPropsWithRef<typeof BaseProgress.Root>, 'children' | 'className' | 'max' | 'min' | 'style' | 'value'>
+
+export type ProgressProps = NativeProgressProps & StyleProps & {
   label: ReactNode
   max?: number
   min?: number
@@ -11,10 +14,10 @@ export type ProgressProps = {
   valueLabel?: ReactNode
 }
 
-export function Progress({ label, max = 100, min = 0, value, valueLabel }: ProgressProps) {
+export function Progress({ className, label, max = 100, min = 0, style, value, valueLabel, xstyle, ...props }: ProgressProps) {
   const state = value === null ? 'indeterminate' : value >= max ? 'complete' : 'progressing'
   return (
-    <BaseProgress.Root max={max} min={min} value={value} data-slot="progress" data-state={state} {...stylex.props(styles.root)}>
+    <BaseProgress.Root {...props} max={max} min={min} value={value} data-slot="progress" data-state={state} {...resolveStyleProps(styles.root, xstyle, className, style)}>
       <BaseProgress.Label data-slot="progress-label" {...stylex.props(styles.label)}>{label}</BaseProgress.Label>
       <BaseProgress.Value data-slot="progress-value" {...stylex.props(styles.value)}>{valueLabel === undefined ? undefined : () => valueLabel}</BaseProgress.Value>
       <BaseProgress.Track data-slot="progress-track" {...stylex.props(styles.track)}>

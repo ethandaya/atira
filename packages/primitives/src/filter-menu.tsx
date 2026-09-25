@@ -7,7 +7,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 
 export type FilterMenuItem = Readonly<{
   description?: string
@@ -27,6 +27,7 @@ export type FilterMenuProps<Item extends FilterMenuItem> = {
   onSelect: (item: Item) => void
   open?: boolean
   placeholder?: string
+  portalContainer?: ComponentProps<typeof Combobox.Portal>['container']
   triggerLabel: ReactNode
 }
 
@@ -41,8 +42,10 @@ export function FilterMenu<Item extends FilterMenuItem>({
   onSelect,
   open,
   placeholder = 'Filter…',
+  portalContainer,
   triggerLabel,
 }: FilterMenuProps<Item>) {
+  const portalContainerRef = useRef<HTMLSpanElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [internalOpen, setInternalOpen] = useState(false)
   const [internalValue, setInternalValue] = useState('')
@@ -66,6 +69,7 @@ export function FilterMenu<Item extends FilterMenuItem>({
   }, [resolvedOpen])
 
   return (
+    <span ref={portalContainerRef} data-slot="filter-menu" {...stylex.props(styles.container)}>
     <Combobox.Root<Item>
       autoHighlight
       inputValue={resolvedValue}
@@ -92,7 +96,7 @@ export function FilterMenu<Item extends FilterMenuItem>({
       >
         {triggerLabel}
       </Combobox.Trigger>
-      <Combobox.Portal>
+      <Combobox.Portal container={portalContainer ?? portalContainerRef}>
         <Combobox.Positioner
           align="start"
           side="top"
@@ -142,10 +146,14 @@ export function FilterMenu<Item extends FilterMenuItem>({
         </Combobox.Positioner>
       </Combobox.Portal>
     </Combobox.Root>
+    </span>
   )
 }
 
 const styles = stylex.create({
+  container: {
+    display: 'inline-flex',
+  },
   trigger: {
     appearance: 'none',
     backgroundColor: {

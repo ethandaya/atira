@@ -3,6 +3,8 @@ import {
   IconButton,
   StateTransition,
   type IconButtonProps,
+  resolveStyleProps,
+  type StyleProps,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
@@ -12,15 +14,18 @@ type NativeDivProps = Omit<
   'aria-label' | 'children' | 'className' | 'style'
 >
 
-export type ActionsProps = NativeDivProps & {
+export type ActionsProps = NativeDivProps & StyleProps & {
   children: ReactNode
   label?: string
 }
 
 export function Actions({
   children,
+  className,
   label = 'Message actions',
   ref,
+  style,
+  xstyle,
   ...props
 }: ActionsProps) {
   return (
@@ -30,7 +35,7 @@ export function Actions({
       aria-label={label}
       role="group"
       data-slot="actions"
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       {children}
     </div>

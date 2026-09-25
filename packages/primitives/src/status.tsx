@@ -1,11 +1,12 @@
 import { colors, radii, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef } from 'react'
+import { resolveStyleProps, type StyleProps } from './style-props'
 
 type NativeSpanProps = Omit<ComponentPropsWithRef<'span'>, 'className' | 'style'>
-export type StatusProps = NativeSpanProps & { tone?: 'neutral' | 'danger' }
+export type StatusProps = NativeSpanProps & StyleProps & { tone?: 'neutral' | 'danger' }
 
-export function Status({ role = 'status', tone = 'neutral', ...props }: StatusProps) {
+export function Status({ className, role = 'status', style, tone = 'neutral', xstyle, ...props }: StatusProps) {
   return (
     <span
       {...props}
@@ -13,7 +14,7 @@ export function Status({ role = 'status', tone = 'neutral', ...props }: StatusPr
       data-slot="status"
       data-state={tone}
       data-tone={tone}
-      {...stylex.props(styles.root, tones[tone])}
+      {...resolveStyleProps([styles.root, tones[tone]], xstyle, className, style)}
     />
   )
 }

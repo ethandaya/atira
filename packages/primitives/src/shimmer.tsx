@@ -1,13 +1,14 @@
 import { chatAppearance, colors } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
+import { resolveStyleProps, type StyleProps } from './style-props'
 
 type NativeSpanProps = Omit<
   ComponentPropsWithRef<'span'>,
   'children' | 'className' | 'style'
 >
 
-export type ShimmerProps = NativeSpanProps & {
+export type ShimmerProps = NativeSpanProps & StyleProps & {
   active?: boolean
   children: ReactNode
   duration?: 'fast' | 'regular' | 'slow'
@@ -16,8 +17,11 @@ export type ShimmerProps = NativeSpanProps & {
 export function Shimmer({
   active = true,
   children,
+  className,
   duration = 'regular',
   ref,
+  style,
+  xstyle,
   ...props
 }: ShimmerProps) {
   return (
@@ -26,10 +30,11 @@ export function Shimmer({
       ref={ref}
       data-slot="shimmer"
       data-state={active ? 'active' : 'idle'}
-      {...stylex.props(
-        styles.root,
-        active && styles.active,
-        active && durations[duration],
+      {...resolveStyleProps(
+        [styles.root, active && styles.active, active && durations[duration]] as stylex.StyleXStyles,
+        xstyle,
+        className,
+        style,
       )}
     >
       {children}

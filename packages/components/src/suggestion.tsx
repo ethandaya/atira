@@ -1,5 +1,5 @@
 import { space } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, type ButtonProps } from '@pretty-amped/primitives'
+import { Button, resolveStyleProps, type ButtonProps, type StyleProps } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
@@ -8,15 +8,18 @@ type NativeDivProps = Omit<
   'aria-label' | 'children' | 'className' | 'style'
 >
 
-export type SuggestionsProps = NativeDivProps & {
+export type SuggestionsProps = NativeDivProps & StyleProps & {
   children: ReactNode
   label?: string
 }
 
 export function Suggestions({
   children,
+  className,
   label = 'Suggested prompts',
   ref,
+  style,
+  xstyle,
   ...props
 }: SuggestionsProps) {
   return (
@@ -26,7 +29,7 @@ export function Suggestions({
       aria-label={label}
       role="group"
       data-slot="suggestions"
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       {children}
     </div>

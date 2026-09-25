@@ -3,7 +3,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { VisuallyHidden } from '@pretty-amped/primitives'
+import { resolveStyleProps, VisuallyHidden, type StyleProps } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
@@ -12,7 +12,7 @@ type NativeDivProps = Omit<
   'children' | 'className' | 'style'
 >
 
-type ResponseBaseProps = NativeDivProps & {
+type ResponseBaseProps = NativeDivProps & StyleProps & {
   children: ReactNode
 }
 
@@ -36,14 +36,14 @@ export type ResponseProps =
   | InterruptedResponseProps
   | FailedResponseProps
 
-export function Response({ children, error, status, ...props }: ResponseProps) {
+export function Response({ children, className, error, style, status, xstyle, ...props }: ResponseProps) {
   return (
     <div
       {...props}
       aria-busy={status === 'streaming' || undefined}
       data-slot="response"
       data-state={status}
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       <div data-slot="response-content" {...stylex.props(styles.content)}>
         {children}

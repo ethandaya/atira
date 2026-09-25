@@ -4,6 +4,7 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
+import { resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
 import { Children, type ComponentPropsWithRef, type ReactNode } from 'react'
 
 type NativeSectionProps = Omit<
@@ -11,7 +12,7 @@ type NativeSectionProps = Omit<
   'aria-label' | 'children' | 'className' | 'style'
 >
 
-export type ThreadProps = NativeSectionProps & {
+export type ThreadProps = NativeSectionProps & StyleProps & {
   busy?: boolean
   children?: ReactNode
   empty?: ReactNode
@@ -21,8 +22,11 @@ export type ThreadProps = NativeSectionProps & {
 export function Thread({
   busy = false,
   children,
+  className,
   empty = 'No messages yet.',
   label,
+  style,
+  xstyle,
   ...props
 }: ThreadProps) {
   const isEmpty = Children.toArray(children).length === 0
@@ -34,7 +38,7 @@ export function Thread({
       aria-label={label}
       data-slot="thread"
       data-state={busy ? 'busy' : isEmpty ? 'empty' : 'populated'}
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       {isEmpty ? (
         <div data-slot="thread-empty" {...stylex.props(styles.empty)}>

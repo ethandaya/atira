@@ -4,7 +4,7 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, VisuallyHidden } from '@pretty-amped/primitives'
+import { Button, VisuallyHidden, resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
   useState,
@@ -21,7 +21,7 @@ type CopyState =
   | { status: 'idle' }
   | { code: string; status: 'copying' | 'copied' | 'failed' }
 
-export type CodeBlockProps = NativeDivProps & {
+export type CodeBlockProps = NativeDivProps & StyleProps & {
   code: string
   copyable?: boolean
   filename?: string
@@ -32,13 +32,16 @@ export type CodeBlockProps = NativeDivProps & {
 }
 
 export function CodeBlock({
+  className,
   code,
   copyable = true,
   filename,
   label = filename ? `Code in ${filename}` : 'Code block',
   language,
   onCopy,
+  style,
   wrap = false,
+  xstyle,
   ...props
 }: CodeBlockProps) {
   const [copyState, setCopyState] = useState<CopyState>({ status: 'idle' })
@@ -77,7 +80,7 @@ export function CodeBlock({
       data-slot="code-block"
       data-state={copyStatus}
       data-wrap={wrap ? 'true' : 'false'}
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       {hasHeader && (
         <div data-slot="code-block-header" {...stylex.props(styles.header)}>

@@ -5,7 +5,7 @@ import {
   radii,
   space,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { IconButton, TextareaField } from '@pretty-amped/primitives'
+import { IconButton, TextareaField, resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { SendHorizontal, Square } from 'lucide-react'
 import type {
@@ -21,7 +21,7 @@ type NativeFormProps = Omit<
   'children' | 'className' | 'onSubmit' | 'style'
 >
 
-type ComposerBaseProps = NativeFormProps & {
+type ComposerBaseProps = NativeFormProps & StyleProps & {
   actions?: ReactNode
   composerLabel?: string
   inputLabel?: string
@@ -49,6 +49,7 @@ export type ComposerProps = PassiveComposerProps | ActiveComposerProps
 
 export function Composer({
   actions,
+  className,
   composerLabel = 'Message composer',
   inputLabel = 'Message',
   maxLength,
@@ -60,8 +61,10 @@ export function Composer({
   ref,
   sendLabel = 'Send',
   status = 'idle',
+  style,
   textareaRef,
   value,
+  xstyle,
   ...props
 }: ComposerProps) {
   const disabled = status === 'disabled'
@@ -96,7 +99,7 @@ export function Composer({
       onSubmit={submit}
       data-slot="composer"
       data-state={status}
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       <TextareaField
         autoComplete="off"

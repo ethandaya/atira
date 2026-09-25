@@ -11,6 +11,8 @@ import {
   StateTransition,
   TextTransition,
   VisuallyHidden,
+  resolveStyleProps,
+  type StyleProps,
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Minus, ShieldAlert, X } from 'lucide-react'
@@ -31,7 +33,7 @@ type NativeDivProps = Omit<
   'aria-label' | 'children' | 'className' | 'id' | 'style'
 >
 
-export type ToolActivityProps = NativeDivProps & {
+export type ToolActivityProps = NativeDivProps & StyleProps & {
   children?: ReactNode
   defaultOpen?: boolean
   id: string
@@ -55,12 +57,15 @@ const stateLabels: Record<ToolActivityState['status'], string> = {
 
 export function ToolActivity({
   children,
+  className,
   defaultOpen,
   id,
   state,
   summary,
   summaryTransitionKey,
+  style,
   tool,
+  xstyle,
   ...props
 }: ToolActivityProps) {
   const summaryRef = useRef<HTMLSpanElement>(null)
@@ -143,7 +148,7 @@ export function ToolActivity({
       data-state={state.status}
       data-tool={tool}
       data-tool-activity-id={id}
-      {...stylex.props(styles.root)}
+      {...resolveStyleProps(styles.root, xstyle, className, style)}
     >
       {active && (
         <VisuallyHidden role="status">
