@@ -133,3 +133,66 @@ test('recovers a failed sign-in request and lets the user cancel the pending cod
   ).toBeVisible()
   await expect(page.getByText('RETRY-CODE')).toHaveCount(0)
 })
+
+test('keeps sign-in cancellable while the authenticated runtime initializes', async ({
+  page,
+}) => {
+  let state = 'signed_out'
+  let initializing = false
+  let release!: () => void
+  const initialization = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/api/runtime', async (route) => {
+    const available = state === 'authenticated'
+    if (available) {
+      initializing = true
+      await initialization
+    }
+    await route.fulfill({
+      json: {
+        conversationSessions: true,
+        available,
+        model: 'test',
+        runtime: 'Nanocodex',
+      },
+    })
+  })
+  await page.route('**/api/auth/chatgpt', async (route) => {
+    const method = route.request().method()
+    if (method === 'POST') state = 'pending'
+    else if (method === 'DELETE') state = 'signed_out'
+    else if (state === 'pending') state = 'authenticated'
+    await route.fulfill({
+      json:
+        state === 'pending'
+          ? {
+              state,
+              verificationUrl: 'https://auth.openai.com/codex/device',
+              userCode: 'WAIT-CODE',
+              expiresAt: Date.now() + 60_000,
+              pollAfterMs: 1_000,
+            }
+          : { state },
+    })
+  })
+  try {
+    await page.goto('/?view=playground')
+    const signin = page.getByRole('button', {
+      name: 'Sign in with ChatGPT',
+      exact: true,
+    })
+    await signin.click()
+    await expect.poll(() => initializing).toBe(true)
+    await expect(
+      page.getByRole('button', { name: 'Sign out of ChatGPT' }),
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Cancel sign-in' }).click()
+    await expect(signin).toBeVisible()
+    release()
+    await expect(page.getByText('Playground unavailable')).toBeVisible()
+    await expect(page.getByText('WAIT-CODE')).toHaveCount(0)
+  } finally {
+    release()
+  }
+})
