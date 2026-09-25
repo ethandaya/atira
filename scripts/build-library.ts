@@ -1,7 +1,8 @@
 import { transformAsync, transformFileAsync } from '@babel/core'
+import type { PluginObj } from '@babel/core'
 import transformReactJsx from '@babel/plugin-transform-react-jsx'
 import transformTypeScript from '@babel/plugin-transform-typescript'
-import stylexPlugin from '@stylexjs/babel-plugin'
+import stylexPlugin, { type Rule } from '@stylexjs/babel-plugin'
 import { execFileSync } from 'node:child_process'
 import {
   cp,
@@ -19,9 +20,11 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const names = ['foundations', 'primitives', 'components', 'blocks']
 
-async function files(directory) {
+type StylexMetadata = { stylex?: Rule[] }
+
+async function files(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true })
-  const output = []
+  const output: string[] = []
   for (const entry of entries) {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) output.push(...(await files(path)))
@@ -30,8 +33,8 @@ async function files(directory) {
   return output
 }
 
-function nodeEsmSpecifiers() {
-  const withExtension = (value) =>
+function nodeEsmSpecifiers(): PluginObj {
+  const withExtension = (value: string) =>
     value.startsWith('.') && !/\.(?:[cm]?js|json)$/.test(value)
       ? `${value}.js`
       : value
@@ -61,7 +64,7 @@ function nodeEsmSpecifiers() {
   }
 }
 
-async function rewriteDeclarationSpecifiers(outputRoot) {
+async function rewriteDeclarationSpecifiers(outputRoot: string) {
   for (const path of await files(outputRoot)) {
     if (!path.endsWith('.d.ts')) continue
     const source = await readFile(path, 'utf8')
@@ -78,7 +81,7 @@ async function rewriteDeclarationSpecifiers(outputRoot) {
   }
 }
 
-async function buildPackage(name, outputRoot) {
+async function buildPackage(name: string, outputRoot: string) {
   const packageRoot = join(root, 'packages', name)
   const sourceRoot = join(packageRoot, 'src')
   const rules = []
@@ -117,7 +120,9 @@ async function buildPackage(name, outputRoot) {
       ],
     })
     if (!result?.code) throw new Error(`Babel emitted no code for ${source}`)
-    rules.push(...(result.metadata.stylex ?? []))
+    rules.push(
+      ...((result.metadata as StylexMetadata | undefined)?.stylex ?? []),
+    )
     const target = join(outputRoot, path.replace(/\.[cm]?[jt]sx?$/, '.js'))
     await mkdir(dirname(target), { recursive: true })
     await writeFile(target, `${result.code}\n`)
