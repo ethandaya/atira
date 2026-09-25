@@ -1,5 +1,5 @@
-import { Button } from '@pretty-amped/primitives'
-import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
+import { Button } from '@atira/primitives'
+import { colors, space, type } from '@atira/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { useEffect, useRef, useState } from 'react'
 import type { z } from 'zod'

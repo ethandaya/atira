@@ -1,17 +1,17 @@
-import type { GeneratedImageDescriptor } from '@pretty-amped/foundations/chat'
+import type { GeneratedImageDescriptor } from '@atira/foundations/chat'
 import {
   colors,
   motion,
   radii,
   space,
   type,
-} from '@pretty-amped/foundations/tokens.stylex'
+} from '@atira/foundations/tokens.stylex'
 import {
   Button,
   Spinner,
   resolveStyleProps,
   type StyleProps,
-} from '@pretty-amped/primitives'
+} from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Download, ArrowUpRight } from 'lucide-react'
 import { useState, type ComponentPropsWithRef } from 'react'

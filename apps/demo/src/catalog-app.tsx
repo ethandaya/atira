@@ -1,6 +1,6 @@
-import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
-import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
-import { Button } from '@pretty-amped/primitives'
+import { darkTheme, lightTheme } from '@atira/foundations/themes'
+import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { Button } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { lazy, Suspense, useEffect, useState } from 'react'
 
@@ -87,7 +87,7 @@ export function CatalogApp() {
   const pageName = entry?.name ?? 'Components'
 
   useEffect(() => {
-    document.title = `${pageName} — Pretty Amped`
+    document.title = `${pageName} — Atira`
   }, [pageName])
 
   return (
@@ -104,7 +104,7 @@ export function CatalogApp() {
       </a>
       <header {...stylex.props(styles.header)}>
         <a href="/" {...stylex.props(styles.wordmark)}>
-          Pretty Amped
+          Atira
         </a>
         <nav aria-label="Demo views" {...stylex.props(styles.actions)}>
           <a href="/?view=playground" {...stylex.props(styles.link)}>

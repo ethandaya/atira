@@ -7,11 +7,11 @@ import type {
   QuestionResponse,
   RevertedPrompt,
   TodoListView,
-} from '@pretty-amped/foundations/chat'
+} from '@atira/foundations/chat'
 import {
   compareRequestOrder,
   selectActiveRequest,
-} from '@pretty-amped/foundations/chat-invariants'
+} from '@atira/foundations/chat-invariants'
 import {
   chatAppearance,
   colors,
@@ -19,7 +19,7 @@ import {
   shadows,
   space,
   type,
-} from '@pretty-amped/foundations/tokens.stylex'
+} from '@atira/foundations/tokens.stylex'
 import {
   Button,
   AnimatePresence,
@@ -30,7 +30,7 @@ import {
   RadioOption,
   TextareaField,
   VisuallyHidden,
-} from '@pretty-amped/primitives'
+} from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Circle, CircleDot, X } from 'lucide-react'
 import {

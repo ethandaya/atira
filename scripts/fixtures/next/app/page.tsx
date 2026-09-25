@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex'
-import { darkTheme } from '@pretty-amped/foundations/themes'
+import { darkTheme } from '@atira/foundations/themes'
 import { Client } from './client'
 
 export default function Page() {

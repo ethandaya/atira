@@ -9,7 +9,7 @@ import { chromium } from '@playwright/test'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const fixtures = join(root, 'scripts/fixtures')
-const temporary = await mkdtemp(join(tmpdir(), 'pretty-amped-consumers-'))
+const temporary = await mkdtemp(join(tmpdir(), 'atira-consumers-'))
 const packs = join(temporary, 'packs')
 const packageNames = ['foundations', 'primitives', 'components', 'blocks']
 
@@ -32,7 +32,7 @@ async function json(path, value) {
 async function workspace(path, tarballs) {
   await writeFile(
     join(path, 'pnpm-workspace.yaml'),
-    `overrides:\n${packageNames.map((name, index) => `  '@pretty-amped/${name}': file:${tarballs[index]}`).join('\n')}\nallowBuilds:\n  sharp: true\n`,
+    `overrides:\n${packageNames.map((name, index) => `  '@atira/${name}': file:${tarballs[index]}`).join('\n')}\nallowBuilds:\n  sharp: true\n`,
   )
 }
 
@@ -71,7 +71,7 @@ try {
     root,
   )
   const tarballs = packageNames.map((name) =>
-    join(packs, `pretty-amped-${name}-0.0.0.tgz`),
+    join(packs, `atira-${name}-0.0.0.tgz`),
   )
 
   const vite = join(temporary, 'vite')
@@ -81,10 +81,10 @@ try {
     type: 'module',
     scripts: { build: 'tsc --noEmit && vite build' },
     dependencies: {
-      '@pretty-amped/foundations': `file:${tarballs[0]}`,
-      '@pretty-amped/primitives': `file:${tarballs[1]}`,
-      '@pretty-amped/components': `file:${tarballs[2]}`,
-      '@pretty-amped/blocks': `file:${tarballs[3]}`,
+      '@atira/foundations': `file:${tarballs[0]}`,
+      '@atira/primitives': `file:${tarballs[1]}`,
+      '@atira/components': `file:${tarballs[2]}`,
+      '@atira/blocks': `file:${tarballs[3]}`,
       '@stylexjs/stylex': '0.19.0',
       '@stylexjs/unplugin': '0.19.0',
       '@vitejs/plugin-react': '6.1.1',
@@ -104,7 +104,7 @@ try {
     await readFile(join(vite, 'dist/light-module-graph.json'), 'utf8'),
   )
   const buttonModules = lightGraph.filter((id) =>
-    /@pretty-amped[/+]primitives.*[/\\]button\.js(?:$|\?)/i.test(id),
+    /@atira[/+]primitives.*[/\\]button\.js(?:$|\?)/i.test(id),
   )
   if (buttonModules.length === 0)
     throw new Error(
@@ -112,7 +112,7 @@ try {
     )
   if (
     lightGraph.some((id) =>
-      /streamdown|[/\\]@pretty-amped[/+](?:components|blocks)(?:[/\\]|@)|[/\\]providers?[/\\]|[/\\]zod(?:[/\\]|$)|[/\\]Zod(?:[/\\]|$)/i.test(
+      /streamdown|[/\\]@atira[/+](?:components|blocks)(?:[/\\]|@)|[/\\]providers?[/\\]|[/\\]zod(?:[/\\]|$)|[/\\]Zod(?:[/\\]|$)/i.test(
         id,
       ),
     )
@@ -198,8 +198,8 @@ try {
     type: 'module',
     scripts: { build: 'tsc --noEmit && vite build' },
     dependencies: {
-      '@pretty-amped/foundations': 'workspace:*',
-      '@pretty-amped/primitives': 'workspace:*',
+      '@atira/foundations': 'workspace:*',
+      '@atira/primitives': 'workspace:*',
       '@stylexjs/stylex': '0.19.0',
       '@stylexjs/unplugin': '0.19.0',
       '@vitejs/plugin-react': '6.1.1',
@@ -257,8 +257,8 @@ try {
     private: true,
     scripts: { build: 'next build', start: 'next start' },
     dependencies: {
-      '@pretty-amped/foundations': `file:${tarballs[0]}`,
-      '@pretty-amped/primitives': `file:${tarballs[1]}`,
+      '@atira/foundations': `file:${tarballs[0]}`,
+      '@atira/primitives': `file:${tarballs[1]}`,
       '@stylexjs/stylex': '0.19.0',
       '@types/react': '19.2.18',
       '@types/react-dom': '19.2.5',

@@ -1,4 +1,4 @@
-import { Composer } from '@pretty-amped/components'
+import { Composer } from '@atira/components'
 import { useState } from 'react'
 
 export function ComposerExample({ compact = false }: { compact?: boolean }) {

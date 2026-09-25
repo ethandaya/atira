@@ -1,5 +1,5 @@
 {
-  "name": "@pretty-amped/blocks",
+  "name": "@atira/blocks",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,9 +11,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@pretty-amped/components": "workspace:*",
-    "@pretty-amped/foundations": "workspace:*",
-    "@pretty-amped/primitives": "workspace:*",
+    "@atira/components": "workspace:*",
+    "@atira/foundations": "workspace:*",
+    "@atira/primitives": "workspace:*",
     "lucide-react": "catalog:"
   },
   "peerDependencies": {

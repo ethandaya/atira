@@ -1,4 +1,4 @@
-import { chatAppearance, colors } from '@pretty-amped/foundations/tokens.stylex'
+import { chatAppearance, colors } from '@atira/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 import { resolveStyleProps, type StyleProps } from './style-props'

@@ -1,4 +1,4 @@
-# Pretty Amped
+# Atira
 
 A React 19 and StyleX component library for agent interfaces, with an interactive
 catalog and a Nanocodex playground. Applications own providers, transport,
@@ -32,13 +32,6 @@ available. Nanocodex includes its built-in delegation tools by default.
 Deterministic workflow and stress fixtures are test-only. Playwright enables
 them with `VITE_TEST_FIXTURES=true`; ordinary development and production builds
 do not expose a deterministic chat demo.
-
-The optional Lapse inspector is not required to install, test, or build. If you
-have private registry access, install it locally with
-`pnpm --filter @pretty-amped/demo add -D @aiforui/lapse@0.19.0`, restart the dev
-server, then add `?lapse` to the URL. Keep these dependency edits out of ordinary
-library changes and credentials in user-level npm configuration. Without Lapse,
-the demo logs an explanatory warning. Production builds never mount it.
 
 ## Conversations and recovery
 
@@ -80,11 +73,12 @@ Zod validates untrusted HTTP, stream, model, and saved-history data in the demo.
 The library receives typed props and controlled state; it does not import these
 schemas or require Nanocodex.
 
-For private consumption, see [installation](docs/private-consumption.md).
+For local packed-artifact and source consumption, see
+[installation](docs/consumption.md).
 `pnpm pack:library` produces ESM, declarations, extracted CSS, and compiled themes.
 `pnpm export:library <new-directory>` exports source for hosts that own their
-StyleX compilation pipeline. Packages remain private. Publication, licensing,
-and release versioning require separate decisions.
+StyleX compilation pipeline. Packages remain unpublished at version `0.0.0`;
+registry publication and release versioning require separate decisions.
 
 ## Verification
 
@@ -93,7 +87,7 @@ pnpm check
 ```
 
 The full gate runs formatting, lint, typechecks, tests, React Doctor, production
-builds, browser tests, and private-consumer tests in that order. It stops at the
+builds, browser tests, and consumer tests in that order. It stops at the
 first failure. Oxlint covers JavaScript and TypeScript, including backend `.mjs`
 files; React Doctor covers the demo and the three React library packages.
 Warnings fail both Oxlint and React Doctor. Narrow source comments explain
@@ -126,3 +120,7 @@ and check module boundaries, CSS, StyleX overrides, interaction, and hydration.
 Browser tests cover loading, unavailable, recovery, keyboard, and narrow layouts.
 The backend typecheck covers contracts, catalog, conversations, replay, and web
 search; server orchestration is not yet fully typechecked.
+
+## License
+
+MIT

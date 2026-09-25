@@ -2,14 +2,9 @@ import type {
   ChatError,
   ConnectionState,
   SessionActivity,
-} from '@pretty-amped/foundations/chat'
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
-import { Button, VisuallyHidden } from '@pretty-amped/primitives'
+} from '@atira/foundations/chat'
+import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
+import { Button, VisuallyHidden } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 
 export type ConnectionNoticeProps = {

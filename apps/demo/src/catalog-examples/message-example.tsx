@@ -1,4 +1,4 @@
-import { Message, Response } from '@pretty-amped/components'
+import { Message, Response } from '@atira/components'
 
 export function MessageExample() {
   return (

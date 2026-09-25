@@ -1,5 +1,5 @@
 {
-  "name": "@pretty-amped/demo",
+  "name": "@atira/demo",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,10 +11,10 @@
   "dependencies": {
     "@fontsource-variable/geist": "catalog:",
     "@fontsource-variable/geist-mono": "catalog:",
-    "@pretty-amped/blocks": "workspace:*",
-    "@pretty-amped/components": "workspace:*",
-    "@pretty-amped/foundations": "workspace:*",
-    "@pretty-amped/primitives": "workspace:*",
+    "@atira/blocks": "workspace:*",
+    "@atira/components": "workspace:*",
+    "@atira/foundations": "workspace:*",
+    "@atira/primitives": "workspace:*",
     "@stylexjs/stylex": "catalog:",
     "lucide-react": "catalog:",
     "nanocodex": "0.6.5",

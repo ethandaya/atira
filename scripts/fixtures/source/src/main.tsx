@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as stylex from '@stylexjs/stylex'
-import { darkTheme } from '@pretty-amped/foundations/themes'
-import { Button } from '@pretty-amped/primitives'
+import { darkTheme } from '@atira/foundations/themes'
+import { Button } from '@atira/primitives'
 import './host.css'
 
 const hostStyles = stylex.create({

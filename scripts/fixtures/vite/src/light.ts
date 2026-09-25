@@ -1,1 +1,1 @@
-export { Button } from '@pretty-amped/primitives/button'
+export { Button } from '@atira/primitives/button'

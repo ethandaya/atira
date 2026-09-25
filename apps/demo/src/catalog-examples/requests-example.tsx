@@ -2,12 +2,12 @@ import {
   PermissionRequest,
   QuestionRequest,
   type PermissionRequestState,
-} from '@pretty-amped/components'
+} from '@atira/components'
 import type {
   QuestionRequestView,
   QuestionResponse,
-} from '@pretty-amped/foundations/chat'
-import { Button } from '@pretty-amped/primitives'
+} from '@atira/foundations/chat'
+import { Button } from '@atira/primitives'
 import { useRef, useState } from 'react'
 
 function createQuestion(version: number): QuestionRequestView {

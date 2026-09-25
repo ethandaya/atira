@@ -6,9 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const destination = process.argv[2]
 if (!destination) {
-  throw new Error(
-    'Usage: pnpm export:library /path/to/new/pretty-amped-directory',
-  )
+  throw new Error('Usage: pnpm export:library /path/to/new/atira-directory')
 }
 
 // Never overwrite an existing export or a consumer's changes.
@@ -24,7 +22,7 @@ await exportSource().catch(async (error) => {
   await rm(output, { recursive: true, force: true })
   throw error
 })
-console.log(`Private library source exported to ${output}`)
+console.log(`Library source exported to ${output}`)
 
 async function exportSource() {
   const names = ['foundations', 'primitives', 'components', 'blocks']
@@ -65,7 +63,7 @@ async function exportSource() {
     join(output, 'package.json'),
     `${JSON.stringify(
       {
-        name: 'pretty-amped-private-source',
+        name: 'atira-source',
         private: true,
         packageManager,
         engines,
@@ -78,5 +76,5 @@ async function exportSource() {
     join(output, 'pnpm-workspace.yaml'),
     'packages:\n  - packages/*\n',
   )
-  await cp(join(root, 'docs/private-consumption.md'), join(output, 'README.md'))
+  await cp(join(root, 'docs/consumption.md'), join(output, 'README.md'))
 }

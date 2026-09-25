@@ -1,14 +1,5 @@
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
-import {
-  Button,
-  resolveStyleProps,
-  type StyleProps,
-} from '@pretty-amped/primitives'
+import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
+import { Button, resolveStyleProps, type StyleProps } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useId, type ComponentPropsWithRef } from 'react'
 

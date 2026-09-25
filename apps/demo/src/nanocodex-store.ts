@@ -12,8 +12,8 @@ import type {
   RevertedPrompt,
   SubmitIntent,
   ToolPart,
-} from '@pretty-amped/foundations/chat'
-import { composerDraftText } from '@pretty-amped/foundations/chat-invariants'
+} from '@atira/foundations/chat'
+import { composerDraftText } from '@atira/foundations/chat-invariants'
 import {
   runtimeResponseSchema,
   savedHistorySchema,
@@ -75,7 +75,7 @@ const savedHistoryTypeAgreement: JsonDefined<ParsedSavedHistory> extends SavedHi
   ? true
   : never = true
 
-const conversationStorageKey = 'pretty-amped:conversations:v1'
+const conversationStorageKey = 'atira:conversations:v1'
 
 export class NanocodexChatStore implements ChatStore {
   readonly #listeners = new Set<() => void>()

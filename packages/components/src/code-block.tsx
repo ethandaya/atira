@@ -1,15 +1,10 @@
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
 import {
   Button,
   VisuallyHidden,
   resolveStyleProps,
   type StyleProps,
-} from '@pretty-amped/primitives'
+} from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useState, type ComponentPropsWithRef, type ReactNode } from 'react'
 

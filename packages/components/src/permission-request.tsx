@@ -1,10 +1,5 @@
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
-import { Button } from '@pretty-amped/primitives'
+import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
+import { Button } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useEffect, useId, useRef, type MouseEvent } from 'react'
 

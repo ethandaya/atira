@@ -13,7 +13,7 @@
     "**/coverage/**",
     "test-results/**",
     "playwright-report/**",
-    "private-packages/**",
+    "package-artifacts/**",
     ".amp/**",
     ".agents/skills/**"
   ]

@@ -1,18 +1,34 @@
 {
-  "name": "pretty-amped",
+  "name": "atira",
   "version": "0.0.0",
   "private": true,
+  "description": "React and StyleX components for agent interfaces.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethandaya/atira.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ethandaya/atira/issues"
+  },
+  "homepage": "https://github.com/ethandaya/atira#readme",
+  "keywords": [
+    "agent-interface",
+    "component-library",
+    "react",
+    "stylex"
+  ],
   "packageManager": "pnpm@11.1.3",
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "pnpm build:library && pnpm --filter @pretty-amped/demo build",
+    "build": "pnpm build:library && pnpm --filter @atira/demo build",
     "build:library": "node scripts/build-library.mjs",
     "export:library": "node scripts/export-library.mjs",
-    "pack:library": "node scripts/build-library.mjs --pack private-packages",
+    "pack:library": "node scripts/build-library.mjs --pack package-artifacts",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm run doctor && pnpm build && pnpm test:browser && pnpm test:consumers",
-    "dev": "pnpm --filter @pretty-amped/demo dev",
+    "dev": "pnpm --filter @atira/demo dev",
     "doctor": "react-doctor --project apps/demo,packages/primitives,packages/components,packages/blocks --no-score --no-supply-chain --blocking warning -y",
     "doctor:changed": "pnpm run doctor --scope changed --include-untracked",
     "format": "oxfmt --write .",
@@ -22,7 +38,7 @@
     "precommit": "lint-staged --concurrent false --hide-unstaged",
     "prepare": "husky",
     "test": "node --test scripts/export-library.test.mjs scripts/build-library.test.mjs && vitest run",
-    "test:consumers": "node scripts/test-private-consumers.mjs",
+    "test:consumers": "node scripts/test-consumers.mjs",
     "test:browser": "playwright test",
     "typecheck": "pnpm --recursive --if-present typecheck && pnpm exec tsc -p apps/demo/tsconfig.backend.json"
   },

@@ -1,5 +1,5 @@
 {
-  "name": "@pretty-amped/components",
+  "name": "@atira/components",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@pretty-amped/foundations": "workspace:*",
-    "@pretty-amped/primitives": "workspace:*",
+    "@atira/foundations": "workspace:*",
+    "@atira/primitives": "workspace:*",
     "lucide-react": "catalog:",
     "streamdown": "2.6.0"
   },

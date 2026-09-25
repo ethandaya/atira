@@ -1,13 +1,8 @@
-import { ChatSession, useChatStore } from '@pretty-amped/blocks'
-import {
-  Loader,
-  Outcome,
-  Suggestion,
-  Suggestions,
-} from '@pretty-amped/components'
-import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
-import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
-import { ActionMenu, Button, IconButton } from '@pretty-amped/primitives'
+import { ChatSession, useChatStore } from '@atira/blocks'
+import { Loader, Outcome, Suggestion, Suggestions } from '@atira/components'
+import { darkTheme, lightTheme } from '@atira/foundations/themes'
+import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { ActionMenu, Button, IconButton } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, History, Moon, Plus, Sun } from 'lucide-react'
 import { Profiler, useEffect, useState, useSyncExternalStore } from 'react'
@@ -140,7 +135,7 @@ function DemoApp() {
       <header {...stylex.props(styles.header)}>
         <div {...stylex.props(styles.headerInner)}>
           <div {...stylex.props(styles.identity)}>
-            <h1 {...stylex.props(styles.title)}>Pretty Amped</h1>
+            <h1 {...stylex.props(styles.title)}>Atira</h1>
             <span {...stylex.props(styles.product)}>Playground</span>
           </div>
           <nav aria-label="Demo views" {...stylex.props(styles.headerActions)}>
@@ -247,9 +242,9 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
 
   useEffect(() => {
     const browserWindow = window as Window & {
-      __prettyAmpedFixtureMetrics?: FixtureMetrics
+      __atiraFixtureMetrics?: FixtureMetrics
     }
-    browserWindow.__prettyAmpedFixtureMetrics = metrics
+    browserWindow.__atiraFixtureMetrics = metrics
     const appendTurn = () => store.appendTurn()
     const requestPermission = () => store.requestPermission()
     const requestQuestion = () => store.requestQuestion()
@@ -260,26 +255,17 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
           : 1_000
       store.burstDeltas(count)
     }
-    window.addEventListener('pretty-amped:append-turn', appendTurn)
-    window.addEventListener(
-      'pretty-amped:request-permission',
-      requestPermission,
-    )
-    window.addEventListener('pretty-amped:request-question', requestQuestion)
-    window.addEventListener('pretty-amped:burst-deltas', burstDeltas)
+    window.addEventListener('atira:append-turn', appendTurn)
+    window.addEventListener('atira:request-permission', requestPermission)
+    window.addEventListener('atira:request-question', requestQuestion)
+    window.addEventListener('atira:burst-deltas', burstDeltas)
     return () => {
-      window.removeEventListener('pretty-amped:append-turn', appendTurn)
-      window.removeEventListener(
-        'pretty-amped:request-permission',
-        requestPermission,
-      )
-      window.removeEventListener(
-        'pretty-amped:request-question',
-        requestQuestion,
-      )
-      window.removeEventListener('pretty-amped:burst-deltas', burstDeltas)
+      window.removeEventListener('atira:append-turn', appendTurn)
+      window.removeEventListener('atira:request-permission', requestPermission)
+      window.removeEventListener('atira:request-question', requestQuestion)
+      window.removeEventListener('atira:burst-deltas', burstDeltas)
       metrics.longTaskObserver?.disconnect()
-      delete browserWindow.__prettyAmpedFixtureMetrics
+      delete browserWindow.__atiraFixtureMetrics
     }
   }, [metrics, store])
 
