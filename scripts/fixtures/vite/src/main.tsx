@@ -19,14 +19,32 @@ const hostStyles = stylex.create({
 function App() {
   const [clicked, setClicked] = useState(false)
   const [choice, setChoice] = useState('')
-  return <main data-theme="dark" {...stylex.props(darkTheme)}>
-    <Button xstyle={[hostStyles.override, hostStyles.dynamic('rgb(210, 220, 230)')]} className="consumer-class" style={{ outlineWidth: '3px' }} variant="primary" onClick={() => setClicked(true)}>{clicked ? 'Verified' : 'Check integration'}</Button>
-    <Button variant="primary">Theme sample</Button>
-    <SelectPicker label="Model" value={choice} onValueChange={setChoice} options={[{ label: 'Fast', value: 'fast' }, { label: 'Deep', value: 'deep' }]} />
-    <output>{choice}</output>
-    <Message actor="assistant">Component leaf</Message>
-    <JumpToLatest pendingCount={1} onJump={() => {}} />
-  </main>
+  return (
+    <main data-theme="dark" {...stylex.props(darkTheme)}>
+      <Button
+        xstyle={[hostStyles.override, hostStyles.dynamic('rgb(210, 220, 230)')]}
+        className="consumer-class"
+        style={{ outlineWidth: '3px' }}
+        variant="primary"
+        onClick={() => setClicked(true)}
+      >
+        {clicked ? 'Verified' : 'Check integration'}
+      </Button>
+      <Button variant="primary">Theme sample</Button>
+      <SelectPicker
+        label="Model"
+        value={choice}
+        onValueChange={setChoice}
+        options={[
+          { label: 'Fast', value: 'fast' },
+          { label: 'Deep', value: 'deep' },
+        ]}
+      />
+      <output>{choice}</output>
+      <Message actor="assistant">Component leaf</Message>
+      <JumpToLatest pendingCount={1} onJump={() => {}} />
+    </main>
+  )
 }
 
 createRoot(document.getElementById('root')!).render(<App />)

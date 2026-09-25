@@ -8,11 +8,12 @@ type NativeSpanProps = Omit<
   'children' | 'className' | 'style'
 >
 
-export type ShimmerProps = NativeSpanProps & StyleProps & {
-  active?: boolean
-  children: ReactNode
-  duration?: 'fast' | 'regular' | 'slow'
-}
+export type ShimmerProps = NativeSpanProps &
+  StyleProps & {
+    active?: boolean
+    children: ReactNode
+    duration?: 'fast' | 'regular' | 'slow'
+  }
 
 export function Shimmer({
   active = true,
@@ -31,7 +32,11 @@ export function Shimmer({
       data-slot="shimmer"
       data-state={active ? 'active' : 'idle'}
       {...resolveStyleProps(
-        [styles.root, active && styles.active, active && durations[duration]] as stylex.StyleXStyles,
+        [
+          styles.root,
+          active && styles.active,
+          active && durations[duration],
+        ] as stylex.StyleXStyles,
         xstyle,
         className,
         style,

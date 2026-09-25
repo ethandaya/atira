@@ -68,10 +68,14 @@ function responseText(payload) {
   if (!isRecord(payload) || !Array.isArray(payload.output)) return ''
 
   return payload.output
-    .flatMap((item) => isRecord(item) && Array.isArray(item.content) ? item.content : [])
-    .map((content) => isRecord(content) && content.type === 'output_text'
-      ? content.text
-      : undefined)
+    .flatMap((item) =>
+      isRecord(item) && Array.isArray(item.content) ? item.content : [],
+    )
+    .map((content) =>
+      isRecord(content) && content.type === 'output_text'
+        ? content.text
+        : undefined,
+    )
     .filter((text) => typeof text === 'string')
     .join('\n')
     .trim()
@@ -107,15 +111,21 @@ function responseSources(payload) {
   /** @type {Set<string>} */
   const seen = new Set()
   for (const candidate of candidates) {
-    if (!isRecord(candidate) || typeof candidate.url !== 'string' || !safeHttpUrl(candidate.url) || seen.has(candidate.url)) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.url !== 'string' ||
+      !safeHttpUrl(candidate.url) ||
+      seen.has(candidate.url)
+    ) {
       continue
     }
     const url = candidate.url
     seen.add(url)
     sources.push({
-      title: typeof candidate.title === 'string' && candidate.title.trim()
-        ? candidate.title.trim().replaceAll(/\s+/g, ' ').slice(0, 200)
-        : new URL(url).hostname,
+      title:
+        typeof candidate.title === 'string' && candidate.title.trim()
+          ? candidate.title.trim().replaceAll(/\s+/g, ' ').slice(0, 200)
+          : new URL(url).hostname,
       url,
     })
   }

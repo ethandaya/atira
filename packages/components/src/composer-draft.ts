@@ -11,8 +11,9 @@ type EditableSelection = Readonly<{
 
 export function editableDraftText(draft: ComposerDraft) {
   return draft.segments
-    .filter((segment): segment is Extract<DraftSegment, { type: 'text' }> =>
-      segment.type === 'text',
+    .filter(
+      (segment): segment is Extract<DraftSegment, { type: 'text' }> =>
+        segment.type === 'text',
     )
     .map((segment) => segment.text)
     .join('')
@@ -26,7 +27,8 @@ export function editableSelection(draft: ComposerDraft): {
   const anchor = editablePointOffset(draft, draft.selection.anchor)
   const focus = editablePointOffset(draft, draft.selection.focus)
   return {
-    direction: anchor === focus ? 'none' : anchor > focus ? 'backward' : 'forward',
+    direction:
+      anchor === focus ? 'none' : anchor > focus ? 'backward' : 'forward',
     end: Math.max(anchor, focus),
     start: Math.min(anchor, focus),
   }
@@ -95,8 +97,14 @@ export function insertDraftReference(
       textOffset = end
       continue
     }
-    const local = Math.max(0, Math.min(segment.text.length, offset - textOffset))
-    rightId = uniqueSegmentId(draft, `${segment.id}-after-${draft.revision + 1}`)
+    const local = Math.max(
+      0,
+      Math.min(segment.text.length, offset - textOffset),
+    )
+    rightId = uniqueSegmentId(
+      draft,
+      `${segment.id}-after-${draft.revision + 1}`,
+    )
     segments.push(
       { ...segment, text: segment.text.slice(0, local) },
       reference,
@@ -119,9 +127,10 @@ export function insertDraftReference(
 export function removeDraftReference(draft: ComposerDraft, segmentId: string) {
   const index = draft.segments.findIndex((segment) => segment.id === segmentId)
   if (index < 0) return draft
-  const fallback =
-    [...draft.segments.slice(index + 1), ...draft.segments.slice(0, index).reverse()]
-      .find((segment) => segment.type === 'text')
+  const fallback = [
+    ...draft.segments.slice(index + 1),
+    ...draft.segments.slice(0, index).reverse(),
+  ].find((segment) => segment.type === 'text')
   if (!fallback) return draft
   const replacePoint = (point: DraftPoint): DraftPoint =>
     point.segmentId === segmentId
@@ -138,33 +147,41 @@ export function removeDraftReference(draft: ComposerDraft, segmentId: string) {
   }
 }
 
-function inferReplacement(
-  draft: ComposerDraft,
-  oldText: string,
-  text: string,
-) {
+function inferReplacement(draft: ComposerDraft, oldText: string, text: string) {
   const oldSelection = editableSelection(draft)
-  const selectedReplacementLength = text.length - (oldText.length - oldSelection.end + oldSelection.start)
+  const selectedReplacementLength =
+    text.length - (oldText.length - oldSelection.end + oldSelection.start)
   if (
     selectedReplacementLength >= 0 &&
-    oldText.slice(0, oldSelection.start) === text.slice(0, oldSelection.start) &&
-    oldText.slice(oldSelection.end) === text.slice(oldSelection.start + selectedReplacementLength)
+    oldText.slice(0, oldSelection.start) ===
+      text.slice(0, oldSelection.start) &&
+    oldText.slice(oldSelection.end) ===
+      text.slice(oldSelection.start + selectedReplacementLength)
   ) {
     return {
       end: oldSelection.end,
-      inserted: text.slice(oldSelection.start, oldSelection.start + selectedReplacementLength),
+      inserted: text.slice(
+        oldSelection.start,
+        oldSelection.start + selectedReplacementLength,
+      ),
       start: oldSelection.start,
     }
   }
 
   let start = 0
-  while (start < oldText.length && start < text.length && oldText[start] === text[start]) start++
+  while (
+    start < oldText.length &&
+    start < text.length &&
+    oldText[start] === text[start]
+  )
+    start++
   let suffix = 0
   while (
     suffix < oldText.length - start &&
     suffix < text.length - start &&
     oldText[oldText.length - suffix - 1] === text[text.length - suffix - 1]
-  ) suffix++
+  )
+    suffix++
   return {
     end: oldText.length - suffix,
     inserted: text.slice(start, text.length - suffix),
@@ -177,14 +194,27 @@ function withSelection(
   selection: EditableSelection,
   preferred: ComposerDraft['selection'],
 ): ComposerDraft {
-  const anchor = pointAtOffset(draft, selection.anchor, preferred.anchor.segmentId)
+  const anchor = pointAtOffset(
+    draft,
+    selection.anchor,
+    preferred.anchor.segmentId,
+  )
   const focus = pointAtOffset(draft, selection.focus, preferred.focus.segmentId)
-  if (anchor.segmentId === draft.selection.anchor.segmentId && anchor.offset === draft.selection.anchor.offset &&
-      focus.segmentId === draft.selection.focus.segmentId && focus.offset === draft.selection.focus.offset) return draft
+  if (
+    anchor.segmentId === draft.selection.anchor.segmentId &&
+    anchor.offset === draft.selection.anchor.offset &&
+    focus.segmentId === draft.selection.focus.segmentId &&
+    focus.offset === draft.selection.focus.offset
+  )
+    return draft
   return { ...draft, selection: { anchor, focus } }
 }
 
-function pointAtOffset(draft: ComposerDraft, target: number, preferredId?: string): DraftPoint {
+function pointAtOffset(
+  draft: ComposerDraft,
+  target: number,
+  preferredId?: string,
+): DraftPoint {
   let offset = 0
   let lastText: Extract<DraftSegment, { type: 'text' }> | undefined
   for (const segment of draft.segments) {
@@ -193,7 +223,8 @@ function pointAtOffset(draft: ComposerDraft, target: number, preferredId?: strin
     if (target < end || (target === end && segment.id === preferredId)) {
       return { offset: Math.max(0, target - offset), segmentId: segment.id }
     }
-    if (target === offset && segment.id === preferredId) return { offset: 0, segmentId: segment.id }
+    if (target === offset && segment.id === preferredId)
+      return { offset: 0, segmentId: segment.id }
     offset = end
     lastText = segment
   }
@@ -206,7 +237,9 @@ function editablePointOffset(draft: ComposerDraft, point: DraftPoint) {
   let offset = 0
   for (const segment of draft.segments) {
     if (segment.id === point.segmentId) {
-      return segment.type === 'text' ? offset + Math.min(point.offset, segment.text.length) : offset
+      return segment.type === 'text'
+        ? offset + Math.min(point.offset, segment.text.length)
+        : offset
     }
     if (segment.type === 'text') offset += segment.text.length
   }
@@ -225,7 +258,8 @@ function insertionOwner(draft: ComposerDraft, target: number) {
   for (const segment of draft.segments) {
     if (segment.type !== 'text') continue
     const end = offset + segment.text.length
-    if (target < end || (target === end && segment.id === preferred)) return segment.id
+    if (target < end || (target === end && segment.id === preferred))
+      return segment.id
     if (target === offset && segment.id === preferred) return segment.id
     offset = end
     last = segment.id

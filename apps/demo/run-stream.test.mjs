@@ -27,7 +27,10 @@ it('replays buffered events before live events and survives a disconnected clien
   stream.end()
   stream.write('ignored')
   expect(first.write.mock.calls).toEqual([['{"type":"started"}\n'], ['\n']])
-  expect(second.write.mock.calls).toEqual([['{"type":"started"}\n'], ['{"type":"completed"}\n']])
+  expect(second.write.mock.calls).toEqual([
+    ['{"type":"started"}\n'],
+    ['{"type":"completed"}\n'],
+  ])
   expect(second.end).toHaveBeenCalledOnce()
   const replay = response()
   stream.attach(replay)
@@ -50,7 +53,9 @@ it('keeps live output but refuses partial replay above the byte limit', () => {
   stream.attach(overLimit)
   expect(overLimit.writeHead).toHaveBeenCalledWith(409, expect.any(Object))
   expect(overLimit.write).not.toHaveBeenCalled()
-  expect(JSON.parse(overLimit.end.mock.calls[0][0]).error).toContain('replay limit')
+  expect(JSON.parse(overLimit.end.mock.calls[0][0]).error).toContain(
+    'replay limit',
+  )
   expect(live.write.mock.calls).toEqual([['éé'], ['x']])
   stream.end()
   expect(vi.getTimerCount()).toBe(0)

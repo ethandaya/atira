@@ -3,7 +3,11 @@ import { ConversationError, ConversationService } from './conversations.mjs'
 import { RunStream } from './run-stream.mjs'
 
 const turn = (key = 'account:conversation') => ({
-  key, resume: false, retry: false, turnId: 'turn-1', input: 'hello',
+  key,
+  resume: false,
+  retry: false,
+  turnId: 'turn-1',
+  input: 'hello',
 })
 
 function service(options = {}) {
@@ -17,27 +21,52 @@ function service(options = {}) {
 it('owns turn identity, retries, replay, and active exclusion', async () => {
   const conversations = service()
   const first = await conversations.acquire(turn())
-  await expect(conversations.acquire(turn())).rejects.toMatchObject({ status: 409 })
+  await expect(conversations.acquire(turn())).rejects.toMatchObject({
+    status: 409,
+  })
   const stream = new RunStream()
   first.session.lastTurn.stream = stream
   const events = [
     { type: 'started' },
     { type: 'reasoning-delta', text: 'Inspecting the catalog.' },
-    { type: 'tool-started', id: 'catalog', tool: 'inspect_component_catalog', summary: 'Searching', input: 'button' },
-    { type: 'tool-completed', id: 'catalog', tool: 'inspect_component_catalog', summary: 'Searched', status: 'succeeded', output: 'Button' },
+    {
+      type: 'tool-started',
+      id: 'catalog',
+      tool: 'inspect_component_catalog',
+      summary: 'Searching',
+      input: 'button',
+    },
+    {
+      type: 'tool-completed',
+      id: 'catalog',
+      tool: 'inspect_component_catalog',
+      summary: 'Searched',
+      status: 'succeeded',
+      output: 'Button',
+    },
     { type: 'completed', message: 'Done.' },
   ]
   for (const event of events) stream.write(`${JSON.stringify(event)}\n`)
   stream.end()
   conversations.complete(first.session, first.control)
   conversations.release(first.session, first.control)
-  const replay = (await conversations.acquire({ ...turn(), retry: true })).replay
+  const replay = (await conversations.acquire({ ...turn(), retry: true }))
+    .replay
   expect(replay).toBe(stream)
-  const response = { writeHead: vi.fn(), flushHeaders: vi.fn(), write: vi.fn(), end: vi.fn() }
+  const response = {
+    writeHead: vi.fn(),
+    flushHeaders: vi.fn(),
+    write: vi.fn(),
+    end: vi.fn(),
+  }
   replay.attach(response)
-  expect(response.write.mock.calls.map(([chunk]) => JSON.parse(chunk))).toEqual(events)
+  expect(response.write.mock.calls.map(([chunk]) => JSON.parse(chunk))).toEqual(
+    events,
+  )
   expect(response.end).toHaveBeenCalledOnce()
-  await expect(conversations.acquire({ ...turn(), retry: true, input: 'changed' })).rejects.toBeInstanceOf(ConversationError)
+  await expect(
+    conversations.acquire({ ...turn(), retry: true, input: 'changed' }),
+  ).rejects.toBeInstanceOf(ConversationError)
 })
 
 it('does not let a delayed cancellation abort a newer turn', async () => {

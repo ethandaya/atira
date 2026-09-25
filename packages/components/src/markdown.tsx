@@ -31,16 +31,21 @@ export type MarkdownProps = NativeDivProps & {
 const linkSafety = { enabled: false } as const
 const disallowedElements = ['img'] as const
 const streamingChunkLimit = 1_024
-const streamingFade = { animation: 'fadeIn', duration: 90, easing: 'ease-out', sep: 'word', stagger: 0 } as const
+const streamingFade = {
+  animation: 'fadeIn',
+  duration: 90,
+  easing: 'ease-out',
+  sep: 'word',
+  stagger: 0,
+} as const
 
 export function Markdown({ children, status, ...props }: MarkdownProps) {
   const [parseIncrementally] = useState(createIncrementalMarkdownChunker)
   const chunks = useMemo(
-    () => status === 'streaming' ? parseIncrementally(children) : [children],
+    () => (status === 'streaming' ? parseIncrementally(children) : [children]),
     [children, parseIncrementally, status],
   )
-  const settledChunks =
-    status === 'streaming' ? chunks.slice(0, -1) : chunks
+  const settledChunks = status === 'streaming' ? chunks.slice(0, -1) : chunks
   const streamingChunk = status === 'streaming' ? chunks.at(-1) : undefined
 
   return (
@@ -56,7 +61,11 @@ export function Markdown({ children, status, ...props }: MarkdownProps) {
         <SettledMarkdown chunks={settledChunks} />
         {streamingChunk !== undefined && (
           <Streamdown
-            animated={streamingChunk.length <= streamingChunkLimit ? streamingFade : false}
+            animated={
+              streamingChunk.length <= streamingChunkLimit
+                ? streamingFade
+                : false
+            }
             className={stylex.props(styles.content).className ?? ''}
             components={markdownComponents}
             controls={false}
@@ -321,14 +330,21 @@ function Table({
       const offset = Math.abs(element.scrollLeft)
       const start = offset > 1
       const end = element.scrollWidth - element.clientWidth - offset > 1
-      setEdges(previous => previous.start === start && previous.end === end ? previous : { start, end })
+      setEdges((previous) =>
+        previous.start === start && previous.end === end
+          ? previous
+          : { start, end },
+      )
     }
     const observer = new ResizeObserver(measure)
     observer.observe(element)
     if (element.firstElementChild) observer.observe(element.firstElementChild)
     element.addEventListener('scroll', measure, { passive: true })
     measure()
-    return () => { observer.disconnect(); element.removeEventListener('scroll', measure) }
+    return () => {
+      observer.disconnect()
+      element.removeEventListener('scroll', measure)
+    }
   }, [])
   return (
     <div
@@ -338,7 +354,12 @@ function Table({
       tabIndex={0}
       data-overflow-start={edges.start || undefined}
       data-overflow-end={edges.end || undefined}
-      {...stylex.props(styles.tableScroller, edges.start && styles.tableFadeStart, edges.end && styles.tableFadeEnd, edges.start && edges.end && styles.tableFadeBoth)}
+      {...stylex.props(
+        styles.tableScroller,
+        edges.start && styles.tableFadeStart,
+        edges.end && styles.tableFadeEnd,
+        edges.start && edges.end && styles.tableFadeBoth,
+      )}
     >
       <table {...props} {...stylex.props(styles.table)} />
     </div>
@@ -360,7 +381,9 @@ function TableHeader({
   style: _style,
   ...props
 }: ElementProps<'th'>) {
-  return <th {...props} {...stylex.props(styles.tableCell, styles.tableHeader)} />
+  return (
+    <th {...props} {...stylex.props(styles.tableCell, styles.tableHeader)} />
+  )
 }
 
 function TableCell({
@@ -382,7 +405,12 @@ function HorizontalRule({
 }
 
 function StreamingSpan({ node: _node, ...props }: ElementProps<'span'>) {
-  return <span {...props} {...stylex.props('data-sd-animate' in props && styles.streamingWord)} />
+  return (
+    <span
+      {...props}
+      {...stylex.props('data-sd-animate' in props && styles.streamingWord)}
+    />
+  )
 }
 
 const markdownComponents = {
@@ -568,7 +596,8 @@ const styles = stylex.create({
     },
   },
   tableFadeBoth: {
-    maskImage: 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)',
+    maskImage:
+      'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)',
   },
   tableHead: {
     backgroundColor: 'transparent',

@@ -22,15 +22,18 @@ type Manifest = Readonly<{
 }>
 
 const manifests = [
-  new URL('../../../packages/components/src/chat.manifest.json', import.meta.url),
+  new URL(
+    '../../../packages/components/src/chat.manifest.json',
+    import.meta.url,
+  ),
   new URL('../../../packages/blocks/src/chat.manifest.json', import.meta.url),
 ]
 
 describe('chat component manifests', () => {
   it('keeps every chat item explicit and machine-readable', async () => {
     const parsed = await Promise.all(
-      manifests.map(async (url) =>
-        JSON.parse(await readFile(url, 'utf8')) as Manifest,
+      manifests.map(
+        async (url) => JSON.parse(await readFile(url, 'utf8')) as Manifest,
       ),
     )
     const items = parsed.flatMap((manifest) => manifest.items)
@@ -60,7 +63,9 @@ describe('chat component manifests', () => {
       ] as const) {
         expect(item[field].length, `${item.id}.${field}`).toBeGreaterThan(0)
       }
-      expect(Array.isArray(item.sideEffects), `${item.id}.sideEffects`).toBe(true)
+      expect(Array.isArray(item.sideEffects), `${item.id}.sideEffects`).toBe(
+        true,
+      )
     }
   })
 })

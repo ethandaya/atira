@@ -12,7 +12,9 @@ vi.mock('@stylexjs/stylex', () => ({
   firstThatWorks: (...values: string[]) => values[0],
   keyframes: () => '',
   props: (...styles: unknown[]) => {
-    const flattened = styles.flat(Infinity).filter(Boolean) as Array<Record<string, unknown>>
+    const flattened = styles.flat(Infinity).filter(Boolean) as Array<
+      Record<string, unknown>
+    >
     return {
       className: flattened.map((_, index) => `sx-${index}`).join(' '),
       style: Object.assign({}, ...flattened),
@@ -32,10 +34,20 @@ afterEach(cleanup)
 describe('public primitive API contracts', () => {
   it('merges defaults, xstyle, ordinary classes, and inline styles predictably', () => {
     const result = resolveStyleProps(
-      { color: 'red', '--dynamic': 'default' } as unknown as stylex.StyleXStyles,
-      { color: 'blue', backgroundColor: 'black', '--dynamic': 'override' } as unknown as stylex.StyleXStyles,
+      {
+        color: 'red',
+        '--dynamic': 'default',
+      } as unknown as stylex.StyleXStyles,
+      {
+        color: 'blue',
+        backgroundColor: 'black',
+        '--dynamic': 'override',
+      } as unknown as stylex.StyleXStyles,
       'consumer-class',
-      { backgroundColor: 'white', '--dynamic': 'inline' } as React.CSSProperties,
+      {
+        backgroundColor: 'white',
+        '--dynamic': 'inline',
+      } as React.CSSProperties,
     )
 
     expect(result.className).toContain('consumer-class')
@@ -50,10 +62,19 @@ describe('public primitive API contracts', () => {
     const buttonRef = createRef<HTMLButtonElement>()
     const inputRef = createRef<HTMLInputElement>()
     const onClick = vi.fn()
-    const { getByRole } = render(<>
-      <Button ref={buttonRef} className="consumer" data-test="button" onClick={onClick}>Run</Button>
-      <TextField ref={inputRef} data-test="input" label="Name" />
-    </>)
+    const { getByRole } = render(
+      <>
+        <Button
+          ref={buttonRef}
+          className="consumer"
+          data-test="button"
+          onClick={onClick}
+        >
+          Run
+        </Button>
+        <TextField ref={inputRef} data-test="input" label="Name" />
+      </>,
+    )
 
     fireEvent.click(getByRole('button', { name: 'Run' }))
     expect(onClick).toHaveBeenCalledOnce()
@@ -67,11 +88,29 @@ describe('public primitive API contracts', () => {
     const progressRef = createRef<HTMLDivElement>()
     const statusRef = createRef<HTMLSpanElement>()
     const onKeyDown = vi.fn()
-    const { getByTestId } = render(<>
-      <Disclosure ref={disclosureRef} data-testid="disclosure" onKeyDown={onKeyDown} className="consumer" style={{ marginTop: 3 }} summary="Details">Evidence</Disclosure>
-      <Progress ref={progressRef} data-testid="progress" label="Upload" value={25} />
-      <Status ref={statusRef} data-testid="status">Ready</Status>
-    </>)
+    const { getByTestId } = render(
+      <>
+        <Disclosure
+          ref={disclosureRef}
+          data-testid="disclosure"
+          onKeyDown={onKeyDown}
+          className="consumer"
+          style={{ marginTop: 3 }}
+          summary="Details"
+        >
+          Evidence
+        </Disclosure>
+        <Progress
+          ref={progressRef}
+          data-testid="progress"
+          label="Upload"
+          value={25}
+        />
+        <Status ref={statusRef} data-testid="status">
+          Ready
+        </Status>
+      </>,
+    )
 
     fireEvent.keyDown(getByTestId('disclosure'), { key: 'Enter' })
     expect(onKeyDown).toHaveBeenCalledOnce()

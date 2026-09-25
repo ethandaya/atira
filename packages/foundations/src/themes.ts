@@ -106,12 +106,14 @@ export const warmGeometry = stylex.createTheme(radii, {
 })
 
 export const warmShadows = stylex.createTheme(shadows, {
-  raised: '0 0 0 1px oklch(0 0 0 / 0.07), 0 2px 3px oklch(0 0 0 / 0.025), 0 12px 28px -12px oklch(0 0 0 / 0.13)',
+  raised:
+    '0 0 0 1px oklch(0 0 0 / 0.07), 0 2px 3px oklch(0 0 0 / 0.025), 0 12px 28px -12px oklch(0 0 0 / 0.13)',
 })
 
 export const warmDarkShadows = stylex.createTheme(shadows, {
   raised: '0 0 0 1px oklch(1 0 0 / 0.12)',
-  overlay: '0 0 0 1px oklch(1 0 0 / 0.16), 0 16px 36px -12px oklch(0 0 0 / 0.4)',
+  overlay:
+    '0 0 0 1px oklch(1 0 0 / 0.16), 0 16px 36px -12px oklch(0 0 0 / 0.4)',
 })
 
 const warmChatValues = {
@@ -121,7 +123,8 @@ const warmChatValues = {
   inputPaddingBlock: '1.25rem',
   inputPaddingInline: '1.25rem',
   composerFocusOffset: '4px',
-  composerFocusShadow: '0 0 0 1px oklch(0 0 0 / 0.12), 0 6px 12px -6px oklch(0 0 0 / 0.08), 0 18px 36px -14px oklch(0 0 0 / 0.15)',
+  composerFocusShadow:
+    '0 0 0 1px oklch(0 0 0 / 0.12), 0 6px 12px -6px oklch(0 0 0 / 0.08), 0 18px 36px -14px oklch(0 0 0 / 0.15)',
   composerToolbarSurface: colors.surfaceMuted,
   requestTitleSize: '1.125rem',
   requestGap: '0.75rem',

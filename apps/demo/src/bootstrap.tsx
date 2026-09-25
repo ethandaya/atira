@@ -12,7 +12,8 @@ if (!root) {
 }
 
 const parameters = new URLSearchParams(window.location.search)
-const gateway = parameters.get('view') === 'playground' || parameters.has('fixture')
+const gateway =
+  parameters.get('view') === 'playground' || parameters.has('fixture')
 const App = gateway
   ? (await import('./app')).App
   : (await import('./catalog-app')).CatalogApp

@@ -7,8 +7,19 @@ import { createServer as createViteServer } from 'vite'
 
 import { RunStream } from './run-stream.mjs'
 import { searchWeb } from './web-search.mjs'
-import { apiErrorSchema, authStatusSchema, cancelRequestSchema, cancelResponseSchema, chatRequestSchema, runtimeResponseSchema, streamEventSchema } from './chat-contract.mjs'
-import { formatCatalogOutput, loadComponentCatalog } from './component-catalog.mjs'
+import {
+  apiErrorSchema,
+  authStatusSchema,
+  cancelRequestSchema,
+  cancelResponseSchema,
+  chatRequestSchema,
+  runtimeResponseSchema,
+  streamEventSchema,
+} from './chat-contract.mjs'
+import {
+  formatCatalogOutput,
+  loadComponentCatalog,
+} from './component-catalog.mjs'
 import { ConversationError, ConversationService } from './conversations.mjs'
 import { DemoAuth } from './auth.mjs'
 
@@ -40,9 +51,10 @@ const inspectComponentCatalog = {
     type: 'object',
   },
   handler(input) {
-    const query = isRecord(input) && typeof input.query === 'string'
-      ? input.query.trim().slice(0, 200)
-      : ''
+    const query =
+      isRecord(input) && typeof input.query === 'string'
+        ? input.query.trim().slice(0, 200)
+        : ''
     const terms = query.toLowerCase().match(/[a-z0-9-]+/g) ?? []
     const ranked = componentCatalog
       .map((component) => {
@@ -51,7 +63,9 @@ const inspectComponentCatalog = {
           component.category,
           component.summary,
           ...component.states,
-        ].join(' ').toLowerCase()
+        ]
+          .join(' ')
+          .toLowerCase()
         const score = terms.reduce(
           (total, term) => total + (searchable.includes(term) ? 1 : 0),
           0,
@@ -60,9 +74,10 @@ const inspectComponentCatalog = {
       })
       .filter(({ score }) => score > 0)
       .sort((left, right) => right.score - left.score)
-    const matches = (ranked.length > 0
-      ? ranked.map(({ component }) => component)
-      : componentCatalog.slice(0, 6)
+    const matches = (
+      ranked.length > 0
+        ? ranked.map(({ component }) => component)
+        : componentCatalog.slice(0, 6)
     ).slice(0, 8)
 
     return { matches, query }
@@ -89,10 +104,16 @@ const searchWebTool = {
     type: 'object',
   },
   handler(input, { signal } = {}) {
-    const query = isRecord(input) && typeof input.query === 'string'
-      ? input.query.trim().slice(0, 500)
-      : ''
-    return searchWeb({ apiKey: openAiApiKey, model: nanocodexModel, query, signal })
+    const query =
+      isRecord(input) && typeof input.query === 'string'
+        ? input.query.trim().slice(0, 500)
+        : ''
+    return searchWeb({
+      apiKey: openAiApiKey,
+      model: nanocodexModel,
+      query,
+      signal,
+    })
   },
   startedSummary: 'Searching the web',
 }
@@ -100,7 +121,7 @@ const conversations = new ConversationService({
   createSession: createRuntimeSession,
   disposeSession,
 })
-const auth = new DemoAuth({ reset: id => conversations.resetAccount(id) })
+const auth = new DemoAuth({ reset: (id) => conversations.resetAccount(id) })
 
 let vite
 const server = createServer((request, response) => {
@@ -110,7 +131,10 @@ const server = createServer((request, response) => {
     })
     .catch((error) => {
       const message = publicError(error)
-      const status = error instanceof HttpError || error instanceof ConversationError ? error.status : 500
+      const status =
+        error instanceof HttpError || error instanceof ConversationError
+          ? error.status
+          : 500
       console.error(`[demo-runtime] ${message}`)
 
       if (!response.headersSent) {
@@ -134,10 +158,13 @@ server.listen(port, host, () => {
   console.log(`Pretty Amped demo listening on http://${host}:${port}`)
 })
 
-const pruneTimer = setInterval(() => {
-  void conversations.prune()
-  void auth.prune()
-}, 5 * 60 * 1000)
+const pruneTimer = setInterval(
+  () => {
+    void conversations.prune()
+    void auth.prune()
+  },
+  5 * 60 * 1000,
+)
 pruneTimer.unref()
 
 process.once('SIGINT', () => void shutdown())
@@ -152,30 +179,53 @@ async function handleRequest(request, response) {
 
   // SameSite cookies alone do not protect same-site, cross-origin requests.
   const origin = request.headers.origin
-  if (request.headers['sec-fetch-site'] === 'cross-site' ||
-      (origin && new URL(origin).host !== request.headers.host)) {
+  if (
+    request.headers['sec-fetch-site'] === 'cross-site' ||
+    (origin && new URL(origin).host !== request.headers.host)
+  ) {
     throw new HttpError('Cross-origin API requests are not allowed.', 403)
   }
 
-  if (url.pathname === '/api/auth/chatgpt' && ['GET', 'POST', 'DELETE'].includes(request.method)) {
+  if (
+    url.pathname === '/api/auth/chatgpt' &&
+    ['GET', 'POST', 'DELETE'].includes(request.method)
+  ) {
     const id = sessionId(request, response)
-    const status = await auth.change(id, request.method === 'POST' ? 'start' : request.method === 'DELETE' ? 'logout' : 'status')
+    const status = await auth.change(
+      id,
+      request.method === 'POST'
+        ? 'start'
+        : request.method === 'DELETE'
+          ? 'logout'
+          : 'status',
+    )
     sendJson(response, 200, authStatusSchema.parse(status))
     return true
   }
 
   if (request.method === 'GET' && url.pathname === '/api/runtime') {
     const id = sessionId(request, response)
-    const runtime = await auth.run(id, async account => runtimeConfiguration(account))
-    sendJson(response, 200, runtimeResponseSchema.parse({
-      conversationSessions: true,
-      retryTurns: true,
-      available: Boolean(runtime),
-      ...(!runtime ? { message: 'Sign in with ChatGPT or set OPENAI_API_KEY on the server.' } : {}),
-      model: runtime?.model ?? nanocodexModel,
-      models: runtime?.models ?? [],
-      runtime: runtime?.label ?? 'Unavailable',
-    }))
+    const runtime = await auth.run(id, async (account) =>
+      runtimeConfiguration(account),
+    )
+    sendJson(
+      response,
+      200,
+      runtimeResponseSchema.parse({
+        conversationSessions: true,
+        retryTurns: true,
+        available: Boolean(runtime),
+        ...(!runtime
+          ? {
+              message:
+                'Sign in with ChatGPT or set OPENAI_API_KEY on the server.',
+            }
+          : {}),
+        model: runtime?.model ?? nanocodexModel,
+        models: runtime?.models ?? [],
+        runtime: runtime?.label ?? 'Unavailable',
+      }),
+    )
     return true
   }
 
@@ -186,9 +236,15 @@ async function handleRequest(request, response) {
 
   if (request.method === 'GET' && url.pathname === '/api/chat') {
     const id = sessionId(request, response)
-    const stream = conversations.attach(conversationKey(request, id), url.searchParams.get('turnId') ?? '')
+    const stream = conversations.attach(
+      conversationKey(request, id),
+      url.searchParams.get('turnId') ?? '',
+    )
     if (!stream) {
-      sendJson(response, 404, { error: 'This run is no longer available. Start a new conversation if the server restarted.' })
+      sendJson(response, 404, {
+        error:
+          'This run is no longer available. Start a new conversation if the server restarted.',
+      })
       return true
     }
     stream.attach(response)
@@ -214,20 +270,43 @@ async function streamChat(request, response) {
   const parsed = chatRequestSchema.safeParse(await readJson(request))
   if (!parsed.success) {
     const issue = parsed.error.issues[0]
-    throw new HttpError(issue?.message ?? 'Invalid chat request.', issue?.code === 'too_big' ? 413 : 400)
+    throw new HttpError(
+      issue?.message ?? 'Invalid chat request.',
+      issue?.code === 'too_big' ? 413 : 400,
+    )
   }
   const body = parsed.data
   const input = body.input
   const key = conversationKey(request, id)
   const turnId = body.turnId ?? randomUUID()
   await conversations.prune()
-  const acquisition = await auth.run(id, async account => {
+  const acquisition = await auth.run(id, async (account) => {
     const runtime = runtimeConfiguration(account)
-    if (!runtime) throw new HttpError('Sign in with ChatGPT or set OPENAI_API_KEY on the server.', 503)
-    if (body.model && !runtime.models.some(option => option.modelId === body.model.modelId && option.providerId === body.model.providerId)) {
-      throw new HttpError('This model is not supported by the active provider. Choose a model from the picker.', 400)
+    if (!runtime)
+      throw new HttpError(
+        'Sign in with ChatGPT or set OPENAI_API_KEY on the server.',
+        503,
+      )
+    if (
+      body.model &&
+      !runtime.models.some(
+        (option) =>
+          option.modelId === body.model.modelId &&
+          option.providerId === body.model.providerId,
+      )
+    ) {
+      throw new HttpError(
+        'This model is not supported by the active provider. Choose a model from the picker.',
+        400,
+      )
     }
-    return conversations.acquire({ key, resume: body.resume, retry: body.retry, turnId, input })
+    return conversations.acquire({
+      key,
+      resume: body.resume,
+      retry: body.retry,
+      turnId,
+      input,
+    })
   })
   const { session } = acquisition
   if (acquisition.replay) {
@@ -246,9 +325,12 @@ async function streamChat(request, response) {
     control.abortController.signal.throwIfAborted()
   } catch (error) {
     conversations.release(session, control)
-    writeEvent(response, control.cancelRequested
-      ? { type: 'cancelled' }
-      : { type: 'error', message: publicError(error) })
+    writeEvent(
+      response,
+      control.cancelRequested
+        ? { type: 'cancelled' }
+        : { type: 'error', message: publicError(error) },
+    )
     response.end()
     return
   }
@@ -338,16 +420,26 @@ async function streamChat(request, response) {
     } else if (event.type === 'tool.call') {
       const tool = payloadString(event.payload, 'tool')
       writeEvent(response, {
-        type: 'tool-started', id: payloadString(event.payload, 'call_id'),
-        tool, summary: tool, input: JSON.stringify(event.payload.arguments),
+        type: 'tool-started',
+        id: payloadString(event.payload, 'call_id'),
+        tool,
+        summary: tool,
+        input: JSON.stringify(event.payload.arguments),
       })
     } else if (event.type === 'tool.result') {
       const tool = payloadString(event.payload, 'tool')
-      const failed = ['error', 'failed'].includes(payloadString(event.payload, 'status'))
+      const failed = ['error', 'failed'].includes(
+        payloadString(event.payload, 'status'),
+      )
       writeEvent(response, {
-        type: 'tool-completed', id: payloadString(event.payload, 'call_id'),
-        tool, summary: tool, status: failed ? 'failed' : 'succeeded',
-        ...(failed ? { error: 'The tool failed.' } : { output: JSON.stringify(event.payload.structured_result) }),
+        type: 'tool-completed',
+        id: payloadString(event.payload, 'call_id'),
+        tool,
+        summary: tool,
+        status: failed ? 'failed' : 'succeeded',
+        ...(failed
+          ? { error: 'The tool failed.' }
+          : { output: JSON.stringify(event.payload.structured_result) }),
       })
     } else if (event.type === 'run.error') {
       runtimeError = payloadString(event.payload, 'message')
@@ -365,7 +457,10 @@ async function streamChat(request, response) {
         durationMs: Date.now() - startedAt,
         message: result.finalMessage,
         type: 'completed',
-        usage: { outputTokens: usage.output_tokens, totalTokens: usage.total_tokens },
+        usage: {
+          outputTokens: usage.output_tokens,
+          totalTokens: usage.total_tokens,
+        },
       })
     } finally {
       result.dispose()
@@ -390,9 +485,12 @@ async function streamChat(request, response) {
 
 async function cancelTurn(request, response) {
   const body = cancelRequestSchema.safeParse(await readJson(request))
-  if (!body.success) throw new HttpError('A valid turn ID is required to stop a response.', 400)
+  if (!body.success)
+    throw new HttpError('A valid turn ID is required to stop a response.', 400)
   const id = existingSessionId(request)
-  const cancelled = id ? await conversations.cancel(conversationKey(request, id), body.data.turnId) : false
+  const cancelled = id
+    ? await conversations.cancel(conversationKey(request, id), body.data.turnId)
+    : false
   if (!cancelled) {
     sendJson(response, 200, { cancelled: false })
     return
@@ -412,7 +510,10 @@ async function resetSession(request, response) {
 function conversationKey(request, accountId) {
   const conversation = request.headers['x-conversation-id']
   if (conversation === undefined) return accountId
-  if (typeof conversation !== 'string' || !/^[0-9a-f-]{36}$/i.test(conversation)) {
+  if (
+    typeof conversation !== 'string' ||
+    !/^[0-9a-f-]{36}$/i.test(conversation)
+  ) {
     throw new HttpError('Invalid conversation ID.', 400)
   }
   return `${accountId}:${conversation}`
@@ -423,7 +524,9 @@ function createRuntimeSession(key) {
     agent: Agent.create({
       transport: auth.transport(key.split(':')[0], openAiApiKey, {
         ...(nanocodexApiBaseUrl ? { apiBaseUrl: nanocodexApiBaseUrl } : {}),
-        ...(nanocodexWebsocketUrl ? { websocketUrl: nanocodexWebsocketUrl } : {}),
+        ...(nanocodexWebsocketUrl
+          ? { websocketUrl: nanocodexWebsocketUrl }
+          : {}),
       }),
       instructions:
         'You are the assistant inside Pretty Amped, a React and StyleX component playground for AI interfaces. Before answering a question about interface components, UI design, or Pretty Amped, call inspect_component_catalog with the key concepts in the request. You have no workspace, filesystem, or shell access. Help users inspect and discuss interface design. Be concise. Use GitHub-flavored Markdown with short headings and lists when they improve scanning. Do not use HTML.' +
@@ -544,14 +647,17 @@ function runtimeConfiguration(account) {
   return {
     label: 'Nanocodex',
     model: nanocodexModel,
-    models: [{ label: nanocodexModel, modelId: nanocodexModel, providerId: 'openai' }],
+    models: [
+      { label: nanocodexModel, modelId: nanocodexModel, providerId: 'openai' },
+    ],
   }
 }
 
 function publicError(error) {
   const message = error instanceof Error ? error.message : String(error)
 
-  if (error instanceof HttpError || error instanceof ConversationError) return message
+  if (error instanceof HttpError || error instanceof ConversationError)
+    return message
   if (message.includes('session limit')) return message
   if (/credit|billing|insufficient_quota/i.test(message)) {
     return 'The configured AI provider has no credits remaining.'
@@ -601,7 +707,9 @@ async function disposeSession(session) {
     }
   }
   if (session.agent) {
-    await session.agent.then((agent) => agent.session.shutdown()).catch(() => {})
+    await session.agent
+      .then((agent) => agent.session.shutdown())
+      .catch(() => {})
   }
 }
 

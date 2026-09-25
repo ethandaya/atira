@@ -35,9 +35,18 @@ function draft(anchor = 2, focus = anchor): ComposerDraft {
 
 describe('composer draft editing projection', () => {
   it('edits asymmetric text on either side without moving the reference', () => {
-    const before = projectTextareaEdit(draft(), 'ab!cdwxyz', { anchor: 3, focus: 3 })
+    const before = projectTextareaEdit(draft(), 'ab!cdwxyz', {
+      anchor: 3,
+      focus: 3,
+    })
     const after = projectTextareaEdit(
-      { ...draft(), selection: { anchor: { offset: 2, segmentId: 'after' }, focus: { offset: 2, segmentId: 'after' } } },
+      {
+        ...draft(),
+        selection: {
+          anchor: { offset: 2, segmentId: 'after' },
+          focus: { offset: 2, segmentId: 'after' },
+        },
+      },
       'abcdwx!yz',
       { anchor: 7, focus: 7 },
     )
@@ -56,7 +65,10 @@ describe('composer draft editing projection', () => {
 
   it('updates selection without mutating segments or revision and preserves backward ranges', () => {
     const original = draft()
-    const selected = projectTextareaEdit(original, 'abcdwxyz', { anchor: 7, focus: 1 })
+    const selected = projectTextareaEdit(original, 'abcdwxyz', {
+      anchor: 7,
+      focus: 1,
+    })
 
     expect(selected.segments).toBe(original.segments)
     expect(selected.revision).toBe(3)
@@ -68,13 +80,23 @@ describe('composer draft editing projection', () => {
 
   it('uses the old selection to disambiguate repeated text replacement', () => {
     const original = draft(1, 3)
-    const edited = projectTextareaEdit(original, 'axadwxyz', { anchor: 2, focus: 2 })
+    const edited = projectTextareaEdit(original, 'axadwxyz', {
+      anchor: 2,
+      focus: 2,
+    })
 
-    expect(edited.segments[0]).toEqual({ id: 'before', text: 'axad', type: 'text' })
+    expect(edited.segments[0]).toEqual({
+      id: 'before',
+      text: 'axad',
+      type: 'text',
+    })
   })
 
   it('inserts a reference in the middle by splitting the active text segment', () => {
-    const inserted = insertDraftReference(draft(), 2, { ...reference, id: 'new-ref' })
+    const inserted = insertDraftReference(draft(), 2, {
+      ...reference,
+      id: 'new-ref',
+    })
 
     expect(inserted.segments).toEqual([
       { id: 'before', text: 'ab', type: 'text' },
@@ -83,7 +105,10 @@ describe('composer draft editing projection', () => {
       reference,
       { id: 'after', text: 'wxyz', type: 'text' },
     ])
-    expect(inserted.selection.anchor).toEqual({ offset: 0, segmentId: 'before-after-4' })
+    expect(inserted.selection.anchor).toEqual({
+      offset: 0,
+      segmentId: 'before-after-4',
+    })
     expect(validateComposerDraft(inserted)).toEqual([])
   })
 
@@ -107,7 +132,10 @@ describe('composer draft editing projection', () => {
 
   it('retains ordered restored draft content for submission', () => {
     const restored = draft()
-    const edited = projectTextareaEdit(restored, 'ABCDwxyz!', { anchor: 9, focus: 9 })
+    const edited = projectTextareaEdit(restored, 'ABCDwxyz!', {
+      anchor: 9,
+      focus: 9,
+    })
 
     expect(editableDraftText(edited)).toBe('ABCDwxyz!')
     expect(edited.segments[1]).toBe(reference)

@@ -2,13 +2,21 @@ import { CodeBlock } from '@pretty-amped/components'
 import { TextareaField } from '@pretty-amped/primitives'
 import { useState } from 'react'
 
-const initialCode = "export function greet(name: string) {\n  return `Hello, ${name}`\n}"
+const initialCode =
+  'export function greet(name: string) {\n  return `Hello, ${name}`\n}'
 
 export function CodeBlockExample({ compact = false }: { compact?: boolean }) {
   const [code, setCode] = useState(initialCode)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem',
+        minWidth: 0,
+      }}
+    >
       {!compact && (
         <TextareaField
           label="Example code"

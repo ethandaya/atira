@@ -46,10 +46,8 @@ export const radii = stylex.defineVars({
 })
 
 export const type = stylex.defineVars({
-  family:
-    '"Geist Variable", "Helvetica Neue", Arial, sans-serif',
-  familyMono:
-    '"Geist Mono Variable", "SFMono-Regular", Consolas, monospace',
+  family: '"Geist Variable", "Helvetica Neue", Arial, sans-serif',
+  familyMono: '"Geist Mono Variable", "SFMono-Regular", Consolas, monospace',
   // Metadata: 13px; controls: 14px; reading: 15px; mobile input: 16px; headings: 17px.
   sizeCaption: '0.8125rem',
   sizeSmall: '0.875rem',
@@ -77,12 +75,10 @@ export const motion = stylex.defineVars({
 })
 
 export const shadows = stylex.defineVars({
-  inset:
-    'inset 0 1px 2px oklch(0 0 0 / 0.025)',
+  inset: 'inset 0 1px 2px oklch(0 0 0 / 0.025)',
   raised:
     '0 2px 6px -2px oklch(0 0 0 / 0.06), 0 8px 24px -8px oklch(0 0 0 / 0.1)',
-  control:
-    'inset 0 1px 0 oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.07)',
+  control: 'inset 0 1px 0 oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.07)',
   overlay:
     '0 0 0 0.5px color-mix(in oklab, currentColor 14%, transparent), 0 4px 12px -2px oklch(0 0 0 / 0.12), 0 16px 36px -12px oklch(0 0 0 / 0.18)',
 })
@@ -94,7 +90,8 @@ export const chatAppearance = stylex.defineVars({
   activityBorder: 'transparent',
   inputPaddingBlock: '1rem',
   inputPaddingInline: '1rem',
-  composerShadow: '0 0 0 1px color-mix(in oklch, currentColor 12%, transparent)',
+  composerShadow:
+    '0 0 0 1px color-mix(in oklch, currentColor 12%, transparent)',
   composerFocusOffset: '3px',
   composerFocusShadow: 'initial',
   composerToolbarSurface: 'initial',

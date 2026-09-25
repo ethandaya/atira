@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type {
-  ChatError,
-  ChatRequest,
-  ComposerDraft,
-} from './chat'
+import type { ChatError, ChatRequest, ComposerDraft } from './chat'
 import {
   composerDraftText,
   isTerminalToolState,
@@ -138,9 +134,7 @@ describe('chat state helpers', () => {
     expect(
       isTerminalTurnState({ endedAt: 2, startedAt: 1, status: 'complete' }),
     ).toBe(true)
-    expect(isTerminalTurnState({ startedAt: 1, status: 'running' })).toBe(
-      false,
-    )
+    expect(isTerminalTurnState({ startedAt: 1, status: 'running' })).toBe(false)
   })
 
   it('serializes references to a readable plain-text fallback', () => {

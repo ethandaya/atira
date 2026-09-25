@@ -44,73 +44,81 @@ export function SelectPicker({
 }: SelectPickerProps) {
   const portalContainerRef = useRef<HTMLSpanElement>(null)
   return (
-    <span ref={portalContainerRef} data-slot="select-picker" {...stylex.props(styles.container)}>
-    <Select.Root
-      disabled={disabled}
-      items={options}
-      name={name}
-      onValueChange={(next) => {
-        if (typeof next === 'string') onValueChange(next)
-      }}
-      value={value ?? null}
+    <span
+      ref={portalContainerRef}
+      data-slot="select-picker"
+      {...stylex.props(styles.container)}
     >
-      <Select.Label {...stylex.props(styles.visuallyHidden)}>
-        {label}
-      </Select.Label>
-      <Select.Trigger
-        aria-label={label}
-        data-slot="select-picker-trigger"
-        className={(state) =>
-          stylex.props(styles.trigger, state.open && styles.triggerOpen).className
-        }
+      <Select.Root
+        disabled={disabled}
+        items={options}
+        name={name}
+        onValueChange={(next) => {
+          if (typeof next === 'string') onValueChange(next)
+        }}
+        value={value ?? null}
       >
-        <Select.Value placeholder={placeholder} />
-        <Select.Icon aria-hidden="true" {...stylex.props(styles.iconSlot)}>
-          <ChevronDown
-            strokeWidth={1.75}
-            {...stylex.props(styles.icon)}
-          />
-        </Select.Icon>
-      </Select.Trigger>
-      <Select.Portal container={portalContainer ?? portalContainerRef}>
-        <Select.Positioner
-          alignItemWithTrigger={false}
-          sideOffset={4}
-          {...stylex.props(styles.positioner)}
+        <Select.Label {...stylex.props(styles.visuallyHidden)}>
+          {label}
+        </Select.Label>
+        <Select.Trigger
+          aria-label={label}
+          data-slot="select-picker-trigger"
+          className={(state) =>
+            stylex.props(styles.trigger, state.open && styles.triggerOpen)
+              .className
+          }
         >
-          <Select.Popup data-slot="select-picker-popup" {...stylex.props(styles.popup)}>
-            <Select.List {...stylex.props(styles.list)}>
-              {options.map((option) => (
-                <Select.Item
-                  disabled={option.disabled}
-                  key={option.value}
-                  value={option.value}
-                  className={(state) =>
-                    stylex.props(
-                      styles.item,
-                      state.highlighted && styles.itemHighlighted,
-                      state.selected && styles.itemSelected,
-                    ).className
-                  }
-                >
-                  <Select.ItemText {...stylex.props(styles.itemCopy)}>
-                    <span>{option.label}</span>
-                    {option.description && (
-                      <span {...stylex.props(styles.description)}>
-                        {option.description}
-                      </span>
-                    )}
-                  </Select.ItemText>
-                  <Select.ItemIndicator aria-hidden="true">
-                    <Check strokeWidth={1.75} {...stylex.props(styles.icon)} />
-                  </Select.ItemIndicator>
-                </Select.Item>
-              ))}
-            </Select.List>
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
-    </Select.Root>
+          <Select.Value placeholder={placeholder} />
+          <Select.Icon aria-hidden="true" {...stylex.props(styles.iconSlot)}>
+            <ChevronDown strokeWidth={1.75} {...stylex.props(styles.icon)} />
+          </Select.Icon>
+        </Select.Trigger>
+        <Select.Portal container={portalContainer ?? portalContainerRef}>
+          <Select.Positioner
+            alignItemWithTrigger={false}
+            sideOffset={4}
+            {...stylex.props(styles.positioner)}
+          >
+            <Select.Popup
+              data-slot="select-picker-popup"
+              {...stylex.props(styles.popup)}
+            >
+              <Select.List {...stylex.props(styles.list)}>
+                {options.map((option) => (
+                  <Select.Item
+                    disabled={option.disabled}
+                    key={option.value}
+                    value={option.value}
+                    className={(state) =>
+                      stylex.props(
+                        styles.item,
+                        state.highlighted && styles.itemHighlighted,
+                        state.selected && styles.itemSelected,
+                      ).className
+                    }
+                  >
+                    <Select.ItemText {...stylex.props(styles.itemCopy)}>
+                      <span>{option.label}</span>
+                      {option.description && (
+                        <span {...stylex.props(styles.description)}>
+                          {option.description}
+                        </span>
+                      )}
+                    </Select.ItemText>
+                    <Select.ItemIndicator aria-hidden="true">
+                      <Check
+                        strokeWidth={1.75}
+                        {...stylex.props(styles.icon)}
+                      />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+                ))}
+              </Select.List>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
     </span>
   )
 }

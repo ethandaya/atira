@@ -1,4 +1,10 @@
-import { AnimatePresence, motion, useIsPresent, useReducedMotion, type HTMLMotionProps } from 'motion/react'
+import {
+  AnimatePresence,
+  motion,
+  useIsPresent,
+  useReducedMotion,
+  type HTMLMotionProps,
+} from 'motion/react'
 import { forwardRef, type ReactNode } from 'react'
 import * as stylex from '@stylexjs/stylex'
 
@@ -14,12 +20,18 @@ export function PresenceSurface({
   const reduced = useReducedMotion()
   const present = useIsPresent()
   const instant = reduced || immediate
-  const transform = kind === 'panel'
-    ? 'translateY(4px) scale(0.98)'
-    : kind === 'content'
-      ? 'translateY(3px)'
-      : 'none'
-  const rest = kind === 'panel' ? 'translateY(0px) scale(1)' : kind === 'content' ? 'translateY(0px)' : 'none'
+  const transform =
+    kind === 'panel'
+      ? 'translateY(4px) scale(0.98)'
+      : kind === 'content'
+        ? 'translateY(3px)'
+        : 'none'
+  const rest =
+    kind === 'panel'
+      ? 'translateY(0px) scale(1)'
+      : kind === 'content'
+        ? 'translateY(0px)'
+        : 'none'
 
   return (
     <motion.div
@@ -29,14 +41,26 @@ export function PresenceSurface({
       aria-hidden={!present || props['aria-hidden']}
       initial={instant ? false : { opacity: 0, transform }}
       animate={{ opacity: 1, transform: rest }}
-      exit={{ opacity: 0, transform, transition: { duration: instant ? 0 : 0.12 } }}
+      exit={{
+        opacity: 0,
+        transform,
+        transition: { duration: instant ? 0 : 0.12 },
+      }}
       transition={{ duration: instant ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
     />
   )
 }
 
 /** Cross-fades state marks in one fixed slot; never duplicates live regions. */
-export function StateTransition({ children, state, size = 14 }: { children: ReactNode; state: string; size?: 14 | 16 | 20 }) {
+export function StateTransition({
+  children,
+  state,
+  size = 14,
+}: {
+  children: ReactNode
+  state: string
+  size?: 14 | 16 | 20
+}) {
   const reduced = useReducedMotion()
   return (
     <span aria-hidden="true" {...stylex.props(styles.slot, styles.size(size))}>
@@ -59,79 +83,134 @@ export function StateTransition({ children, state, size = 14 }: { children: Reac
 export { AnimatePresence, LayoutGroup } from 'motion/react'
 
 /** The slot survives a handoff. Only its contents participate in presence. */
-export function ActivitySlot({ state, children, ...props }: Omit<HTMLMotionProps<'div'>, 'children'> & { children: ReactNode; state: string }) {
+export function ActivitySlot({
+  state,
+  children,
+  ...props
+}: Omit<HTMLMotionProps<'div'>, 'children'> & {
+  children: ReactNode
+  state: string
+}) {
   const reduced = useReducedMotion()
-  return <motion.div
-    {...props}
-    layout={reduced ? false : true}
-    layoutDependency={state}
-    initial={false}
-    transition={{ layout: { duration: reduced ? 0 : 0.24, ease: [0.4, 0, 0.2, 1] } }}
-  >
-    <AnimatePresence initial={state === 'pending'} mode="popLayout">
-      <ActivitySlotContent key={state}>{children}</ActivitySlotContent>
-    </AnimatePresence>
-  </motion.div>
+  return (
+    <motion.div
+      {...props}
+      layout={reduced ? false : true}
+      layoutDependency={state}
+      initial={false}
+      transition={{
+        layout: { duration: reduced ? 0 : 0.24, ease: [0.4, 0, 0.2, 1] },
+      }}
+    >
+      <AnimatePresence initial={state === 'pending'} mode="popLayout">
+        <ActivitySlotContent key={state}>{children}</ActivitySlotContent>
+      </AnimatePresence>
+    </motion.div>
+  )
 }
 
-const ActivitySlotContent = forwardRef<HTMLDivElement, { children: ReactNode }>(function ActivitySlotContent({ children }, ref) {
-  const reduced = useReducedMotion()
-  const present = useIsPresent()
-  return <motion.div
-    ref={ref}
-    data-slot="activity-slot-content"
-    inert={!present}
-    aria-hidden={!present || undefined}
-    // Counter the parent's layout scale so labels and icons never stretch.
-    layout={reduced ? false : 'position'}
-    initial={reduced ? false : { opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.08 } }}
-    transition={{ duration: reduced ? 0 : 0.09, ease: 'easeOut', layout: { duration: reduced ? 0 : 0.24, ease: [0.4, 0, 0.2, 1] } }}
-  >{children}</motion.div>
-})
+const ActivitySlotContent = forwardRef<HTMLDivElement, { children: ReactNode }>(
+  function ActivitySlotContent({ children }, ref) {
+    const reduced = useReducedMotion()
+    const present = useIsPresent()
+    return (
+      <motion.div
+        ref={ref}
+        data-slot="activity-slot-content"
+        inert={!present}
+        aria-hidden={!present || undefined}
+        // Counter the parent's layout scale so labels and icons never stretch.
+        layout={reduced ? false : 'position'}
+        initial={reduced ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.08 } }}
+        transition={{
+          duration: reduced ? 0 : 0.09,
+          ease: 'easeOut',
+          layout: { duration: reduced ? 0 : 0.24, ease: [0.4, 0, 0.2, 1] },
+        }}
+      >
+        {children}
+      </motion.div>
+    )
+  },
+)
 
 /** Position-only layout keeps text unscaled while activity makes room for its successor. */
-export const ActivityPresence = forwardRef<HTMLDivElement, HTMLMotionProps<'div'>>(function ActivityPresence(props, ref) {
+export const ActivityPresence = forwardRef<
+  HTMLDivElement,
+  HTMLMotionProps<'div'>
+>(function ActivityPresence(props, ref) {
   const reduced = useReducedMotion()
   const present = useIsPresent()
-  return <motion.div
-    {...props}
-    ref={ref}
-    data-activity-presence={present ? 'present' : 'exiting'}
-    inert={!present || props.inert}
-    aria-hidden={!present || props['aria-hidden']}
-    layout={reduced ? false : 'position'}
-    initial={reduced || props.initial === false ? false : { opacity: 0, y: 6 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: reduced ? 0 : -4, transition: { duration: reduced ? 0 : 0.12 } }}
-    transition={{ duration: reduced ? 0 : 0.24, ease: [0.22, 1, 0.36, 1], layout: { duration: reduced ? 0 : 0.24, ease: [0.4, 0, 0.2, 1] } }}
-  />
+  return (
+    <motion.div
+      {...props}
+      ref={ref}
+      data-activity-presence={present ? 'present' : 'exiting'}
+      inert={!present || props.inert}
+      aria-hidden={!present || props['aria-hidden']}
+      layout={reduced ? false : 'position'}
+      initial={
+        reduced || props.initial === false ? false : { opacity: 0, y: 6 }
+      }
+      animate={{ opacity: 1, y: 0 }}
+      exit={{
+        opacity: 0,
+        y: reduced ? 0 : -4,
+        transition: { duration: reduced ? 0 : 0.12 },
+      }}
+      transition={{
+        duration: reduced ? 0 : 0.24,
+        ease: [0.22, 1, 0.36, 1],
+        layout: { duration: reduced ? 0 : 0.24, ease: [0.4, 0, 0.2, 1] },
+      }}
+    />
+  )
 })
 
 export function PresenceItem(props: HTMLMotionProps<'li'>) {
   const reduced = useReducedMotion()
   const present = useIsPresent()
-  return <motion.li {...props} inert={!present} aria-hidden={!present || undefined}
-    initial={reduced ? false : { opacity: 0, transform: 'translateY(4px)' }}
-    animate={{ opacity: 1, transform: 'translateY(0px)' }}
-    exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.1 } }}
-    transition={{ duration: reduced ? 0 : 0.16, ease: [0.22, 1, 0.36, 1] }}
-  />
+  return (
+    <motion.li
+      {...props}
+      inert={!present}
+      aria-hidden={!present || undefined}
+      initial={reduced ? false : { opacity: 0, transform: 'translateY(4px)' }}
+      animate={{ opacity: 1, transform: 'translateY(0px)' }}
+      exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.1 } }}
+      transition={{ duration: reduced ? 0 : 0.16, ease: [0.22, 1, 0.36, 1] }}
+    />
+  )
 }
 
 /** State labels update immediately; outgoing text no longer contributes an accessible name. */
-export function TextTransition({ children, state }: { children: ReactNode; state: string }) {
+export function TextTransition({
+  children,
+  state,
+}: {
+  children: ReactNode
+  state: string
+}) {
   return (
-    <span data-slot="text-transition" {...stylex.props(styles.text, styles.textContainer)}>
+    <span
+      data-slot="text-transition"
+      {...stylex.props(styles.text, styles.textContainer)}
+    >
       <AnimatePresence initial={false} mode="popLayout">
-        <TransitionLabel key={state} state={state}>{children}</TransitionLabel>
+        <TransitionLabel key={state} state={state}>
+          {children}
+        </TransitionLabel>
       </AnimatePresence>
     </span>
   )
 }
 
-const TransitionLabel = forwardRef<HTMLSpanElement, { children: ReactNode; state: string }>(function TransitionLabel({ children, state }, ref) {
+const TransitionLabel = forwardRef<
+  HTMLSpanElement,
+  { children: ReactNode; state: string }
+>(function TransitionLabel({ children, state }, ref) {
   const reduced = useReducedMotion()
   const present = useIsPresent()
   return (
@@ -151,9 +230,18 @@ const TransitionLabel = forwardRef<HTMLSpanElement, { children: ReactNode; state
 })
 
 const styles = stylex.create({
-  text: { display: 'inline-block', maxInlineSize: '100%', verticalAlign: 'bottom' },
+  text: {
+    display: 'inline-block',
+    maxInlineSize: '100%',
+    verticalAlign: 'bottom',
+  },
   textContainer: { position: 'relative' },
   slot: { display: 'inline-grid', placeItems: 'center' },
   size: (size: number) => ({ inlineSize: `${size}px`, blockSize: `${size}px` }),
-  mark: { gridArea: '1 / 1', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  mark: {
+    gridArea: '1 / 1',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 })

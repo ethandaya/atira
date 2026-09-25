@@ -5,7 +5,12 @@ import {
   radii,
   space,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { IconButton, TextareaField, resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
+import {
+  IconButton,
+  TextareaField,
+  resolveStyleProps,
+  type StyleProps,
+} from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { SendHorizontal, Square } from 'lucide-react'
 import type {
@@ -21,19 +26,20 @@ type NativeFormProps = Omit<
   'children' | 'className' | 'onSubmit' | 'style'
 >
 
-type ComposerBaseProps = NativeFormProps & StyleProps & {
-  actions?: ReactNode
-  composerLabel?: string
-  inputLabel?: string
-  maxLength?: number
-  name?: string
-  onSubmit: (value: string) => void
-  onValueChange: (value: string) => void
-  placeholder?: string
-  sendLabel?: string
-  textareaRef?: Ref<HTMLTextAreaElement>
-  value: string
-}
+type ComposerBaseProps = NativeFormProps &
+  StyleProps & {
+    actions?: ReactNode
+    composerLabel?: string
+    inputLabel?: string
+    maxLength?: number
+    name?: string
+    onSubmit: (value: string) => void
+    onValueChange: (value: string) => void
+    placeholder?: string
+    sendLabel?: string
+    textareaRef?: Ref<HTMLTextAreaElement>
+    value: string
+  }
 
 type PassiveComposerProps = ComposerBaseProps & {
   onStop?: never
@@ -134,9 +140,11 @@ export function Composer({
           type={active ? 'button' : 'submit'}
           variant="primary"
         >
-          {active
-            ? <Square fill="currentColor" size={16} strokeWidth={1.75} />
-            : <SendHorizontal size={16} strokeWidth={1.75} />}
+          {active ? (
+            <Square fill="currentColor" size={16} strokeWidth={1.75} />
+          ) : (
+            <SendHorizontal size={16} strokeWidth={1.75} />
+          )}
         </IconButton>
       </div>
     </form>

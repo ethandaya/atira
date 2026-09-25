@@ -57,7 +57,11 @@ export function CitationList({
       data-state={citations.length === 0 ? 'empty' : 'populated'}
       {...stylex.props(styles.root)}
     >
-      <Heading id={titleId} data-slot="citation-list-title" {...stylex.props(styles.title)}>
+      <Heading
+        id={titleId}
+        data-slot="citation-list-title"
+        {...stylex.props(styles.title)}
+      >
         {title}
       </Heading>
       {citations.length === 0 ? (
@@ -68,13 +72,34 @@ export function CitationList({
         <ol data-slot="citation-list-items" {...stylex.props(styles.list)}>
           {citations.map((citation) => {
             const hrefState = getHrefState(citation.href)
-            const content = <>
-              <span {...stylex.props(styles.heading)}>
-                <span data-slot="citation-title" {...stylex.props(styles.itemTitle)}>{citation.title}</span>
-                {citation.source && <span data-slot="citation-source" {...stylex.props(styles.source)}>{citation.source}</span>}
-              </span>
-              {citation.description && <span data-slot="citation-description" {...stylex.props(styles.description)}>{citation.description}</span>}
-            </>
+            const content = (
+              <>
+                <span {...stylex.props(styles.heading)}>
+                  <span
+                    data-slot="citation-title"
+                    {...stylex.props(styles.itemTitle)}
+                  >
+                    {citation.title}
+                  </span>
+                  {citation.source && (
+                    <span
+                      data-slot="citation-source"
+                      {...stylex.props(styles.source)}
+                    >
+                      {citation.source}
+                    </span>
+                  )}
+                </span>
+                {citation.description && (
+                  <span
+                    data-slot="citation-description"
+                    {...stylex.props(styles.description)}
+                  >
+                    {citation.description}
+                  </span>
+                )}
+              </>
+            )
             return (
               <li
                 key={citation.id}
@@ -83,24 +108,29 @@ export function CitationList({
                 data-slot="citation"
                 {...stylex.props(styles.item)}
               >
-                  {hrefState.status === 'valid' ? (
-                    <a
-                      aria-label={citation.title}
-                      href={hrefState.href}
-                      rel="noreferrer noopener"
-                      data-slot="citation-link"
-                      {...stylex.props(styles.link)}
+                {hrefState.status === 'valid' ? (
+                  <a
+                    aria-label={citation.title}
+                    href={hrefState.href}
+                    rel="noreferrer noopener"
+                    data-slot="citation-link"
+                    {...stylex.props(styles.link)}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <span {...stylex.props(styles.entry)}>
+                    {content}
+                    <span
+                      data-slot="citation-link-status"
+                      {...stylex.props(styles.unavailable)}
                     >
-                      {content}
-                    </a>
-                  ) : (
-                    <span {...stylex.props(styles.entry)}>
-                      {content}
-                      <span data-slot="citation-link-status" {...stylex.props(styles.unavailable)}>
-                        {hrefState.status === 'invalid' ? 'Invalid link' : 'Link unavailable'}
-                      </span>
+                      {hrefState.status === 'invalid'
+                        ? 'Invalid link'
+                        : 'Link unavailable'}
                     </span>
-                  )}
+                  </span>
+                )}
               </li>
             )
           })}

@@ -107,7 +107,10 @@ export function Diff({
                   {...stylex.props(styles.fileContent)}
                 >
                   {file.hunks.length === 0 ? (
-                    <p data-slot="diff-file-empty" {...stylex.props(styles.fileEmpty)}>
+                    <p
+                      data-slot="diff-file-empty"
+                      {...stylex.props(styles.fileEmpty)}
+                    >
                       No line changes provided.
                     </p>
                   ) : (
@@ -130,12 +133,17 @@ function FileSummary({ file }: { file: DiffFile }) {
         {file.previousPath ? `${file.previousPath} → ${file.path}` : file.path}
       </span>
       <span {...stylex.props(styles.fileMetadata)}>
-        <span data-slot="diff-file-status">{fileStatusLabels[file.status]}</span>
+        <span data-slot="diff-file-status">
+          {fileStatusLabels[file.status]}
+        </span>
         {file.additions !== undefined && (
           <span data-slot="diff-file-additions">+{file.additions}</span>
         )}
         {file.deletions !== undefined && (
-          <span data-slot="diff-file-deletions" {...stylex.props(styles.deletions)}>
+          <span
+            data-slot="diff-file-deletions"
+            {...stylex.props(styles.deletions)}
+          >
             −{file.deletions}
           </span>
         )}
@@ -155,7 +163,11 @@ function Hunk({ hunk }: { hunk: DiffHunk }) {
       <p data-slot="diff-hunk-header" {...stylex.props(styles.hunkHeader)}>
         {hunk.header}
       </p>
-      <ol aria-label="Changed lines" data-slot="diff-lines" {...stylex.props(styles.lines)}>
+      <ol
+        aria-label="Changed lines"
+        data-slot="diff-lines"
+        {...stylex.props(styles.lines)}
+      >
         {hunk.lines.map((line) => (
           <li
             key={line.id}

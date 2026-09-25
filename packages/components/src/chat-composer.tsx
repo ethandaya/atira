@@ -108,7 +108,9 @@ export type ChatComposerProps = {
     source: 'drop' | 'paste' | 'picker',
   ) => void
   onRemoveAttachment?: (attachment: DraftAttachment) => void
-  onRemoveReference?: (segment: Extract<DraftSegment, { type: 'reference' }>) => void
+  onRemoveReference?: (
+    segment: Extract<DraftSegment, { type: 'reference' }>,
+  ) => void
   onRetryAttachment?: (attachment: DraftAttachment) => void
   onStop: () => void
   onSubmit: (draft: ComposerDraft, intent: SubmitIntent) => void
@@ -146,41 +148,54 @@ export function ChatComposer({
   const intent = submitIntent(activity, capabilities)
   const canSubmit =
     intent !== undefined &&
-    (value.trim().length > 0 || draft.attachments.some((item) => item.state === 'ready'))
+    (value.trim().length > 0 ||
+      draft.attachments.some((item) => item.state === 'ready'))
   const showStop =
     activity.status !== 'idle' && capabilities.canStop && !canSubmit
   const composerMenuItems = [
     ...(commands.length > 0 && draft.mode === 'prompt'
-      ? [{
-          icon: <Command aria-hidden="true" size={15} strokeWidth={1.75} />,
-          id: 'commands',
-          label: 'Commands',
-          onSelect: () => requestAnimationFrame(() => openMenu('command', 'menu')),
-        }]
+      ? [
+          {
+            icon: <Command aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'commands',
+            label: 'Commands',
+            onSelect: () =>
+              requestAnimationFrame(() => openMenu('command', 'menu')),
+          },
+        ]
       : []),
     ...(references.length > 0 && capabilities.referenceTypes.length > 0
-      ? [{
-          icon: <AtSign aria-hidden="true" size={15} strokeWidth={1.75} />,
-          id: 'references',
-          label: 'References',
-          onSelect: () => requestAnimationFrame(() => openMenu('reference', 'menu')),
-        }]
+      ? [
+          {
+            icon: <AtSign aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'references',
+            label: 'References',
+            onSelect: () =>
+              requestAnimationFrame(() => openMenu('reference', 'menu')),
+          },
+        ]
       : []),
     ...(capabilities.canAttach && onFilesAdd
-      ? [{
-          icon: <Paperclip aria-hidden="true" size={15} strokeWidth={1.75} />,
-          id: 'attach',
-          label: 'Attach files',
-          onSelect: () => fileInputRef.current?.click(),
-        }]
+      ? [
+          {
+            icon: <Paperclip aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'attach',
+            label: 'Attach files',
+            onSelect: () => fileInputRef.current?.click(),
+          },
+        ]
       : []),
     ...(capabilities.canUseShell
-      ? [{
-          icon: <Terminal aria-hidden="true" size={15} strokeWidth={1.75} />,
-          id: 'shell',
-          label: draft.mode === 'shell' ? 'Use prompt mode' : 'Use shell mode',
-          onSelect: () => setMode(draft.mode === 'shell' ? 'prompt' : 'shell'),
-        }]
+      ? [
+          {
+            icon: <Terminal aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'shell',
+            label:
+              draft.mode === 'shell' ? 'Use prompt mode' : 'Use shell mode',
+            onSelect: () =>
+              setMode(draft.mode === 'shell' ? 'prompt' : 'shell'),
+          },
+        ]
       : []),
     ...capabilities.agents
       .filter((agent) => draft.agent?.id !== agent.id)
@@ -200,7 +215,9 @@ export function ChatComposer({
       .map((variant) => ({
         description: variant.unavailableReason,
         disabled: variant.unavailableReason !== undefined,
-        icon: <SlidersHorizontal aria-hidden="true" size={15} strokeWidth={1.75} />,
+        icon: (
+          <SlidersHorizontal aria-hidden="true" size={15} strokeWidth={1.75} />
+        ),
         id: `variant-${variant.id}`,
         label: `Use ${variant.label} variant`,
         onSelect: () =>
@@ -248,12 +265,14 @@ export function ChatComposer({
     }
     onDraftChange(
       projectTextareaEdit(draft, value, {
-        anchor: control.selectionDirection === 'backward'
-          ? control.selectionEnd
-          : control.selectionStart,
-        focus: control.selectionDirection === 'backward'
-          ? control.selectionStart
-          : control.selectionEnd,
+        anchor:
+          control.selectionDirection === 'backward'
+            ? control.selectionEnd
+            : control.selectionStart,
+        focus:
+          control.selectionDirection === 'backward'
+            ? control.selectionStart
+            : control.selectionEnd,
       }),
     )
   }
@@ -355,7 +374,9 @@ export function ChatComposer({
     const insertion = `${needsSpace ? ' ' : ''}${command.value} `
     const next = replaceMenuToken(value, activeMenu, insertion)
     const offset = activeMenu.start + insertion.length
-    onDraftChange(projectTextareaEdit(draft, next, { anchor: offset, focus: offset }))
+    onDraftChange(
+      projectTextareaEdit(draft, next, { anchor: offset, focus: offset }),
+    )
     setActiveMenu(undefined)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
@@ -420,7 +441,9 @@ export function ChatComposer({
         {...(onRemoveReference === undefined
           ? {}
           : {
-              onRemove: (segment: Extract<DraftSegment, { type: 'reference' }>) => {
+              onRemove: (
+                segment: Extract<DraftSegment, { type: 'reference' }>,
+              ) => {
                 if (
                   draft.selection.anchor.segmentId === segment.id ||
                   draft.selection.focus.segmentId === segment.id
@@ -471,13 +494,20 @@ export function ChatComposer({
       />
 
       {error && (
-        <p role="alert" data-slot="submission-error" {...stylex.props(styles.error)}>
+        <p
+          role="alert"
+          data-slot="submission-error"
+          {...stylex.props(styles.error)}
+        >
           {error.message}
         </p>
       )}
 
       <div data-slot="chat-composer-toolbar" {...stylex.props(styles.toolbar)}>
-        <div data-slot="chat-composer-context-actions" {...stylex.props(styles.leading)}>
+        <div
+          data-slot="chat-composer-context-actions"
+          {...stylex.props(styles.leading)}
+        >
           {composerMenuItems.length > 0 && (
             <ActionMenu
               items={composerMenuItems}
@@ -490,12 +520,16 @@ export function ChatComposer({
           <span aria-hidden="true" {...stylex.props(styles.menuHosts)}>
             {commands.length > 0 && draft.mode === 'prompt' && (
               <FilterMenu
-                inputValue={activeMenu?.kind === 'command' ? activeMenu.query : ''}
+                inputValue={
+                  activeMenu?.kind === 'command' ? activeMenu.query : ''
+                }
                 items={commands}
                 label="Commands"
                 onInputValueChange={(query) =>
                   setActiveMenu((current) =>
-                    current?.kind === 'command' ? { ...current, query } : current,
+                    current?.kind === 'command'
+                      ? { ...current, query }
+                      : current,
                   )
                 }
                 onOpenChange={(open) =>
@@ -508,28 +542,35 @@ export function ChatComposer({
                 triggerLabel="/"
               />
             )}
-            {references.length > 0 && capabilities.referenceTypes.length > 0 && (
-              <FilterMenu
-                inputValue={activeMenu?.kind === 'reference' ? activeMenu.query : ''}
-                items={references.filter((reference) =>
-                  capabilities.referenceTypes.includes(reference.referenceType),
-                )}
-                label="References"
-                onInputValueChange={(query) =>
-                  setActiveMenu((current) =>
-                    current?.kind === 'reference' ? { ...current, query } : current,
-                  )
-                }
-                onOpenChange={(open) =>
-                  open ? openMenu('reference') : closeMenu()
-                }
-                onSelect={selectReference}
-                open={activeMenu?.kind === 'reference'}
-                placeholder="Filter references…"
-                portalContainer={formRef}
-                triggerLabel="@"
-              />
-            )}
+            {references.length > 0 &&
+              capabilities.referenceTypes.length > 0 && (
+                <FilterMenu
+                  inputValue={
+                    activeMenu?.kind === 'reference' ? activeMenu.query : ''
+                  }
+                  items={references.filter((reference) =>
+                    capabilities.referenceTypes.includes(
+                      reference.referenceType,
+                    ),
+                  )}
+                  label="References"
+                  onInputValueChange={(query) =>
+                    setActiveMenu((current) =>
+                      current?.kind === 'reference'
+                        ? { ...current, query }
+                        : current,
+                    )
+                  }
+                  onOpenChange={(open) =>
+                    open ? openMenu('reference') : closeMenu()
+                  }
+                  onSelect={selectReference}
+                  open={activeMenu?.kind === 'reference'}
+                  placeholder="Filter references…"
+                  portalContainer={formRef}
+                  triggerLabel="@"
+                />
+              )}
           </span>
           {capabilities.models.length > 0 && (
             <SelectPicker
@@ -544,7 +585,10 @@ export function ChatComposer({
                   onDraftChange({
                     ...rest,
                     model,
-                    ...(reasoningEffort && model.reasoningEfforts?.includes(reasoningEffort) ? { reasoningEffort } : {}),
+                    ...(reasoningEffort &&
+                    model.reasoningEfforts?.includes(reasoningEffort)
+                      ? { reasoningEffort }
+                      : {}),
                     revision: draft.revision + 1,
                   })
                 }
@@ -559,20 +603,36 @@ export function ChatComposer({
                 : { value: modelOptionValue(draft.model) })}
             />
           )}
-          {draft.model?.reasoningEfforts && draft.model.reasoningEfforts.length > 0 && (
-            <SelectPicker
-              label="Reasoning effort"
-              portalContainer={formRef}
-              onValueChange={(reasoningEffort) => onDraftChange({ ...draft, reasoningEffort, revision: draft.revision + 1 })}
-              options={draft.model.reasoningEfforts.map(value => ({
-                label: value === 'xhigh' ? 'Extra high' : value.charAt(0).toUpperCase() + value.slice(1),
-                value,
-              }))}
-              value={draft.reasoningEffort && draft.model.reasoningEfforts.includes(draft.reasoningEffort)
-                ? draft.reasoningEffort : draft.model.defaultReasoningEffort ?? draft.model.reasoningEfforts[0] ?? ''}
-              placeholder="Reasoning effort"
-            />
-          )}
+          {draft.model?.reasoningEfforts &&
+            draft.model.reasoningEfforts.length > 0 && (
+              <SelectPicker
+                label="Reasoning effort"
+                portalContainer={formRef}
+                onValueChange={(reasoningEffort) =>
+                  onDraftChange({
+                    ...draft,
+                    reasoningEffort,
+                    revision: draft.revision + 1,
+                  })
+                }
+                options={draft.model.reasoningEfforts.map((value) => ({
+                  label:
+                    value === 'xhigh'
+                      ? 'Extra high'
+                      : value.charAt(0).toUpperCase() + value.slice(1),
+                  value,
+                }))}
+                value={
+                  draft.reasoningEffort &&
+                  draft.model.reasoningEfforts.includes(draft.reasoningEffort)
+                    ? draft.reasoningEffort
+                    : (draft.model.defaultReasoningEffort ??
+                      draft.model.reasoningEfforts[0] ??
+                      '')
+                }
+                placeholder="Reasoning effort"
+              />
+            )}
           {actions}
         </div>
 
@@ -589,9 +649,11 @@ export function ChatComposer({
             type={showStop ? 'button' : 'submit'}
             variant="primary"
           >
-            {showStop
-              ? <Square fill="currentColor" size={16} strokeWidth={1.75} />
-              : <SendHorizontal size={16} strokeWidth={1.75} />}
+            {showStop ? (
+              <Square fill="currentColor" size={16} strokeWidth={1.75} />
+            ) : (
+              <SendHorizontal size={16} strokeWidth={1.75} />
+            )}
           </IconButton>
         </div>
       </div>
@@ -620,55 +682,67 @@ export function AttachmentTray({
       {...stylex.props(styles.tray)}
     >
       <AnimatePresence initial={false}>
-      {attachments.map((item) => (
-        <PresenceItem
-          data-attachment-id={item.attachment.id}
-          data-attachment-kind={item.attachment.kind}
-          data-state={item.state}
-          key={item.attachment.id}
-          {...stylex.props(styles.trayItem)}
-        >
-          {safePreview(item.attachment.previewUrl, item.attachment.kind) && (
-            <img
-              alt=""
-              src={item.attachment.previewUrl}
-              {...stylex.props(styles.attachmentPreview)}
-            />
-          )}
-          <span {...stylex.props(styles.attachmentCopy)}>
-            <span dir="auto" title={item.attachment.name} {...stylex.props(styles.trayLabel)}>
-              {item.attachment.name}
-            </span>
-            <span {...stylex.props(styles.trayState)}>
-              {item.attachment.kind}
-              {item.attachment.size === undefined
-                ? ''
-                : ` · ${formatBytes(item.attachment.size)}`}
-              {' · '}
-              {item.state === 'reading'
-                ? 'Reading'
-                : item.state === 'failed'
-                  ? 'Failed'
-                  : 'Ready'}
-            </span>
-            {item.state === 'failed' && (
-              <span role="alert" {...stylex.props(styles.attachmentError)}>
-                {item.error.message}
-              </span>
+        {attachments.map((item) => (
+          <PresenceItem
+            data-attachment-id={item.attachment.id}
+            data-attachment-kind={item.attachment.kind}
+            data-state={item.state}
+            key={item.attachment.id}
+            {...stylex.props(styles.trayItem)}
+          >
+            {safePreview(item.attachment.previewUrl, item.attachment.kind) && (
+              <img
+                alt=""
+                src={item.attachment.previewUrl}
+                {...stylex.props(styles.attachmentPreview)}
+              />
             )}
-          </span>
-          {item.state === 'failed' && onRetry && (
-            <Button onClick={() => onRetry(item)} size="compact" variant="quiet">
-              Retry
-            </Button>
-          )}
-          {onRemove && (
-            <Button onClick={() => onRemove(item)} size="compact" variant="quiet">
-              Remove
-            </Button>
-          )}
-        </PresenceItem>
-      ))}
+            <span {...stylex.props(styles.attachmentCopy)}>
+              <span
+                dir="auto"
+                title={item.attachment.name}
+                {...stylex.props(styles.trayLabel)}
+              >
+                {item.attachment.name}
+              </span>
+              <span {...stylex.props(styles.trayState)}>
+                {item.attachment.kind}
+                {item.attachment.size === undefined
+                  ? ''
+                  : ` · ${formatBytes(item.attachment.size)}`}
+                {' · '}
+                {item.state === 'reading'
+                  ? 'Reading'
+                  : item.state === 'failed'
+                    ? 'Failed'
+                    : 'Ready'}
+              </span>
+              {item.state === 'failed' && (
+                <span role="alert" {...stylex.props(styles.attachmentError)}>
+                  {item.error.message}
+                </span>
+              )}
+            </span>
+            {item.state === 'failed' && onRetry && (
+              <Button
+                onClick={() => onRetry(item)}
+                size="compact"
+                variant="quiet"
+              >
+                Retry
+              </Button>
+            )}
+            {onRemove && (
+              <Button
+                onClick={() => onRemove(item)}
+                size="compact"
+                variant="quiet"
+              >
+                Remove
+              </Button>
+            )}
+          </PresenceItem>
+        ))}
       </AnimatePresence>
     </ul>
   )
@@ -679,10 +753,7 @@ export type ReferenceTrayProps = {
   onRemove?: (segment: Extract<DraftSegment, { type: 'reference' }>) => void
 }
 
-export function ReferenceTray({
-  draft,
-  onRemove,
-}: ReferenceTrayProps) {
+export function ReferenceTray({ draft, onRemove }: ReferenceTrayProps) {
   const references = draft.segments.filter(
     (segment): segment is Extract<DraftSegment, { type: 'reference' }> =>
       segment.type === 'reference',
@@ -690,7 +761,11 @@ export function ReferenceTray({
   if (references.length === 0) return null
 
   return (
-    <ul aria-label="References" data-slot="reference-tray" {...stylex.props(styles.tray)}>
+    <ul
+      aria-label="References"
+      data-slot="reference-tray"
+      {...stylex.props(styles.tray)}
+    >
       {references.map((reference) => (
         <li
           data-reference-id={reference.id}
@@ -732,54 +807,80 @@ export function QueueList({
 }: QueueListProps) {
   return (
     <AnimatePresence initial={false}>
-    {items.length > 0 && <PresenceSurface kind="content" role="region" aria-label="Queued prompts" data-slot="queue-list" {...stylex.props(styles.queue)}>
-      <p {...stylex.props(styles.queueTitle)}>Queued · {items.length}</p>
-      <ol {...stylex.props(styles.queueItems)}>
-        <AnimatePresence initial={false}>
-        {items.map((item) => (
-          <PresenceItem
-            data-queue-id={item.id}
-            data-state={item.state}
-            key={item.id}
-            {...stylex.props(styles.queueItem)}
-          >
-            <div {...stylex.props(styles.queueCopy)}>
-              <span {...stylex.props(styles.queueText)}>
-                {composerDraftText(item.draft) || 'Attachment prompt'}
-              </span>
-              {item.state === 'failed' && <span role="alert" {...stylex.props(styles.queueError)}>{item.error.message}</span>}
-            </div>
-            <span
-              {...stylex.props(
-                styles.trayState,
-                styles.queueState,
-                item.state === 'failed' && styles.queueStateFailed,
-              )}
-            >
-              {item.state}
-            </span>
-            <div {...stylex.props(styles.queueActions)}>
-              {item.state === 'failed' && item.error.retryable && onRetry && (
-                <Button onClick={() => onRetry(item)} size="compact" variant="primary">
-                  Retry
-                </Button>
-              )}
-              {onEdit && (
-                <Button onClick={() => onEdit(item)} size="compact" variant="quiet">
-                  Edit
-                </Button>
-              )}
-              {onRemove && (
-                <Button onClick={() => onRemove(item)} size="compact" variant="danger">
-                  Remove
-                </Button>
-              )}
-            </div>
-          </PresenceItem>
-        ))}
-        </AnimatePresence>
-      </ol>
-    </PresenceSurface>}
+      {items.length > 0 && (
+        <PresenceSurface
+          kind="content"
+          role="region"
+          aria-label="Queued prompts"
+          data-slot="queue-list"
+          {...stylex.props(styles.queue)}
+        >
+          <p {...stylex.props(styles.queueTitle)}>Queued · {items.length}</p>
+          <ol {...stylex.props(styles.queueItems)}>
+            <AnimatePresence initial={false}>
+              {items.map((item) => (
+                <PresenceItem
+                  data-queue-id={item.id}
+                  data-state={item.state}
+                  key={item.id}
+                  {...stylex.props(styles.queueItem)}
+                >
+                  <div {...stylex.props(styles.queueCopy)}>
+                    <span {...stylex.props(styles.queueText)}>
+                      {composerDraftText(item.draft) || 'Attachment prompt'}
+                    </span>
+                    {item.state === 'failed' && (
+                      <span role="alert" {...stylex.props(styles.queueError)}>
+                        {item.error.message}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    {...stylex.props(
+                      styles.trayState,
+                      styles.queueState,
+                      item.state === 'failed' && styles.queueStateFailed,
+                    )}
+                  >
+                    {item.state}
+                  </span>
+                  <div {...stylex.props(styles.queueActions)}>
+                    {item.state === 'failed' &&
+                      item.error.retryable &&
+                      onRetry && (
+                        <Button
+                          onClick={() => onRetry(item)}
+                          size="compact"
+                          variant="primary"
+                        >
+                          Retry
+                        </Button>
+                      )}
+                    {onEdit && (
+                      <Button
+                        onClick={() => onEdit(item)}
+                        size="compact"
+                        variant="quiet"
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {onRemove && (
+                      <Button
+                        onClick={() => onRemove(item)}
+                        size="compact"
+                        variant="danger"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </PresenceItem>
+              ))}
+            </AnimatePresence>
+          </ol>
+        </PresenceSurface>
+      )}
     </AnimatePresence>
   )
 }
@@ -806,7 +907,8 @@ function submitIntent(
   activity: SessionActivity,
   capabilities: ChatCapabilities,
 ): SubmitIntent | undefined {
-  if (activity.status === 'idle') return capabilities.canSubmit ? 'send' : undefined
+  if (activity.status === 'idle')
+    return capabilities.canSubmit ? 'send' : undefined
   if (capabilities.busySubmission.includes('follow-up')) return 'follow-up'
   if (capabilities.busySubmission.includes('queue')) return 'queue'
   return undefined
@@ -875,7 +977,10 @@ const styles = stylex.create({
     borderWidth: '1px',
     boxShadow: {
       default: chatAppearance.composerShadow,
-      ':focus-within': stylex.firstThatWorks(chatAppearance.composerFocusShadow, chatAppearance.composerShadow),
+      ':focus-within': stylex.firstThatWorks(
+        chatAppearance.composerFocusShadow,
+        chatAppearance.composerShadow,
+      ),
     },
     boxSizing: 'border-box',
     display: 'flex',

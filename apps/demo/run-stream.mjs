@@ -18,17 +18,34 @@ export class RunStream {
   /** @param {ServerResponse} response */
   attach(response) {
     if (!this.#chunks) {
-      response.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-      response.end(JSON.stringify({ error: 'This response exceeded the replay limit. Its live connection can continue, but it cannot be reconnected.' }))
+      response.writeHead(409, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      })
+      response.end(
+        JSON.stringify({
+          error:
+            'This response exceeded the replay limit. Its live connection can continue, but it cannot be reconnected.',
+        }),
+      )
       return
     }
-    response.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' })
+    response.writeHead(200, {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-store',
+    })
     response.flushHeaders()
     for (const chunk of this.#chunks) response.write(chunk)
-    if (this.writableEnded) { response.end(); return }
+    if (this.writableEnded) {
+      response.end()
+      return
+    }
     this.#clients.add(response)
     const heartbeat = setInterval(() => response.write('\n'), 15000)
-    response.once('close', () => { clearInterval(heartbeat); this.#clients.delete(response) })
+    response.once('close', () => {
+      clearInterval(heartbeat)
+      this.#clients.delete(response)
+    })
   }
 
   writeHead() {}

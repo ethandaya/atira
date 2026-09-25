@@ -72,7 +72,11 @@ export function Plan({
       {...stylex.props(styles.root)}
     >
       <header data-slot="plan-header" {...stylex.props(styles.header)}>
-        <Heading id={titleId} data-slot="plan-title" {...stylex.props(styles.title)}>
+        <Heading
+          id={titleId}
+          data-slot="plan-title"
+          {...stylex.props(styles.title)}
+        >
           {title}
         </Heading>
         <span data-slot="plan-status" {...stylex.props(styles.status)}>
@@ -94,11 +98,17 @@ export function Plan({
               {...stylex.props(styles.step)}
             >
               <div {...stylex.props(styles.stepContent)}>
-                <span data-slot="plan-step-title" {...stylex.props(styles.stepTitle)}>
+                <span
+                  data-slot="plan-step-title"
+                  {...stylex.props(styles.stepTitle)}
+                >
                   {step.title}
                 </span>
                 {step.detail && (
-                  <span data-slot="plan-step-detail" {...stylex.props(styles.detail)}>
+                  <span
+                    data-slot="plan-step-detail"
+                    {...stylex.props(styles.detail)}
+                  >
                     {step.detail}
                   </span>
                 )}

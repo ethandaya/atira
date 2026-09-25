@@ -10,7 +10,13 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { ActivityPresence, ActivitySlot, AnimatePresence, Disclosure, Shimmer } from '@pretty-amped/primitives'
+import {
+  ActivityPresence,
+  ActivitySlot,
+  AnimatePresence,
+  Disclosure,
+  Shimmer,
+} from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { type ReactElement, type ReactNode } from 'react'
 
@@ -64,8 +70,10 @@ export function AssistantSequence({
   const renderers = [...toolRenderers, ...defaultToolRenderers]
   const rows: { key: string; message: ChatMessage; parts: MessagePart[] }[] = []
   for (const message of messages) {
-    const visible = message.parts.filter(part =>
-      part.type === 'text' ? part.markdown.trim().length > 0 : part.type !== 'tool' || part.presentation.kind !== 'todo',
+    const visible = message.parts.filter((part) =>
+      part.type === 'text'
+        ? part.markdown.trim().length > 0
+        : part.type !== 'tool' || part.presentation.kind !== 'todo',
     )
     for (let index = 0; index < visible.length; index++) {
       const part = visible[index]!
@@ -73,10 +81,13 @@ export function AssistantSequence({
       // Keep existing context receipts and opt-in summary disclosures intact.
       while (index + 1 < visible.length) {
         const next = visible[index + 1]!
-        const grouped = activityPresentation === 'summary'
-          ? isActivityPart(part) && isActivityPart(next)
-          : part.type === 'tool' && next.type === 'tool'
-            && isDefaultContextPart(part, renderers) && isDefaultContextPart(next, renderers)
+        const grouped =
+          activityPresentation === 'summary'
+            ? isActivityPart(part) && isActivityPart(next)
+            : part.type === 'tool' &&
+              next.type === 'tool' &&
+              isDefaultContextPart(part, renderers) &&
+              isDefaultContextPart(next, renderers)
         if (!grouped) break
         parts.push(next)
         index++
@@ -84,42 +95,91 @@ export function AssistantSequence({
       rows.push({ key: `${message.id}:${part.id}`, message, parts })
     }
   }
-  return <div data-slot="assistant-sequence" {...stylex.props(styles.assistantSequence)}>
+  return (
+    <div
+      data-slot="assistant-sequence"
+      {...stylex.props(styles.assistantSequence)}
+    >
       {Array.from({ length: rows.length + (pending ? 1 : 0) }, (_, index) => {
         const row = rows[index]
         // These append-only positions persist when pending becomes an activity.
         // Keep the outer slot out of AnimatePresence: it must never fade away.
-        if (!row) return <ActivitySlot
-          key={index}
-          state="pending"
-          data-handoff-slot={index}
-          data-slot="activity-pending"
-          {...stylex.props(styles.assistantRow)}
-        >{pending}</ActivitySlot>
+        if (!row)
+          return (
+            <ActivitySlot
+              key={index}
+              state="pending"
+              data-handoff-slot={index}
+              data-slot="activity-pending"
+              {...stylex.props(styles.assistantRow)}
+            >
+              {pending}
+            </ActivitySlot>
+          )
         const part = row.parts[0]!
         const activity = isActivityPart(part)
         // Static attachments and notices are not activity handoffs.
-        if (!activity && part.type !== 'text') return <Part key={index} part={part} renderers={renderers} toolActions={toolActions} />
-        const context = part.type === 'tool' && part.presentation.kind === 'context'
-        return <ActivitySlot
-          key={index}
-          state={row.key}
-          data-handoff-slot={index}
-          data-slot="turn-assistant-message"
-          data-message-id={row.message.id}
-          data-state={row.message.delivery.status}
-          {...stylex.props(styles.assistantRow)}
-        >
-            {activity ? <div data-slot="activity-sequence" data-state={row.parts.some(isActiveActivityPart) ? 'active' : 'complete'} {...stylex.props(styles.activitySequence)}>
-              {activityPresentation === 'summary'
-                ? <ActivitySummary parts={row.parts} renderers={renderers} toolActions={toolActions} />
-                : context && part.type === 'tool' && isDefaultContextPart(part, renderers)
-                  ? <DefaultContextParts parts={collectDefaultContextParts(row.parts, renderers)} />
-                  : <Part part={part} renderers={renderers} toolActions={toolActions} />}
-            </div> : <Part part={part} renderers={renderers} toolActions={toolActions} />}
-        </ActivitySlot>
+        if (!activity && part.type !== 'text')
+          return (
+            <Part
+              key={index}
+              part={part}
+              renderers={renderers}
+              toolActions={toolActions}
+            />
+          )
+        const context =
+          part.type === 'tool' && part.presentation.kind === 'context'
+        return (
+          <ActivitySlot
+            key={index}
+            state={row.key}
+            data-handoff-slot={index}
+            data-slot="turn-assistant-message"
+            data-message-id={row.message.id}
+            data-state={row.message.delivery.status}
+            {...stylex.props(styles.assistantRow)}
+          >
+            {activity ? (
+              <div
+                data-slot="activity-sequence"
+                data-state={
+                  row.parts.some(isActiveActivityPart) ? 'active' : 'complete'
+                }
+                {...stylex.props(styles.activitySequence)}
+              >
+                {activityPresentation === 'summary' ? (
+                  <ActivitySummary
+                    parts={row.parts}
+                    renderers={renderers}
+                    toolActions={toolActions}
+                  />
+                ) : context &&
+                  part.type === 'tool' &&
+                  isDefaultContextPart(part, renderers) ? (
+                  <DefaultContextParts
+                    parts={collectDefaultContextParts(row.parts, renderers)}
+                  />
+                ) : (
+                  <Part
+                    part={part}
+                    renderers={renderers}
+                    toolActions={toolActions}
+                  />
+                )}
+              </div>
+            ) : (
+              <Part
+                part={part}
+                renderers={renderers}
+                toolActions={toolActions}
+              />
+            )}
+          </ActivitySlot>
+        )
       })}
-  </div>
+    </div>
+  )
 }
 
 export function MessageParts({
@@ -198,7 +258,13 @@ function ActivitySequence({
   toolActions: ToolActions
 }) {
   if (presentation === 'summary') {
-    return <ActivitySummary parts={parts} renderers={renderers} toolActions={toolActions} />
+    return (
+      <ActivitySummary
+        parts={parts}
+        renderers={renderers}
+        toolActions={toolActions}
+      />
+    )
   }
   const content: ReactElement[] = []
 
@@ -244,34 +310,73 @@ function ActivitySequence({
       {...stylex.props(styles.activitySequence)}
     >
       <AnimatePresence initial={false}>
-        {content.map(item => <ActivityPresence key={item.key} layoutDependency={content.length}>{item}</ActivityPresence>)}
+        {content.map((item) => (
+          <ActivityPresence key={item.key} layoutDependency={content.length}>
+            {item}
+          </ActivityPresence>
+        ))}
       </AnimatePresence>
     </div>
   )
 }
 
-function ActivitySummary({ parts, renderers, toolActions }: {
+function ActivitySummary({
+  parts,
+  renderers,
+  toolActions,
+}: {
   parts: readonly MessagePart[]
   renderers: readonly ToolRenderer[]
   toolActions: ToolActions
 }) {
-  const completed = parts.filter(part => part.type === 'tool'
-    ? part.state.status === 'succeeded'
-    : part.type === 'reasoning' && part.state.status !== 'streaming')
-  const attention = parts.filter(part => !completed.includes(part))
-  const tools = completed.filter(part => part.type === 'tool')
-  const reasoning = completed.filter(part => part.type === 'reasoning')
-  return <div data-slot="activity-summary" {...stylex.props(styles.summaryRoot)}>
-    {attention.map(part => <div key={part.id} data-slot="activity-current" {...stylex.props(styles.current)}>
-      <Part part={part} renderers={renderers} toolActions={toolActions} />
-    </div>)}
-    {reasoning.map(part => <Part key={part.id} part={part} renderers={renderers} toolActions={toolActions} />)}
-    {tools.length > 0 && <Disclosure variant="plain" summary={<span {...stylex.props(styles.receipt)}>{tools.length} {tools.length === 1 ? 'action' : 'actions'} completed</span>}>
-      <div data-slot="activity-completed">
-        <ToolSequence parts={tools} renderers={renderers} toolActions={toolActions} />
-      </div>
-    </Disclosure>}
-  </div>
+  const completed = parts.filter((part) =>
+    part.type === 'tool'
+      ? part.state.status === 'succeeded'
+      : part.type === 'reasoning' && part.state.status !== 'streaming',
+  )
+  const attention = parts.filter((part) => !completed.includes(part))
+  const tools = completed.filter((part) => part.type === 'tool')
+  const reasoning = completed.filter((part) => part.type === 'reasoning')
+  return (
+    <div data-slot="activity-summary" {...stylex.props(styles.summaryRoot)}>
+      {attention.map((part) => (
+        <div
+          key={part.id}
+          data-slot="activity-current"
+          {...stylex.props(styles.current)}
+        >
+          <Part part={part} renderers={renderers} toolActions={toolActions} />
+        </div>
+      ))}
+      {reasoning.map((part) => (
+        <Part
+          key={part.id}
+          part={part}
+          renderers={renderers}
+          toolActions={toolActions}
+        />
+      ))}
+      {tools.length > 0 && (
+        <Disclosure
+          variant="plain"
+          summary={
+            <span {...stylex.props(styles.receipt)}>
+              {tools.length} {tools.length === 1 ? 'action' : 'actions'}{' '}
+              completed
+            </span>
+          }
+        >
+          <div data-slot="activity-completed">
+            <ToolSequence
+              parts={tools}
+              renderers={renderers}
+              toolActions={toolActions}
+            />
+          </div>
+        </Disclosure>
+      )}
+    </div>
+  )
 }
 
 function ToolSequence({
@@ -297,9 +402,7 @@ function ToolSequence({
         contextParts.push(next)
         index += 1
       }
-      content.push(
-        <DefaultContextParts key={part.id} parts={contextParts} />,
-      )
+      content.push(<DefaultContextParts key={part.id} parts={contextParts} />)
       continue
     }
 
@@ -316,7 +419,11 @@ function ToolSequence({
   return (
     <div data-slot="tool-sequence" {...stylex.props(styles.toolSequence)}>
       <AnimatePresence initial={false}>
-        {content.map(item => <ActivityPresence key={item.key} layoutDependency={content.length}>{item}</ActivityPresence>)}
+        {content.map((item) => (
+          <ActivityPresence key={item.key} layoutDependency={content.length}>
+            {item}
+          </ActivityPresence>
+        ))}
       </AnimatePresence>
     </div>
   )
@@ -334,7 +441,9 @@ function Part({
   switch (part.type) {
     case 'text':
       return (
-        <Markdown status={part.state.status === 'streaming' ? 'streaming' : 'complete'}>
+        <Markdown
+          status={part.state.status === 'streaming' ? 'streaming' : 'complete'}
+        >
           {part.markdown}
         </Markdown>
       )
@@ -346,7 +455,9 @@ function Part({
               ? { status: 'thinking' }
               : {
                   ...(part.startedAt !== undefined && part.endedAt !== undefined
-                    ? { duration: formatDuration(part.endedAt - part.startedAt) }
+                    ? {
+                        duration: formatDuration(part.endedAt - part.startedAt),
+                      }
                     : {}),
                   status: 'complete',
                 }
@@ -446,7 +557,11 @@ const contextRenderer: ToolRenderer = renderer(
 )
 
 const defaultToolRenderers: readonly ToolRenderer[] = [
-  renderer('image', (part) => part.presentation.kind === 'image', ImageGenerationTool),
+  renderer(
+    'image',
+    (part) => part.presentation.kind === 'image',
+    ImageGenerationTool,
+  ),
   renderer('shell', (part) => part.presentation.kind === 'shell', ShellTool),
   renderer(
     'file-change',
@@ -485,8 +600,13 @@ function renderer(
   }
 }
 
-function selectedToolRenderer(part: ToolPart, renderers: readonly ToolRenderer[]) {
-  return renderers.find((candidate) => candidate.supports(part)) ?? genericRenderer
+function selectedToolRenderer(
+  part: ToolPart,
+  renderers: readonly ToolRenderer[],
+) {
+  return (
+    renderers.find((candidate) => candidate.supports(part)) ?? genericRenderer
+  )
 }
 
 function isDefaultContextPart(
@@ -501,16 +621,27 @@ function collectDefaultContextParts(
   renderers: readonly ToolRenderer[],
 ) {
   return parts.filter(
-    (part): part is ToolPart => part.type === 'tool' && isDefaultContextPart(part, renderers),
+    (part): part is ToolPart =>
+      part.type === 'tool' && isDefaultContextPart(part, renderers),
   )
 }
 
 function DefaultContextParts({ parts }: { parts: readonly ToolPart[] }) {
   const first = parts[0]
   if (!first) return null
-  return <div data-slot="tool-renderer" data-renderer="context" data-tool-kind="context">
-    {parts.length === 1 ? <ContextTool part={first} /> : <ContextToolGroup parts={parts} />}
-  </div>
+  return (
+    <div
+      data-slot="tool-renderer"
+      data-renderer="context"
+      data-tool-kind="context"
+    >
+      {parts.length === 1 ? (
+        <ContextTool part={first} />
+      ) : (
+        <ContextToolGroup parts={parts} />
+      )}
+    </div>
+  )
 }
 
 function formatJson(value: unknown) {
@@ -523,7 +654,10 @@ function formatDuration(durationMs: number) {
 }
 
 function isActivityPart(part: MessagePart) {
-  return part.type === 'reasoning' || (part.type === 'tool' && part.presentation.kind !== 'image')
+  return (
+    part.type === 'reasoning' ||
+    (part.type === 'tool' && part.presentation.kind !== 'image')
+  )
 }
 
 function isActiveActivityPart(part: MessagePart) {
@@ -537,11 +671,36 @@ function isActiveActivityPart(part: MessagePart) {
 }
 
 const styles = stylex.create({
-  assistantSequence: { display: 'flex', flexDirection: 'column', gap: space.x2, position: 'relative', minInlineSize: 0 },
-  assistantRow: { display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', position: 'relative', minBlockSize: '2rem', minInlineSize: 0 },
-  summaryRoot: { display: 'flex', flexDirection: 'column', gap: space.x2, minInlineSize: 0 },
-  current: { borderInlineStart: `2px solid ${colors.accent}`, paddingInlineStart: space.x2 },
-  receipt: { color: colors.textMuted, fontSize: type.sizeSmall, lineHeight: 1.6 },
+  assistantSequence: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
+    position: 'relative',
+    minInlineSize: 0,
+  },
+  assistantRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'flex-start',
+    position: 'relative',
+    minBlockSize: '2rem',
+    minInlineSize: 0,
+  },
+  summaryRoot: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x2,
+    minInlineSize: 0,
+  },
+  current: {
+    borderInlineStart: `2px solid ${colors.accent}`,
+    paddingInlineStart: space.x2,
+  },
+  receipt: {
+    color: colors.textMuted,
+    fontSize: type.sizeSmall,
+    lineHeight: 1.6,
+  },
   root: {
     display: 'flex',
     flexDirection: 'column',
@@ -550,8 +709,14 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   activitySequence: {
-    backgroundColor: stylex.firstThatWorks(chatAppearance.activitySurface, colors.surface),
-    borderColor: stylex.firstThatWorks(chatAppearance.activityBorder, colors.border),
+    backgroundColor: stylex.firstThatWorks(
+      chatAppearance.activitySurface,
+      colors.surface,
+    ),
+    borderColor: stylex.firstThatWorks(
+      chatAppearance.activityBorder,
+      colors.border,
+    ),
     borderRadius: radii.inset,
     borderStyle: 'solid',
     borderWidth: 0,

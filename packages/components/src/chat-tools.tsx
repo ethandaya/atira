@@ -10,7 +10,13 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { ActivityPresence, AnimatePresence, Button, Disclosure, PresenceSurface } from '@pretty-amped/primitives'
+import {
+  ActivityPresence,
+  AnimatePresence,
+  Button,
+  Disclosure,
+  PresenceSurface,
+} from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -28,20 +34,28 @@ export type ChatToolProps = {
 }
 
 export function ImageGenerationTool({ part }: { part: ToolPart }) {
-  const image = part.presentation.kind === 'image' ? part.presentation.image : undefined
-  const state = part.state.status === 'succeeded'
-    ? image ? { status: 'ready' as const, image } : { status: 'failed' as const, error: 'The generated image is unavailable.' }
-    : part.state.status === 'failed'
-      ? { status: 'failed' as const, error: part.state.error.message }
-      : part.state.status === 'cancelled'
-        ? { status: 'failed' as const, error: 'Image generation stopped.' }
-        : { status: 'generating' as const }
+  const image =
+    part.presentation.kind === 'image' ? part.presentation.image : undefined
+  const state =
+    part.state.status === 'succeeded'
+      ? image
+        ? { status: 'ready' as const, image }
+        : {
+            status: 'failed' as const,
+            error: 'The generated image is unavailable.',
+          }
+      : part.state.status === 'failed'
+        ? { status: 'failed' as const, error: part.state.error.message }
+        : part.state.status === 'cancelled'
+          ? { status: 'failed' as const, error: 'Image generation stopped.' }
+          : { status: 'generating' as const }
   return <GeneratedImage state={state} />
 }
 
 export function ContextTool(props: ChatToolProps) {
   const { part } = props
-  const presentation = part.presentation.kind === 'context' ? part.presentation : undefined
+  const presentation =
+    part.presentation.kind === 'context' ? part.presentation : undefined
   const operation = presentation?.operation ?? 'read'
   const target = presentation?.target
 
@@ -99,7 +113,8 @@ export function ShellTool({
   outputCharacterLimit,
   part,
 }: ChatToolProps) {
-  const presentation = part.presentation.kind === 'shell' ? part.presentation : undefined
+  const presentation =
+    part.presentation.kind === 'shell' ? part.presentation : undefined
   const command = presentation?.command
   const output = toolOutput(part.state)
   const workingDirectory = presentation?.workingDirectory
@@ -117,7 +132,12 @@ export function ShellTool({
     >
       <div data-slot="shell-tool-evidence" {...stylex.props(styles.stack)}>
         {command && (
-          <CodeBlock code={command} copyable label="Shell command" language="shell" />
+          <CodeBlock
+            code={command}
+            copyable
+            label="Shell command"
+            language="shell"
+          />
         )}
         {!command && toolInput(part.state) !== undefined && (
           <BoundedEvidenceRow label="Input" value={toolInput(part.state)!} />
@@ -131,7 +151,9 @@ export function ShellTool({
               : { characterLimit: outputCharacterLimit })}
           />
         )}
-        {(workingDirectory || exitCode !== undefined || durationMs !== undefined) && (
+        {(workingDirectory ||
+          exitCode !== undefined ||
+          durationMs !== undefined) && (
           <dl {...stylex.props(styles.evidence)}>
             {workingDirectory && (
               <EvidenceRow label="Directory" value={workingDirectory} />
@@ -140,7 +162,10 @@ export function ShellTool({
               <EvidenceRow label="Exit" value={String(exitCode)} />
             )}
             {durationMs !== undefined && (
-              <EvidenceRow label="Duration" value={formatDuration(durationMs)} />
+              <EvidenceRow
+                label="Duration"
+                value={formatDuration(durationMs)}
+              />
             )}
           </dl>
         )}
@@ -198,11 +223,17 @@ export function FileChangeTool({
           />
         )}
         {files.length === 0 && content && path && (
-          <CodeBlock code={content} filename={path} label={`${path} contents`} />
+          <CodeBlock
+            code={content}
+            filename={path}
+            label={`${path} contents`}
+          />
         )}
-        {files.length === 0 && !(content && path) && toolInput(part.state) !== undefined && (
-          <BoundedEvidenceRow label="Input" value={toolInput(part.state)!} />
-        )}
+        {files.length === 0 &&
+          !(content && path) &&
+          toolInput(part.state) !== undefined && (
+            <BoundedEvidenceRow label="Input" value={toolInput(part.state)!} />
+          )}
         {diagnostics.length > 0 && (
           <section
             aria-label="File diagnostics"
@@ -264,9 +295,7 @@ export function TaskTool({
   const agentLabel = agent?.label ?? 'Subagent'
   const summary = `${
     running ? agentLabel.replace(/\s+agent$/i, '') : agentLabel
-  } · ${
-    running && activity ? activity.summary : description
-  }`
+  } · ${running && activity ? activity.summary : description}`
 
   return (
     <div
@@ -284,12 +313,15 @@ export function TaskTool({
         id={part.id}
         state={activityState(part.state)}
         summary={summary}
-        summaryTransitionKey={`${part.state.status}:${running ? activity?.summary ?? '' : ''}`}
+        summaryTransitionKey={`${part.state.status}:${running ? (activity?.summary ?? '') : ''}`}
         title={summary}
         tool={part.toolName}
       >
         <AnimatePresence initial={false} mode="wait">
-          <PresenceSurface key={transcript ? 'transcript' : 'output'} kind="overlay">
+          <PresenceSurface
+            key={transcript ? 'transcript' : 'output'}
+            kind="overlay"
+          >
             {transcript ? (
               <TaskTranscriptEvidence
                 description={description}
@@ -307,7 +339,10 @@ export function TaskTool({
           </PresenceSurface>
         </AnimatePresence>
         {blockers.length > 0 && (
-          <section aria-label="Task blockers" {...stylex.props(styles.diagnostics)}>
+          <section
+            aria-label="Task blockers"
+            {...stylex.props(styles.diagnostics)}
+          >
             <p {...stylex.props(styles.diagnosticsTitle)}>Blocked</p>
             <ul {...stylex.props(styles.diagnosticList)}>
               {blockers.map((blocker, index) => (
@@ -335,7 +370,10 @@ export function TaskTool({
           </p>
         )}
         {!childSessionId && !transcript && isTerminal(part.state) && (
-          <p data-slot="task-child-unavailable" {...stylex.props(styles.notice)}>
+          <p
+            data-slot="task-child-unavailable"
+            {...stylex.props(styles.notice)}
+          >
             This runtime did not expose a child transcript.
           </p>
         )}
@@ -379,7 +417,10 @@ function TaskTranscriptEvidence({
           <div {...stylex.props(styles.taskSteps)}>
             <AnimatePresence initial={false}>
               {transcript.steps.map((step) => (
-                <ActivityPresence key={step.id} layoutDependency={transcript.steps.length}>
+                <ActivityPresence
+                  key={step.id}
+                  layoutDependency={transcript.steps.length}
+                >
                   <ToolActivity
                     id={`${part.id}:${step.id}`}
                     state={
@@ -395,10 +436,18 @@ function TaskTranscriptEvidence({
                   >
                     {(step.input || step.output || step.error) && (
                       <dl {...stylex.props(styles.evidence)}>
-                        {step.input && <EvidenceRow label="Input" value={step.input} />}
-                        {step.output && <EvidenceRow label="Result" value={step.output} />}
+                        {step.input && (
+                          <EvidenceRow label="Input" value={step.input} />
+                        )}
+                        {step.output && (
+                          <EvidenceRow label="Result" value={step.output} />
+                        )}
                         {step.error && (
-                          <EvidenceRow danger label="Error" value={step.error} />
+                          <EvidenceRow
+                            danger
+                            label="Error"
+                            value={step.error}
+                          />
                         )}
                       </dl>
                     )}
@@ -410,14 +459,28 @@ function TaskTranscriptEvidence({
         </section>
       )}
       <AnimatePresence initial={false}>
-        {(transcript.result || isTerminal(part.state)) && <ActivityPresence key="result" layoutDependency={transcript.steps.length}>
-          <section aria-label="Subagent result" {...stylex.props(styles.taskSection)}>
-            <p {...stylex.props(styles.taskLabel)}>{part.state.status === 'failed' ? 'Partial response' : 'Result'}</p>
-            {transcript.result
-              ? <Markdown status="complete">{transcript.result}</Markdown>
-              : <p {...stylex.props(styles.taskCopy)}>No response text was received.</p>}
-          </section>
-        </ActivityPresence>}
+        {(transcript.result || isTerminal(part.state)) && (
+          <ActivityPresence
+            key="result"
+            layoutDependency={transcript.steps.length}
+          >
+            <section
+              aria-label="Subagent result"
+              {...stylex.props(styles.taskSection)}
+            >
+              <p {...stylex.props(styles.taskLabel)}>
+                {part.state.status === 'failed' ? 'Partial response' : 'Result'}
+              </p>
+              {transcript.result ? (
+                <Markdown status="complete">{transcript.result}</Markdown>
+              ) : (
+                <p {...stylex.props(styles.taskCopy)}>
+                  No response text was received.
+                </p>
+              )}
+            </section>
+          </ActivityPresence>
+        )}
       </AnimatePresence>
       <dl {...stylex.props(styles.evidence)}>
         <ToolTiming state={part.state} />
@@ -427,7 +490,8 @@ function TaskTranscriptEvidence({
 }
 
 export function WebTool(props: ChatToolProps) {
-  const presentation = props.part.presentation.kind === 'web' ? props.part.presentation : undefined
+  const presentation =
+    props.part.presentation.kind === 'web' ? props.part.presentation : undefined
   const target = presentation?.target
   const operation = presentation?.operation ?? 'fetch'
 
@@ -452,12 +516,17 @@ export function WebTool(props: ChatToolProps) {
 }
 
 export function SkillTool(props: ChatToolProps) {
-  const name = props.part.presentation.kind === 'skill' ? props.part.presentation.name : undefined
+  const name =
+    props.part.presentation.kind === 'skill'
+      ? props.part.presentation.name
+      : undefined
   return <ToolShell {...props} summary={name ? `Load ${name}` : 'Load skill'} />
 }
 
 export function GenericTool(props: ChatToolProps) {
-  return <ToolShell {...props} summary={genericToolSummary(props.part.toolName)} />
+  return (
+    <ToolShell {...props} summary={genericToolSummary(props.part.toolName)} />
+  )
 }
 
 type ToolShellProps = ChatToolProps & {
@@ -508,7 +577,9 @@ function ToolEvidence({
         <EvidenceRow label="Input" value={state.rawInput} />
       )}
       <AnimatePresence initial={false}>
-        {input !== undefined && <BoundedEvidenceRow key="input" label="Input" value={input} />}
+        {input !== undefined && (
+          <BoundedEvidenceRow key="input" label="Input" value={input} />
+        )}
         {output !== undefined && (
           <BoundedEvidenceRow
             key="result"
@@ -517,12 +588,16 @@ function ToolEvidence({
             {...(outputCharacterLimit !== undefined
               ? { characterLimit: outputCharacterLimit }
               : part.presentation.kind === 'context'
-              ? { characterLimit: 20_000 }
-              : {})}
+                ? { characterLimit: 20_000 }
+                : {})}
           />
         )}
         {part.metadata && Object.keys(part.metadata).length > 0 && (
-          <BoundedEvidenceRow key="metadata" label="Metadata" value={part.metadata} />
+          <BoundedEvidenceRow
+            key="metadata"
+            label="Metadata"
+            value={part.metadata}
+          />
         )}
       </AnimatePresence>
       {state.status === 'failed' && (
@@ -537,7 +612,8 @@ function useBoundedToolValue(value: JsonValue, limit = 12_000) {
   const [revealed, setRevealed] = useState(false)
   const formatted = stripAnsi(formatJson(value))
   const truncated = formatted.length > limit
-  const visible = truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
+  const visible =
+    truncated && !revealed ? `${formatted.slice(0, limit)}\n…` : formatted
   return { revealed, setRevealed, truncated, visible }
 }
 
@@ -550,7 +626,10 @@ function BoundedEvidenceRow({
   label: string
   value: JsonValue
 }) {
-  const { revealed, setRevealed, truncated, visible } = useBoundedToolValue(value, characterLimit)
+  const { revealed, setRevealed, truncated, visible } = useBoundedToolValue(
+    value,
+    characterLimit,
+  )
 
   return (
     <PresenceSurface kind="overlay" {...stylex.props(styles.evidenceRow)}>
@@ -583,7 +662,10 @@ function BoundedToolOutput({
   label: string
   value: JsonValue
 }) {
-  const { revealed, setRevealed, truncated, visible } = useBoundedToolValue(value, characterLimit)
+  const { revealed, setRevealed, truncated, visible } = useBoundedToolValue(
+    value,
+    characterLimit,
+  )
 
   return (
     <div {...stylex.props(styles.stack)}>
@@ -616,10 +698,7 @@ function EvidenceRow({
   return (
     <div {...stylex.props(styles.evidenceRow)}>
       <dt {...stylex.props(styles.term)}>{label}</dt>
-      <dd
-        dir="ltr"
-        {...stylex.props(styles.value, danger && styles.danger)}
-      >
+      <dd dir="ltr" {...stylex.props(styles.value, danger && styles.danger)}>
         {value}
       </dd>
     </div>
@@ -714,13 +793,13 @@ function safeHttpUrl(value: string) {
 
 function humanize(value: string) {
   const words = value.replace(/[._-]+/g, ' ').trim()
-  return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)}` : 'Tool call'
+  return words
+    ? `${words.charAt(0).toUpperCase()}${words.slice(1)}`
+    : 'Tool call'
 }
 
 function genericToolSummary(value: string) {
-  const name = value
-    .replace(/^mcp[._-]+/i, '')
-    .replace(/[._-]+tool$/i, '')
+  const name = value.replace(/^mcp[._-]+/i, '').replace(/[._-]+tool$/i, '')
   const label = humanize(name)
   return label === 'Tool call' ? label : `${label} tool`
 }

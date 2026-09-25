@@ -16,13 +16,14 @@ type NativeListItemProps = Omit<
   'children' | 'className' | 'style'
 >
 
-export type MessageProps = NativeListItemProps & StyleProps & {
-  actions?: ReactNode
-  actor: MessageActor
-  children: ReactNode
-  label?: string
-  meta?: ReactNode
-}
+export type MessageProps = NativeListItemProps &
+  StyleProps & {
+    actions?: ReactNode
+    actor: MessageActor
+    children: ReactNode
+    label?: string
+    meta?: ReactNode
+  }
 
 export function Message({
   actions,
@@ -35,14 +36,14 @@ export function Message({
   xstyle,
   ...props
 }: MessageProps) {
-  const rootStyle = resolveStyleProps([styles.item, alignment[actor]], xstyle, className, style)
+  const rootStyle = resolveStyleProps(
+    [styles.item, alignment[actor]],
+    xstyle,
+    className,
+    style,
+  )
   return (
-    <li
-      {...props}
-      data-actor={actor}
-      data-slot="message"
-      {...rootStyle}
-    >
+    <li {...props} data-actor={actor} data-slot="message" {...rootStyle}>
       <article
         aria-label={label}
         data-slot="message-article"

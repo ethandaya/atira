@@ -9,11 +9,7 @@ import type {
   HistoryState,
   SessionActivity,
 } from '@pretty-amped/foundations/chat'
-import {
-  colors,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { ChevronDown } from 'lucide-react'
@@ -109,34 +105,50 @@ export function Timeline({
   )
   const visibleTurns = turns.slice(range.start, range.end)
 
-  const changeFollow = useCallback((next: FollowState) => {
-    followRef.current = next
-    setFollow(next)
-    onFollowStateChange?.(next)
-  }, [onFollowStateChange])
+  const changeFollow = useCallback(
+    (next: FollowState) => {
+      followRef.current = next
+      setFollow(next)
+      onFollowStateChange?.(next)
+    },
+    [onFollowStateChange],
+  )
 
   const updateScrollEdges = useCallback((viewport: HTMLElement) => {
     setHasContentAbove(viewport.scrollTop > 1)
-    setHasContentBelow(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1)
+    setHasContentBelow(
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1,
+    )
   }, [])
 
-  const updateVirtualWindow = useCallback((viewport: HTMLElement) => {
-    updateScrollEdges(viewport)
-    if (!virtualized) return
-    pinOpenOrFocusedTurns(viewport, pinnedTurnIds.current)
-    const next = calculateWindowRange({
-      estimatedTurnHeight,
+  const updateVirtualWindow = useCallback(
+    (viewport: HTMLElement) => {
+      updateScrollEdges(viewport)
+      if (!virtualized) return
+      pinOpenOrFocusedTurns(viewport, pinnedTurnIds.current)
+      const next = calculateWindowRange({
+        estimatedTurnHeight,
+        estimatedTurnGap,
+        heights: measuredHeights.current,
+        pinnedTurnIds: pinnedTurnIds.current,
+        scrollTop: viewport.scrollTop,
+        turns,
+        viewportHeight: viewport.clientHeight,
+      })
+      setWindowRange((current) =>
+        current.start === next.start && current.end === next.end
+          ? current
+          : next,
+      )
+    },
+    [
       estimatedTurnGap,
-      heights: measuredHeights.current,
-      pinnedTurnIds: pinnedTurnIds.current,
-      scrollTop: viewport.scrollTop,
+      estimatedTurnHeight,
       turns,
-      viewportHeight: viewport.clientHeight,
-    })
-    setWindowRange((current) =>
-      current.start === next.start && current.end === next.end ? current : next,
-    )
-  }, [estimatedTurnGap, estimatedTurnHeight, turns, updateScrollEdges, virtualized])
+      updateScrollEdges,
+      virtualized,
+    ],
+  )
 
   const measureLayout = useEffectEvent(() => {
     const viewport = viewportRef.current
@@ -144,7 +156,9 @@ export function Timeline({
 
     const previousTopSpacer = topSpacer
     let measured = false
-    for (const element of viewport.querySelectorAll<HTMLElement>('[data-turn-id]')) {
+    for (const element of viewport.querySelectorAll<HTMLElement>(
+      '[data-turn-id]',
+    )) {
       const id = element.dataset.turnId
       if (!id) continue
       const height = element.getBoundingClientRect().height
@@ -162,7 +176,10 @@ export function Timeline({
         estimatedTurnGap,
         estimatedTurnHeight,
       )
-      if (follow.status !== 'following' && nextTopSpacer !== previousTopSpacer) {
+      if (
+        follow.status !== 'following' &&
+        nextTopSpacer !== previousTopSpacer
+      ) {
         viewport.scrollTop += nextTopSpacer - previousTopSpacer
       }
       setMeasurementVersion((current) => current + 1)
@@ -173,7 +190,9 @@ export function Timeline({
       const element = viewport.querySelector<HTMLElement>(
         `[data-turn-id="${CSS.escape(anchor.id)}"]`,
       )
-      if (element) viewport.scrollTop += element.getBoundingClientRect().top - anchor.offset
+      if (element)
+        viewport.scrollTop +=
+          element.getBoundingClientRect().top - anchor.offset
       pendingAnchor.current = undefined
       changeFollow({ pendingCount: 0, status: 'detached' })
       return
@@ -188,7 +207,14 @@ export function Timeline({
   // Follow changes alone must not consume the anchor before older turns arrive.
   useLayoutEffect(() => {
     measureLayout()
-  }, [measurementVersion, range.end, range.start, version, estimatedTurnGap, estimatedTurnHeight])
+  }, [
+    measurementVersion,
+    range.end,
+    range.start,
+    version,
+    estimatedTurnGap,
+    estimatedTurnHeight,
+  ])
 
   const onResize = useEffectEvent(() => {
     const viewport = viewportRef.current
@@ -289,9 +315,12 @@ export function Timeline({
       <div
         ref={viewportRef}
         onClickCapture={(event) => {
-          const trigger = event.target instanceof Element
-            ? event.target.closest('[data-slot="disclosure-trigger"][aria-expanded="false"]:not([disabled])')
-            : null
+          const trigger =
+            event.target instanceof Element
+              ? event.target.closest(
+                  '[data-slot="disclosure-trigger"][aria-expanded="false"]:not([disabled])',
+                )
+              : null
           // Opening evidence is a reading action, not new streamed output.
           // Detach before the panel resize can pull its header out of view.
           if (trigger && followRef.current.status === 'following') {
@@ -410,13 +439,20 @@ export type HistoryControlProps = {
   onLoadPrevious: () => void
 }
 
-export function HistoryControl({ history, onLoadPrevious }: HistoryControlProps) {
+export function HistoryControl({
+  history,
+  onLoadPrevious,
+}: HistoryControlProps) {
   if (history.status === 'complete') return null
   if (history.status === 'initial-loading') {
     return <p {...stylex.props(styles.historyText)}>Loading conversation…</p>
   }
   if (history.status === 'loading-previous') {
-    return <p role="status" {...stylex.props(styles.historyText)}>Loading earlier messages…</p>
+    return (
+      <p role="status" {...stylex.props(styles.historyText)}>
+        Loading earlier messages…
+      </p>
+    )
   }
   if (history.status === 'failed') {
     return (
@@ -486,7 +522,10 @@ function firstVisibleTurn(viewport: HTMLElement): ScrollAnchor | undefined {
   const turns = viewport.querySelectorAll<HTMLElement>('[data-turn-id]')
   for (const turn of turns) {
     if (turn.getBoundingClientRect().bottom > viewportTop) {
-      return { id: turn.dataset.turnId ?? '', offset: turn.getBoundingClientRect().top }
+      return {
+        id: turn.dataset.turnId ?? '',
+        offset: turn.getBoundingClientRect().top,
+      }
     }
   }
   return undefined
@@ -526,7 +565,10 @@ function spacerHeight(
   estimate: number,
 ) {
   const count = Math.max(0, end - start)
-  return rangeHeight(turns, start, end, heights, estimate) + Math.max(0, count - 1) * gap
+  return (
+    rangeHeight(turns, start, end, heights, estimate) +
+    Math.max(0, count - 1) * gap
+  )
 }
 
 function calculateWindowRange(input: {
@@ -550,7 +592,8 @@ function calculateWindowRange(input: {
   for (let index = 0; index < input.turns.length; index += 1) {
     const turn = input.turns[index]
     if (!turn) continue
-    const next = offset + (input.heights.get(turn.id) ?? input.estimatedTurnHeight)
+    const next =
+      offset + (input.heights.get(turn.id) ?? input.estimatedTurnHeight)
     if (next < minimum) start = index + 1
     if (offset <= maximum) end = index + 1
     offset = next + input.estimatedTurnGap
@@ -568,7 +611,10 @@ function pinOpenOrFocusedTurns(viewport: HTMLElement, pinned: Set<string>) {
   for (const turn of viewport.querySelectorAll<HTMLElement>('[data-turn-id]')) {
     const id = turn.dataset.turnId
     if (!id) continue
-    if (turn.contains(document.activeElement) || turn.querySelector('details[open]')) {
+    if (
+      turn.contains(document.activeElement) ||
+      turn.querySelector('details[open]')
+    ) {
       pinned.add(id)
     } else {
       pinned.delete(id)
@@ -601,7 +647,8 @@ const styles = stylex.create({
     maskImage: 'linear-gradient(to top, transparent, oklch(0 0 0) 3rem)',
   },
   fadeBoth: {
-    maskImage: 'linear-gradient(to bottom, transparent, oklch(0 0 0) 3rem, oklch(0 0 0) calc(100% - 3rem), transparent)',
+    maskImage:
+      'linear-gradient(to bottom, transparent, oklch(0 0 0) 3rem, oklch(0 0 0) calc(100% - 3rem), transparent)',
   },
   measure: {
     boxSizing: 'border-box',

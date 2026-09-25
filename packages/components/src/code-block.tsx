@@ -4,13 +4,14 @@ import {
   space,
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
-import { Button, VisuallyHidden, resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
-import * as stylex from '@stylexjs/stylex'
 import {
-  useState,
-  type ComponentPropsWithRef,
-  type ReactNode,
-} from 'react'
+  Button,
+  VisuallyHidden,
+  resolveStyleProps,
+  type StyleProps,
+} from '@pretty-amped/primitives'
+import * as stylex from '@stylexjs/stylex'
+import { useState, type ComponentPropsWithRef, type ReactNode } from 'react'
 
 type NativeDivProps = Omit<
   ComponentPropsWithRef<'div'>,
@@ -21,15 +22,16 @@ type CopyState =
   | { status: 'idle' }
   | { code: string; status: 'copying' | 'copied' | 'failed' }
 
-export type CodeBlockProps = NativeDivProps & StyleProps & {
-  code: string
-  copyable?: boolean
-  filename?: string
-  label?: string
-  language?: string
-  onCopy?: (code: string) => Promise<void> | void
-  wrap?: boolean
-}
+export type CodeBlockProps = NativeDivProps &
+  StyleProps & {
+    code: string
+    copyable?: boolean
+    filename?: string
+    label?: string
+    language?: string
+    onCopy?: (code: string) => Promise<void> | void
+    wrap?: boolean
+  }
 
 export function CodeBlock({
   className,
@@ -46,9 +48,7 @@ export function CodeBlock({
 }: CodeBlockProps) {
   const [copyState, setCopyState] = useState<CopyState>({ status: 'idle' })
   const copyStatus =
-    'code' in copyState && copyState.code !== code
-      ? 'idle'
-      : copyState.status
+    'code' in copyState && copyState.code !== code ? 'idle' : copyState.status
   const hasHeader = Boolean(filename || language || copyable)
 
   async function copyCode() {
@@ -86,12 +86,18 @@ export function CodeBlock({
         <div data-slot="code-block-header" {...stylex.props(styles.header)}>
           <span {...stylex.props(styles.metadata)}>
             {filename && (
-              <span data-slot="code-block-filename" {...stylex.props(styles.filename)}>
+              <span
+                data-slot="code-block-filename"
+                {...stylex.props(styles.filename)}
+              >
                 {filename}
               </span>
             )}
             {language && (
-              <span data-slot="code-block-language" {...stylex.props(styles.language)}>
+              <span
+                data-slot="code-block-language"
+                {...stylex.props(styles.language)}
+              >
                 {language}
               </span>
             )}

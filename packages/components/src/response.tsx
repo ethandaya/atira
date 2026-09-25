@@ -1,9 +1,9 @@
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import {
-  colors,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
-import { resolveStyleProps, VisuallyHidden, type StyleProps } from '@pretty-amped/primitives'
+  resolveStyleProps,
+  VisuallyHidden,
+  type StyleProps,
+} from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 
@@ -12,9 +12,10 @@ type NativeDivProps = Omit<
   'children' | 'className' | 'style'
 >
 
-type ResponseBaseProps = NativeDivProps & StyleProps & {
-  children: ReactNode
-}
+type ResponseBaseProps = NativeDivProps &
+  StyleProps & {
+    children: ReactNode
+  }
 
 type ActiveResponseProps = ResponseBaseProps & {
   error?: never
@@ -36,7 +37,15 @@ export type ResponseProps =
   | InterruptedResponseProps
   | FailedResponseProps
 
-export function Response({ children, className, error, style, status, xstyle, ...props }: ResponseProps) {
+export function Response({
+  children,
+  className,
+  error,
+  style,
+  status,
+  xstyle,
+  ...props
+}: ResponseProps) {
   return (
     <div
       {...props}

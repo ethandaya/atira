@@ -8,7 +8,10 @@ import type {
   RevertedPrompt,
   TodoListView,
 } from '@pretty-amped/foundations/chat'
-import { compareRequestOrder, selectActiveRequest } from '@pretty-amped/foundations/chat-invariants'
+import {
+  compareRequestOrder,
+  selectActiveRequest,
+} from '@pretty-amped/foundations/chat-invariants'
 import {
   chatAppearance,
   colors,
@@ -47,7 +50,12 @@ export type PermissionPromptProps = {
 }
 
 export function PermissionPrompt(props: PermissionPromptProps) {
-  return <PermissionPromptContent key={`${props.request.origin.sessionId}:${props.request.id}`} {...props} />
+  return (
+    <PermissionPromptContent
+      key={`${props.request.origin.sessionId}:${props.request.id}`}
+      {...props}
+    />
+  )
 }
 
 function PermissionPromptContent({
@@ -118,10 +126,7 @@ function PermissionPromptContent({
       </div>
 
       {request.state.status === 'failed' && (
-        <p
-          role="alert"
-          {...stylex.props(styles.error, styles.permissionError)}
-        >
+        <p role="alert" {...stylex.props(styles.error, styles.permissionError)}>
           {request.state.error.message}
         </p>
       )}
@@ -139,7 +144,9 @@ function PermissionPromptContent({
             {availableDecisions.includes('reject') && (
               <Button
                 disabled={submitting || !onDecision}
-                focusableWhenDisabled={submitting && activeDecision === 'reject'}
+                focusableWhenDisabled={
+                  submitting && activeDecision === 'reject'
+                }
                 onClick={() => decide('reject')}
                 size="compact"
                 variant="quiet"
@@ -151,7 +158,9 @@ function PermissionPromptContent({
               <Button
                 aria-label="Always allow"
                 disabled={submitting || !onDecision}
-                focusableWhenDisabled={submitting && activeDecision === 'always'}
+                focusableWhenDisabled={
+                  submitting && activeDecision === 'always'
+                }
                 onClick={() => decide('always')}
                 size="compact"
                 variant="outline"
@@ -185,7 +194,12 @@ export type QuestionRequestProps = {
 }
 
 export function QuestionRequest(props: QuestionRequestProps) {
-  return <QuestionRequestForm key={`${props.request.origin.sessionId}:${props.request.id}`} {...props} />
+  return (
+    <QuestionRequestForm
+      key={`${props.request.origin.sessionId}:${props.request.id}`}
+      {...props}
+    />
+  )
 }
 
 function QuestionRequestForm({
@@ -200,10 +214,10 @@ function QuestionRequestForm({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [questionIndex, setQuestionIndex] = useState(0)
   const [submittingRequestId, setSubmittingRequestId] = useState<string>()
-  const submittingLocally = submittingRequestId === request.id &&
+  const submittingLocally =
+    submittingRequestId === request.id &&
     (request.state.status === 'pending' || request.state.status === 'failed')
-  const submitting =
-    request.state.status === 'submitting' || submittingLocally
+  const submitting = request.state.status === 'submitting' || submittingLocally
   const actionable =
     (request.state.status === 'pending' || request.state.status === 'failed') &&
     !submittingLocally
@@ -302,7 +316,8 @@ function QuestionRequestForm({
               tabIndex={-1}
               {...stylex.props(styles.title)}
             >
-              {request.state.status === 'resolved' || request.state.status === 'expired'
+              {request.state.status === 'resolved' ||
+              request.state.status === 'expired'
                 ? questionStatus(request)
                 : 'A question needs your input'}
             </h2>
@@ -321,14 +336,18 @@ function QuestionRequestForm({
         </div>
         <div {...stylex.props(styles.questions)}>
           {activeQuestion && (
-            <PresenceSurface key={activeQuestion.id} kind="content" immediate={questionIndex === 0}>
-            <QuestionControl
-              actionable={actionable && !!onAnswer}
-              error={errors[activeQuestion.id]}
-              question={activeQuestion}
-              updateValue={updateValue}
-              values={values}
-            />
+            <PresenceSurface
+              key={activeQuestion.id}
+              kind="content"
+              immediate={questionIndex === 0}
+            >
+              <QuestionControl
+                actionable={actionable && !!onAnswer}
+                error={errors[activeQuestion.id]}
+                question={activeQuestion}
+                updateValue={updateValue}
+                values={values}
+              />
             </PresenceSurface>
           )}
         </div>
@@ -341,15 +360,15 @@ function QuestionRequestForm({
       )}
 
       <div {...stylex.props(styles.requestFooter)}>
-        <VisuallyHidden role="status">
-          {questionStatus(request)}
-        </VisuallyHidden>
+        <VisuallyHidden role="status">{questionStatus(request)}</VisuallyHidden>
         {(actionable || submitting) && (
           <div {...stylex.props(styles.actions)}>
             {questionIndex > 0 && (
               <Button
                 disabled={!actionable}
-                onClick={() => setQuestionIndex((current) => Math.max(0, current - 1))}
+                onClick={() =>
+                  setQuestionIndex((current) => Math.max(0, current - 1))
+                }
                 size="compact"
                 variant="quiet"
               >
@@ -421,7 +440,10 @@ function QuestionControl({
 
   const selected = arrayValue(values[question.id])
   return (
-    <div data-question-id={question.id} {...stylex.props(styles.choiceQuestion)}>
+    <div
+      data-question-id={question.id}
+      {...stylex.props(styles.choiceQuestion)}
+    >
       {question.type === 'single-choice' ? (
         <RadioGroup
           disabled={!actionable}
@@ -489,7 +511,9 @@ export type TodoDockProps = {
 }
 
 export function TodoDock({ defaultOpen, todos }: TodoDockProps) {
-  const complete = todos.items.filter((item) => item.state === 'complete').length
+  const complete = todos.items.filter(
+    (item) => item.state === 'complete',
+  ).length
 
   return (
     <aside
@@ -514,13 +538,15 @@ export function TodoDock({ defaultOpen, todos }: TodoDockProps) {
               {...stylex.props(styles.todoItem)}
             >
               <span aria-hidden="true" {...stylex.props(styles.todoMark)}>
-                {item.state === 'complete'
-                  ? <Check size={16} strokeWidth={2} />
-                  : item.state === 'in-progress'
-                    ? <CircleDot size={16} strokeWidth={1.75} />
-                    : item.state === 'cancelled'
-                      ? <X size={16} strokeWidth={1.75} />
-                      : <Circle size={16} strokeWidth={1.75} />}
+                {item.state === 'complete' ? (
+                  <Check size={16} strokeWidth={2} />
+                ) : item.state === 'in-progress' ? (
+                  <CircleDot size={16} strokeWidth={1.75} />
+                ) : item.state === 'cancelled' ? (
+                  <X size={16} strokeWidth={1.75} />
+                ) : (
+                  <Circle size={16} strokeWidth={1.75} />
+                )}
               </span>
               <span>{item.title}</span>
             </li>
@@ -553,7 +579,9 @@ export function RevertDock({
     >
       <div>
         <p {...stylex.props(styles.dockTitle)}>Prompt reverted</p>
-        <p {...stylex.props(styles.supporting)}>Restore it to edit and resubmit.</p>
+        <p {...stylex.props(styles.supporting)}>
+          Restore it to edit and resubmit.
+        </p>
       </div>
       <div {...stylex.props(styles.actions)}>
         <Button onClick={onDismiss} size="compact" variant="quiet">
@@ -628,8 +656,14 @@ export function QuestionAnswerSummary({ request }: QuestionAnswerSummaryProps) {
 export type RequestRegionProps = {
   children: ReactNode
   draftRevision?: number
-  onPermissionDecision: (request: PermissionRequestView, decision: PermissionDecision) => void
-  onQuestionAnswer: (request: QuestionRequestView, response: QuestionResponse) => void
+  onPermissionDecision: (
+    request: PermissionRequestView,
+    decision: PermissionDecision,
+  ) => void
+  onQuestionAnswer: (
+    request: QuestionRequestView,
+    response: QuestionResponse,
+  ) => void
   onQuestionReject: (request: QuestionRequestView) => void
   permissionDecisions?: readonly PermissionDecision[]
   requests: readonly ChatRequest[]
@@ -649,8 +683,12 @@ export function RequestRegion({
   todos,
 }: RequestRegionProps) {
   const active = selectActiveRequest(requests)
-  const activeKey = active ? `${active.origin.sessionId}:${active.id}` : undefined
-  const resolved = requests.filter(request => request.state.status === 'resolved').sort(compareRequestOrder)
+  const activeKey = active
+    ? `${active.origin.sessionId}:${active.id}`
+    : undefined
+  const resolved = requests
+    .filter((request) => request.state.status === 'resolved')
+    .sort(compareRequestOrder)
   const latestDecision = resolved.at(-1)
   const regionRef = useRef<HTMLDivElement>(null)
   const previousRequest = useRef<string | undefined>(undefined)
@@ -680,7 +718,9 @@ export function RequestRegion({
         focusOwner.current === 'request'
       ) {
         region
-          ?.querySelector<HTMLElement>('[data-presence="present"] [data-request-heading]')
+          ?.querySelector<HTMLElement>(
+            '[data-presence="present"] [data-request-heading]',
+          )
           ?.focus({ preventScroll: true })
       }
     }
@@ -725,45 +765,83 @@ export function RequestRegion({
     >
       {todos && <TodoDock todos={todos} />}
       <div data-slot="request-history" {...stylex.props(styles.decisionSlot)}>
-        {latestDecision && <Disclosure variant="plain" summary={<span {...stylex.props(styles.decisionSummary)}>{latestDecision.type === 'permission'
-          ? `${permissionStatus(latestDecision)} ${latestDecision.title}`
-          : questionStatus(latestDecision)}</span>}>
-          <ol aria-label="Decision history" {...stylex.props(styles.decisionList)}>
-            {resolved.map(request => <li key={`${request.origin.sessionId}:${request.id}`}>
-              {request.type === 'permission' ? <>
-                <p {...stylex.props(styles.dockTitle)}>{permissionStatus(request)}</p>
-                <p {...stylex.props(styles.supporting)}>{request.effect} {request.scope}</p>
-              </> : request.state.status === 'resolved' && request.state.decision.type === 'answer'
-                ? <QuestionAnswerSummary request={request} />
-                : <p {...stylex.props(styles.supporting)}>{questionStatus(request)}</p>}
-            </li>)}
-          </ol>
-        </Disclosure>}
+        {latestDecision && (
+          <Disclosure
+            variant="plain"
+            summary={
+              <span {...stylex.props(styles.decisionSummary)}>
+                {latestDecision.type === 'permission'
+                  ? `${permissionStatus(latestDecision)} ${latestDecision.title}`
+                  : questionStatus(latestDecision)}
+              </span>
+            }
+          >
+            <ol
+              aria-label="Decision history"
+              {...stylex.props(styles.decisionList)}
+            >
+              {resolved.map((request) => (
+                <li key={`${request.origin.sessionId}:${request.id}`}>
+                  {request.type === 'permission' ? (
+                    <>
+                      <p {...stylex.props(styles.dockTitle)}>
+                        {permissionStatus(request)}
+                      </p>
+                      <p {...stylex.props(styles.supporting)}>
+                        {request.effect} {request.scope}
+                      </p>
+                    </>
+                  ) : request.state.status === 'resolved' &&
+                    request.state.decision.type === 'answer' ? (
+                    <QuestionAnswerSummary request={request} />
+                  ) : (
+                    <p {...stylex.props(styles.supporting)}>
+                      {questionStatus(request)}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </Disclosure>
+        )}
       </div>
-        <div data-slot="request-stage" {...stylex.props(styles.requestStage)}>
-          <div aria-hidden={!!active || undefined} inert={!!active} {...stylex.props(active && styles.reservedComposer)}>
-            {reverted || children}
-          </div>
-          <AnimatePresence initial={false}>
-          {active && <PresenceSurface key={activeKey} kind="content" data-slot="active-request-layer" {...stylex.props(styles.requestLayer)}>
-            {active.type === 'permission' ? (
-              <PermissionPrompt
-                {...(permissionDecisions === undefined
-                  ? {}
-                  : { availableDecisions: permissionDecisions })}
-                onDecision={(decision) => onPermissionDecision(active, decision)}
-                request={active}
-              />
-            ) : (
-              <QuestionRequest
-                onAnswer={(response) => onQuestionAnswer(active, response)}
-                onReject={() => onQuestionReject(active)}
-                request={active}
-              />
-            )}
-          </PresenceSurface>}
-          </AnimatePresence>
+      <div data-slot="request-stage" {...stylex.props(styles.requestStage)}>
+        <div
+          aria-hidden={!!active || undefined}
+          inert={!!active}
+          {...stylex.props(active && styles.reservedComposer)}
+        >
+          {reverted || children}
         </div>
+        <AnimatePresence initial={false}>
+          {active && (
+            <PresenceSurface
+              key={activeKey}
+              kind="content"
+              data-slot="active-request-layer"
+              {...stylex.props(styles.requestLayer)}
+            >
+              {active.type === 'permission' ? (
+                <PermissionPrompt
+                  {...(permissionDecisions === undefined
+                    ? {}
+                    : { availableDecisions: permissionDecisions })}
+                  onDecision={(decision) =>
+                    onPermissionDecision(active, decision)
+                  }
+                  request={active}
+                />
+              ) : (
+                <QuestionRequest
+                  onAnswer={(response) => onQuestionAnswer(active, response)}
+                  onReject={() => onQuestionReject(active)}
+                  request={active}
+                />
+              )}
+            </PresenceSurface>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }
@@ -779,7 +857,9 @@ function permissionStatus(request: PermissionRequestView) {
     case 'resolved':
       return request.state.decision === 'reject'
         ? 'Permission rejected.'
-        : request.state.decision === 'always' ? 'Always allowed.' : 'Allowed once.'
+        : request.state.decision === 'always'
+          ? 'Always allowed.'
+          : 'Allowed once.'
     case 'expired':
       return 'This request expired.'
   }
@@ -870,7 +950,8 @@ function questionAnswerLabel(
 
   const labels = answer.optionIds.map(
     (optionId) =>
-      question.options.find((option) => option.id === optionId)?.label ?? optionId,
+      question.options.find((option) => option.id === optionId)?.label ??
+      optionId,
   )
   if (answer.customValue) labels.push(answer.customValue)
   return labels.join(', ') || 'No answer'
@@ -995,7 +1076,10 @@ const styles = stylex.create({
     },
   },
   title: {
-    fontSize: stylex.firstThatWorks(chatAppearance.requestTitleSize, type.sizeTitle),
+    fontSize: stylex.firstThatWorks(
+      chatAppearance.requestTitleSize,
+      type.sizeTitle,
+    ),
     fontWeight: type.weightStrong,
     lineHeight: type.lineCompact,
     margin: 0,

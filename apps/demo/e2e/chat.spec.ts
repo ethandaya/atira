@@ -4,48 +4,101 @@ import { expect, test, type Page } from '@playwright/test'
 const viewport = '[data-slot="timeline-viewport"]'
 
 for (const fixture of [false, true]) {
-  test(`keeps every typed character and the caret during mid-prompt edits (${fixture ? 'fixture' : 'live store'})`, async ({ page }) => {
+  test(`keeps every typed character and the caret during mid-prompt edits (${fixture ? 'fixture' : 'live store'})`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test' } }))
+    await page.route('**/api/runtime', (route) =>
+      route.fulfill({
+        json: {
+          conversationSessions: true,
+          available: true,
+          model: 'test',
+          runtime: 'Test',
+        },
+      }),
+    )
     await page.goto(fixture ? '/?fixture=workflow' : '/?view=playground')
     const editor = page.getByRole('textbox', { name: 'Message', exact: true })
-    const text = 'Render a black bicycle with raised handlebars and gravel wheels. Use a plain background and photorealistic lighting.'
+    const text =
+      'Render a black bicycle with raised handlebars and gravel wheels. Use a plain background and photorealistic lighting.'
     await editor.click()
     await editor.pressSequentially(text, { delay: 2 })
     await expect(editor).toHaveValue(text)
-    await editor.evaluate(element => element.setSelectionRange(9, 9))
-    await expect.poll(() => editor.evaluate(element => element.selectionStart)).toBe(9)
+    await editor.evaluate((element) => element.setSelectionRange(9, 9))
+    await expect
+      .poll(() => editor.evaluate((element) => element.selectionStart))
+      .toBe(9)
     await editor.pressSequentially('beautiful ', { delay: 2 })
     const edited = text.slice(0, 9) + 'beautiful ' + text.slice(9)
     await expect(editor).toHaveValue(edited)
-    expect(await editor.evaluate(element => element.selectionStart)).toBe(19)
+    expect(await editor.evaluate((element) => element.selectionStart)).toBe(19)
     await editor.press('Enter')
     await editor.pressSequentially('Next line', { delay: 2 })
-    await expect(editor).toHaveValue(edited.slice(0, 19) + '\nNext line' + edited.slice(19))
+    await expect(editor).toHaveValue(
+      edited.slice(0, 19) + '\nNext line' + edited.slice(19),
+    )
   })
 }
 
-test('preserves the configured Nanocodex model across send, reload, and retry', async ({ page }) => {
-  const model = { label: 'Nanocodex', modelId: 'nanocodex', providerId: 'nanocodex' }
+test('preserves the configured Nanocodex model across send, reload, and retry', async ({
+  page,
+}) => {
+  const model = {
+    label: 'Nanocodex',
+    modelId: 'nanocodex',
+    providerId: 'nanocodex',
+  }
   const requests: { model: typeof model; retry: boolean }[] = []
-  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: model.modelId, models: [model], runtime: 'Nanocodex' } }))
-  await page.route('**/api/chat', route => {
+  await page.route('**/api/runtime', (route) =>
+    route.fulfill({
+      json: {
+        conversationSessions: true,
+        retryTurns: true,
+        available: true,
+        model: model.modelId,
+        models: [model],
+        runtime: 'Nanocodex',
+      },
+    }),
+  )
+  await page.route('**/api/chat', (route) => {
     requests.push(route.request().postDataJSON())
-    return route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify(requests.length === 1
-      ? { type: 'error', message: 'Temporary provider failure.' }
-      : { type: 'completed', message: 'Recovered with the original model.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }) })
+    return route.fulfill({
+      contentType: 'application/x-ndjson',
+      body: JSON.stringify(
+        requests.length === 1
+          ? { type: 'error', message: 'Temporary provider failure.' }
+          : {
+              type: 'completed',
+              message: 'Recovered with the original model.',
+              durationMs: 1,
+              usage: { outputTokens: 1, totalTokens: 2 },
+            },
+      ),
+    })
   })
   await page.goto('/?view=playground')
   const picker = page.getByRole('combobox', { name: 'Model', exact: true })
   await expect(picker).toContainText('Nanocodex')
-  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test the selected model')
+  await page
+    .getByRole('textbox', { name: 'Message', exact: true })
+    .fill('Test the selected model')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
-  await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'failed')
+  await expect(page.locator('[data-slot="turn"]')).toHaveAttribute(
+    'data-state',
+    'failed',
+  )
   expect(requests[0]?.model).toEqual(model)
   await page.reload()
   await expect(picker).toContainText('Nanocodex')
-  await page.getByRole('button', { name: 'Retry response', exact: true }).click()
-  await expect(page.locator('[data-slot="turn"]')).toHaveAttribute('data-state', 'complete')
+  await page
+    .getByRole('button', { name: 'Retry response', exact: true })
+    .click()
+  await expect(page.locator('[data-slot="turn"]')).toHaveAttribute(
+    'data-state',
+    'complete',
+  )
   expect(requests[1]).toMatchObject({ model, retry: true })
   await expect(picker).toContainText('Nanocodex')
   const identity = page.getByRole('group', { name: 'Response author' })
@@ -59,34 +112,85 @@ test('preserves the configured Nanocodex model across send, reload, and retry', 
   await page.addInitScript(() => {
     const key = 'pretty-amped:conversations:v1'
     const saved = JSON.parse(sessionStorage.getItem(key)!)
-    const turn = saved.conversations.find((item: { id: string }) => item.id === saved.activeId).turns[0]
-    turn.agent = { id: 'research', label: 'Research and implementation review agent' }
+    const turn = saved.conversations.find(
+      (item: { id: string }) => item.id === saved.activeId,
+    ).turns[0]
+    turn.agent = {
+      id: 'research',
+      label: 'Research and implementation review agent',
+    }
     turn.model.label = 'A model with an unusually long descriptive name'
     sessionStorage.setItem(key, JSON.stringify(saved))
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.reload()
-  await expect(identity).toContainText('Research and implementation review agent')
+  await expect(identity).toContainText(
+    'Research and implementation review agent',
+  )
   const mobileIdentity = (await identity.boundingBox())!
   expect(mobileIdentity.x).toBeGreaterThanOrEqual(0)
   expect(mobileIdentity.x + mobileIdentity.width).toBeLessThanOrEqual(390)
-  expect(await identity.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  expect(
+    await identity.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true)
 })
 
-test('retains failed catalog evidence and retries the response in place', async ({ page }) => {
+test('retains failed catalog evidence and retries the response in place', async ({
+  page,
+}) => {
   const requests: { input: string; turnId: string; retry: boolean }[] = []
   let releaseRetry: () => void = () => undefined
-  const retryReady = new Promise<void>(resolve => { releaseRetry = resolve })
-  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, retryTurns: true, available: true, model: 'test', runtime: 'Test runtime' } }))
-  await page.route('**/api/chat', async route => {
+  const retryReady = new Promise<void>((resolve) => {
+    releaseRetry = resolve
+  })
+  await page.route('**/api/runtime', (route) =>
+    route.fulfill({
+      json: {
+        conversationSessions: true,
+        retryTurns: true,
+        available: true,
+        model: 'test',
+        runtime: 'Test runtime',
+      },
+    }),
+  )
+  await page.route('**/api/chat', async (route) => {
     requests.push(route.request().postDataJSON())
     if (requests.length > 1) await retryReady
-    const events = requests.length === 1 ? [
-      { type: 'tool-started', id: 'catalog', tool: 'inspect_component_catalog', summary: 'Inspecting catalog', input: 'Find bike components' },
-      { type: 'tool-completed', id: 'catalog', tool: 'inspect_component_catalog', status: 'failed', summary: 'Catalog failed', error: 'Catalog unavailable' },
-      { type: 'error', message: 'network error' },
-    ] : [{ type: 'completed', message: 'Research recovered.', durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }]
-    await route.fulfill({ contentType: 'application/x-ndjson', body: events.map(event => JSON.stringify(event)).join('\n') })
+    const events =
+      requests.length === 1
+        ? [
+            {
+              type: 'tool-started',
+              id: 'catalog',
+              tool: 'inspect_component_catalog',
+              summary: 'Inspecting catalog',
+              input: 'Find bike components',
+            },
+            {
+              type: 'tool-completed',
+              id: 'catalog',
+              tool: 'inspect_component_catalog',
+              status: 'failed',
+              summary: 'Catalog failed',
+              error: 'Catalog unavailable',
+            },
+            { type: 'error', message: 'network error' },
+          ]
+        : [
+            {
+              type: 'completed',
+              message: 'Research recovered.',
+              durationMs: 1,
+              usage: { outputTokens: 1, totalTokens: 2 },
+            },
+          ]
+    await route.fulfill({
+      contentType: 'application/x-ndjson',
+      body: events.map((event) => JSON.stringify(event)).join('\n'),
+    })
   })
   await page.goto('/?view=playground')
   const editor = page.getByRole('textbox', { name: 'Message', exact: true })
@@ -98,39 +202,76 @@ test('retains failed catalog evidence and retries the response in place', async 
   await page.reload()
   const catalog = page.locator('[data-tool="inspect_component_catalog"]')
   await catalog.getByRole('button').click()
-  await expect(catalog.locator('dd').filter({ hasText: 'Catalog unavailable' })).toBeVisible()
-  await page.getByRole('button', { name: 'Retry response', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Conversations', exact: true })).toBeDisabled()
+  await expect(
+    catalog.locator('dd').filter({ hasText: 'Catalog unavailable' }),
+  ).toBeVisible()
+  await page
+    .getByRole('button', { name: 'Retry response', exact: true })
+    .click()
+  await expect(
+    page.getByRole('button', { name: 'Conversations', exact: true }),
+  ).toBeDisabled()
   expect(requests).toHaveLength(2)
-  expect(requests[1]).toMatchObject({ turnId: requests[0]!.turnId, input: 'Find a bike', retry: true })
+  expect(requests[1]).toMatchObject({
+    turnId: requests[0]!.turnId,
+    input: 'Find a bike',
+    retry: true,
+  })
   releaseRetry()
   await expect(turn).toHaveAttribute('data-state', 'complete')
   await expect(turn).toHaveCount(1)
   await expect(turn).toContainText('Research recovered.')
   await expect(editor).toHaveValue('Keep my draft')
-  await expect(page.getByRole('button', { name: 'Retry response', exact: true })).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Retry response', exact: true }),
+  ).toHaveCount(0)
 })
 
-test('preserves and resumes conversations and drafts across reloads', async ({ page }) => {
+test('preserves and resumes conversations and drafts across reloads', async ({
+  page,
+}) => {
   const contexts = new Map<string, string[]>()
-  await page.route('**/api/runtime', route => route.fulfill({ json: { conversationSessions: true, available: true, model: 'test', runtime: 'Test runtime' } }))
-  await page.route('**/api/chat', async route => {
+  await page.route('**/api/runtime', (route) =>
+    route.fulfill({
+      json: {
+        conversationSessions: true,
+        available: true,
+        model: 'test',
+        runtime: 'Test runtime',
+      },
+    }),
+  )
+  await page.route('**/api/chat', async (route) => {
     const id = route.request().headers()['x-conversation-id']!
     const { input, resume } = route.request().postDataJSON()
     if (resume && !contexts.has(id)) {
-      await route.fulfill({ status: 409, json: { error: 'Runtime context expired. Start a new conversation.' } })
+      await route.fulfill({
+        status: 409,
+        json: { error: 'Runtime context expired. Start a new conversation.' },
+      })
       return
     }
     const history = [...(contexts.get(id) ?? []), input]
     contexts.set(id, history)
-    await route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'completed', message: history.join(' / '), durationMs: 1, usage: { outputTokens: 1, totalTokens: 2 } }) })
+    await route.fulfill({
+      contentType: 'application/x-ndjson',
+      body: JSON.stringify({
+        type: 'completed',
+        message: history.join(' / '),
+        durationMs: 1,
+        usage: { outputTokens: 1, totalTokens: 2 },
+      }),
+    })
   })
   await page.goto('/?view=playground')
   const editor = page.getByRole('textbox', { name: 'Message', exact: true })
   const send = async (text: string) => {
     await editor.fill(text)
     await page.getByRole('button', { name: 'Send', exact: true }).click()
-    await expect(page.locator('[data-slot="turn"]').last()).toHaveAttribute('data-state', 'complete')
+    await expect(page.locator('[data-slot="turn"]').last()).toHaveAttribute(
+      'data-state',
+      'complete',
+    )
   }
   await send('Remember alpha')
   await editor.fill('Alpha draft')
@@ -138,32 +279,45 @@ test('preserves and resumes conversations and drafts across reloads', async ({ p
   await expect(editor).toHaveValue('Alpha draft')
   await expect(page.locator('[data-slot="turn"]')).toHaveCount(1)
   await page.getByRole('button', { name: 'Conversations', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'New conversation', exact: true }).click()
+  await page
+    .getByRole('menuitem', { name: 'New conversation', exact: true })
+    .click()
   await expect(page.locator('[data-slot="turn"]')).toHaveCount(0)
   await send('Remember beta')
   await editor.fill('Beta draft')
   await page.getByRole('button', { name: 'Conversations', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Remember alpha', exact: true }).click()
+  await page
+    .getByRole('menuitem', { name: 'Remember alpha', exact: true })
+    .click()
   await expect(editor).toHaveValue('Alpha draft')
   await send('Continue alpha')
-  await expect(page.locator('[data-slot="turn"]').last()).toContainText('Remember alpha / Continue alpha')
+  await expect(page.locator('[data-slot="turn"]').last()).toContainText(
+    'Remember alpha / Continue alpha',
+  )
   await page.reload()
   await page.getByRole('button', { name: 'Conversations', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Remember beta', exact: true }).click()
+  await page
+    .getByRole('menuitem', { name: 'Remember beta', exact: true })
+    .click()
   await expect(editor).toHaveValue('Beta draft')
   await expect(page.locator('[data-slot="turn"]')).toHaveCount(1)
   contexts.clear()
   await editor.fill('Resume expired conversation')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
-  await expect(page.getByText('Runtime context expired. Start a new conversation.')).toBeVisible()
+  await expect(
+    page.getByText('Runtime context expired. Start a new conversation.'),
+  ).toBeVisible()
   await expect(editor).toHaveValue('Resume expired conversation')
   await expect(page.locator('[data-slot="turn"]')).toHaveCount(1)
 })
 
-test('fades only overflowing tool labels and follows reading direction', async ({ page }) => {
+test('fades only overflowing tool labels and follows reading direction', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/?fixture=workflow')
-  const prompt = 'Audit streaming response accessibility and keyboard navigation'
+  const prompt =
+    'Audit streaming response accessibility and keyboard navigation'
   await page.getByRole('textbox', { name: 'Message' }).fill(prompt)
   await page.getByRole('button', { name: 'Send', exact: true }).click()
   const turn = page.locator('[data-slot="turn"]').last()
@@ -171,53 +325,88 @@ test('fades only overflowing tool labels and follows reading direction', async (
   const label = turn.locator('[data-slot="tool-activity-summary"]')
   await expect(label).toHaveAttribute('data-overflowing', 'true')
   await expect(label).toHaveCSS('mask-image', /to right/)
-  await expect(turn.getByRole('button', { name: new RegExp(prompt) })).toBeVisible()
-  await expect(page.locator('[data-slot="tool-activity-summary"]').filter({ hasText: 'Custom tool' }))
-    .toHaveCSS('mask-image', 'none')
+  await expect(
+    turn.getByRole('button', { name: new RegExp(prompt) }),
+  ).toBeVisible()
+  await expect(
+    page
+      .locator('[data-slot="tool-activity-summary"]')
+      .filter({ hasText: 'Custom tool' }),
+  ).toHaveCSS('mask-image', 'none')
 
   await page.setViewportSize({ width: 1100, height: 800 })
   await expect(label).not.toHaveAttribute('data-overflowing', 'true')
   await expect(label).toHaveCSS('mask-image', 'none')
   await page.setViewportSize({ width: 390, height: 844 })
-  await label.evaluate((element) => { element.closest('[dir]')!.setAttribute('dir', 'rtl') })
+  await label.evaluate((element) => {
+    element.closest('[dir]')!.setAttribute('dir', 'rtl')
+  })
   await expect(label).toHaveCSS('mask-image', /to left/)
 })
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-  test(`updates accessible lifecycle text immediately during state fades (${reducedMotion})`, async ({ page }) => {
+  test(`updates accessible lifecycle text immediately during state fades (${reducedMotion})`, async ({
+    page,
+  }) => {
     await page.emulateMedia({ reducedMotion })
     await page.goto('/?fixture=workflow')
-    await page.getByRole('textbox', { name: 'Message' }).fill('Exercise text transitions')
-    const samples = await page.getByRole('button', { name: 'Send', exact: true }).evaluate(async (button) => {
-      button.click()
-      const values: { text: string; opacity: number; currentLabels: number; stale: boolean }[] = []
-      const start = performance.now()
-      while (performance.now() - start < 3500) {
-        await new Promise(requestAnimationFrame)
-        const turn = Array.from(document.querySelectorAll('[data-slot="turn"]')).at(-1)
-        for (const label of turn?.querySelectorAll<HTMLElement>('[data-slot="reasoning-summary"], [data-slot="tool-activity-summary"]') ?? []) {
-          const current = label.querySelectorAll<HTMLElement>('[data-text-state]:not([aria-hidden="true"])')
-          const text = (current[0] ?? label).textContent ?? ''
-          values.push({
-            text,
-            opacity: Number(getComputedStyle(current[0] ?? label).opacity),
-            currentLabels: current.length,
-            stale: label.closest('[data-slot="reasoning"]')?.getAttribute('data-state') === 'complete' && text === 'Thinking',
-          })
+    await page
+      .getByRole('textbox', { name: 'Message' })
+      .fill('Exercise text transitions')
+    const samples = await page
+      .getByRole('button', { name: 'Send', exact: true })
+      .evaluate(async (button) => {
+        button.click()
+        const values: {
+          text: string
+          opacity: number
+          currentLabels: number
+          stale: boolean
+        }[] = []
+        const start = performance.now()
+        while (performance.now() - start < 3500) {
+          await new Promise(requestAnimationFrame)
+          const turn = Array.from(
+            document.querySelectorAll('[data-slot="turn"]'),
+          ).at(-1)
+          for (const label of turn?.querySelectorAll<HTMLElement>(
+            '[data-slot="reasoning-summary"], [data-slot="tool-activity-summary"]',
+          ) ?? []) {
+            const current = label.querySelectorAll<HTMLElement>(
+              '[data-text-state]:not([aria-hidden="true"])',
+            )
+            const text = (current[0] ?? label).textContent ?? ''
+            values.push({
+              text,
+              opacity: Number(getComputedStyle(current[0] ?? label).opacity),
+              currentLabels: current.length,
+              stale:
+                label
+                  .closest('[data-slot="reasoning"]')
+                  ?.getAttribute('data-state') === 'complete' &&
+                text === 'Thinking',
+            })
+          }
         }
-      }
-      return values
-    })
+        return values
+      })
     expect(samples.length).toBeGreaterThan(0)
-    expect(samples.every(sample => sample.currentLabels <= 1 && !sample.stale)).toBe(true)
-    if (reducedMotion === 'reduce') expect(samples.every(sample => sample.opacity === 1)).toBe(true)
-    else expect(samples.some(sample => sample.opacity < 1)).toBe(true)
-    expect(samples.some(sample => sample.text.includes('Thought for'))).toBe(true)
-    expect(samples.some(sample => sample.text.includes('Search'))).toBe(true)
+    expect(
+      samples.every((sample) => sample.currentLabels <= 1 && !sample.stale),
+    ).toBe(true)
+    if (reducedMotion === 'reduce')
+      expect(samples.every((sample) => sample.opacity === 1)).toBe(true)
+    else expect(samples.some((sample) => sample.opacity < 1)).toBe(true)
+    expect(samples.some((sample) => sample.text.includes('Thought for'))).toBe(
+      true,
+    )
+    expect(samples.some((sample) => sample.text.includes('Search'))).toBe(true)
   })
 }
 
-test('animates presence without losing dialog focus or leaving interactive exits', async ({ page }) => {
+test('animates presence without losing dialog focus or leaving interactive exits', async ({
+  page,
+}) => {
   await page.goto('/?view=components&all=true')
   const trigger = page.getByRole('button', { name: 'Open dialog', exact: true })
   await trigger.scrollIntoViewIfNeeded()
@@ -245,7 +434,9 @@ test('animates presence without losing dialog focus or leaving interactive exits
   await expect(trigger).toBeFocused()
 })
 
-test('keeps press motion pointer-only and disables presence motion on mobile reduced-motion', async ({ page }) => {
+test('keeps press motion pointer-only and disables presence motion on mobile reduced-motion', async ({
+  page,
+}) => {
   await page.goto('/?view=components&all=true')
   const primary = page.getByRole('button', { name: 'Primary', exact: true })
   await primary.hover()
@@ -260,12 +451,16 @@ test('keeps press motion pointer-only and disables presence motion on mobile red
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.reload()
-  await expect(page.getByRole('region', { name: 'Component gallery' })).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Component gallery' }),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Open dialog', exact: true }).click()
   const popup = page.getByRole('dialog')
   await expect(popup).toHaveCSS('opacity', '1')
   await expect(popup).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
-  expect(await popup.evaluate((element) => element.getAnimations().length)).toBe(0)
+  expect(
+    await popup.evaluate((element) => element.getAnimations().length),
+  ).toBe(0)
   await page.keyboard.press('Escape')
   await expect(popup).toHaveCount(0)
 })
@@ -284,17 +479,21 @@ test('preserves detached scroll and history anchors', async ({ page }) => {
     'detached',
   )
 
-  const beforeAppend = await page.locator(viewport).evaluate((element) => element.scrollTop)
+  const beforeAppend = await page
+    .locator(viewport)
+    .evaluate((element) => element.scrollTop)
   await dispatch(page, 'pretty-amped:append-turn')
-  await expect(page.getByRole('button', { name: '1 new · Jump to latest' })).toBeVisible()
-  await expect.poll(() => page.locator(viewport).evaluate((element) => element.scrollTop)).toBe(
-    beforeAppend,
-  )
+  await expect(
+    page.getByRole('button', { name: '1 new · Jump to latest' }),
+  ).toBeVisible()
+  await expect
+    .poll(() => page.locator(viewport).evaluate((element) => element.scrollTop))
+    .toBe(beforeAppend)
 
   const anchor = await firstVisibleTurn(page)
-  await page.getByRole('button', { name: 'Load earlier messages' }).evaluate((button) =>
-    button.click(),
-  )
+  await page
+    .getByRole('button', { name: 'Load earlier messages' })
+    .evaluate((button) => button.click())
   await expect(page.locator('[data-slot="turn"]')).toHaveCount(31)
   const restored = await turnTop(page, anchor.id)
   expect(Math.abs(restored - anchor.top)).toBeLessThanOrEqual(1)
@@ -306,7 +505,9 @@ test('preserves detached scroll and history anchors', async ({ page }) => {
   )
 })
 
-test('submits, queues, stops, edits, and restores a reverted prompt', async ({ page }) => {
+test('submits, queues, stops, edits, and restores a reverted prompt', async ({
+  page,
+}) => {
   await page.goto('/?fixture=workflow')
   const message = page.getByRole('textbox', { name: 'Message' })
 
@@ -333,30 +534,53 @@ test('submits, queues, stops, edits, and restores a reverted prompt', async ({ p
   )
   await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Revert prompt fixture-turn:17' }).click()
+  await page
+    .getByRole('button', { name: 'Revert prompt fixture-turn:17' })
+    .click()
   await expect(page.locator('[data-slot="revert-dock"]')).toBeVisible()
   await page.getByRole('button', { name: 'Edit prompt' }).click()
   await expect(message).toHaveValue('Fixture prompt 18')
 })
 
-test('keeps thinking and tool lifecycle rows geometrically stable', async ({ page }) => {
-  await page.route('**/api/runtime', route => route.fulfill({ json: {
-    available: true, conversationSessions: true, model: 'test', runtime: 'Test',
-  } }))
+test('keeps thinking and tool lifecycle rows geometrically stable', async ({
+  page,
+}) => {
+  await page.route('**/api/runtime', (route) =>
+    route.fulfill({
+      json: {
+        available: true,
+        conversationSessions: true,
+        model: 'test',
+        runtime: 'Test',
+      },
+    }),
+  )
   await page.addInitScript(() => {
     const original = window.fetch
     window.fetch = async (input, options) => {
       if (input !== '/api/chat') return original(input, options)
-      return new Response(new ReadableStream({ start(controller) {
-        window.addEventListener('lifecycle-event', event => {
-          controller.enqueue(new TextEncoder().encode(`${JSON.stringify((event as CustomEvent).detail)}\n`))
-        })
-      } }), { headers: { 'Content-Type': 'application/x-ndjson' } })
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            window.addEventListener('lifecycle-event', (event) => {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  `${JSON.stringify((event as CustomEvent).detail)}\n`,
+                ),
+              )
+            })
+          },
+        }),
+        { headers: { 'Content-Type': 'application/x-ndjson' } },
+      )
     }
   })
-  const emit = (detail: object) => page.evaluate(value => {
-    window.dispatchEvent(new CustomEvent('lifecycle-event', { detail: value }))
-  }, detail)
+  const emit = (detail: object) =>
+    page.evaluate((value) => {
+      window.dispatchEvent(
+        new CustomEvent('lifecycle-event', { detail: value }),
+      )
+    }, detail)
   await page.goto('/?view=playground')
   const composer = page.locator('[data-slot="chat-composer"]')
   const message = page.getByRole('textbox', { name: 'Message' })
@@ -375,51 +599,98 @@ test('keeps thinking and tool lifecycle rows geometrically stable', async ({ pag
   const reasoning = turn.locator('[data-slot="reasoning"]')
   await expect(reasoning).toHaveAttribute('data-state', 'thinking')
   await expect(reasoning.locator('[data-slot="spinner"]')).toBeVisible()
-  await expect.poll(() => textMetrics(reasoning.locator('[data-slot="reasoning-summary"]')))
+  await expect
+    .poll(() =>
+      textMetrics(reasoning.locator('[data-slot="reasoning-summary"]')),
+    )
     .toEqual(statusTypography)
   await settleLayout(page)
   const activityBounds = await elementBounds(
     turn.locator('[data-slot="activity-sequence"]'),
   )
-  expect(Math.abs(activityBounds.height - statusBounds.height)).toBeLessThanOrEqual(1)
+  expect(
+    Math.abs(activityBounds.height - statusBounds.height),
+  ).toBeLessThanOrEqual(1)
 
-  await emit({ type: 'tool-started', id: 'check', tool: 'inspect_component_catalog', input: 'interaction', summary: 'Checking components' })
+  await emit({
+    type: 'tool-started',
+    id: 'check',
+    tool: 'inspect_component_catalog',
+    input: 'interaction',
+    summary: 'Checking components',
+  })
   const tool = turn.locator('[data-slot="tool-activity"]')
   await expect(tool).toHaveAttribute('data-state', 'running')
   await expect(tool.locator('[data-slot="spinner"]')).toBeVisible()
-  await expect(reasoning.locator('[data-slot="reasoning-state-icon"]')).toBeVisible()
-  expect(await textMetrics(reasoning.locator('[data-slot="reasoning-summary"]')))
-    .toEqual(statusTypography)
+  await expect(
+    reasoning.locator('[data-slot="reasoning-state-icon"]'),
+  ).toBeVisible()
+  expect(
+    await textMetrics(reasoning.locator('[data-slot="reasoning-summary"]')),
+  ).toEqual(statusTypography)
   // Compare resting geometry, not an intermediate entrance/layout frame.
-  await expect.poll(() => tool.evaluate(element => {
-    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
-      if (parent.hasAttribute('data-activity-presence') && getComputedStyle(parent).transform !== 'none') return false
-      if (parent.getAttribute('data-slot') === 'turn') break
-    }
-    return true
-  })).toBe(true)
+  await expect
+    .poll(() =>
+      tool.evaluate((element) => {
+        for (
+          let parent = element.parentElement;
+          parent;
+          parent = parent.parentElement
+        ) {
+          if (
+            parent.hasAttribute('data-activity-presence') &&
+            getComputedStyle(parent).transform !== 'none'
+          )
+            return false
+          if (parent.getAttribute('data-slot') === 'turn') break
+        }
+        return true
+      }),
+    )
+    .toBe(true)
   await settleLayout(page)
   const runningBounds = await elementBounds(tool)
   const viewport = page.locator('[data-slot="timeline-viewport"]')
-  const runningScroll = await viewport.evaluate(element => element.scrollTop)
+  const runningScroll = await viewport.evaluate((element) => element.scrollTop)
   const composerTop = (await elementBounds(composer)).top
 
-  await emit({ type: 'tool-completed', id: 'check', tool: 'inspect_component_catalog', status: 'succeeded', output: 'Checked.', summary: 'Checked components' })
+  await emit({
+    type: 'tool-completed',
+    id: 'check',
+    tool: 'inspect_component_catalog',
+    status: 'succeeded',
+    output: 'Checked.',
+    summary: 'Checked components',
+  })
   await expect(tool).toHaveAttribute('data-state', 'succeeded')
   await settleLayout(page)
   const completedBounds = await elementBounds(tool)
   // Following the new pending row may scroll the viewport, not move the result in the transcript.
-  const completedScroll = await viewport.evaluate(element => element.scrollTop)
-  expect(Math.abs(completedBounds.top + completedScroll - runningBounds.top - runningScroll)).toBeLessThanOrEqual(1)
-  expect(Math.abs(completedBounds.height - runningBounds.height)).toBeLessThanOrEqual(1)
-  expect(Math.abs((await elementBounds(composer)).top - composerTop)).toBeLessThanOrEqual(1)
+  const completedScroll = await viewport.evaluate(
+    (element) => element.scrollTop,
+  )
+  expect(
+    Math.abs(
+      completedBounds.top + completedScroll - runningBounds.top - runningScroll,
+    ),
+  ).toBeLessThanOrEqual(1)
+  expect(
+    Math.abs(completedBounds.height - runningBounds.height),
+  ).toBeLessThanOrEqual(1)
+  expect(
+    Math.abs((await elementBounds(composer)).top - composerTop),
+  ).toBeLessThanOrEqual(1)
 })
 
-test('removes nonessential lifecycle motion when reduced motion is requested', async ({ page }) => {
+test('removes nonessential lifecycle motion when reduced motion is requested', async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/?fixture=workflow')
 
-  await page.getByRole('textbox', { name: 'Message' }).fill('Use reduced motion')
+  await page
+    .getByRole('textbox', { name: 'Message' })
+    .fill('Use reduced motion')
   await page.getByRole('button', { name: 'Send' }).click()
 
   const turn = page.locator('[data-slot="turn"]').last()
@@ -445,7 +716,9 @@ test('removes nonessential lifecycle motion when reduced motion is requested', a
   )
 })
 
-test('restores composer focus, draft, and selection around requests', async ({ page }) => {
+test('restores composer focus, draft, and selection around requests', async ({
+  page,
+}) => {
   await page.setViewportSize({ height: 720, width: 320 })
   await page.goto('/?fixture=workflow')
   const message = page.getByRole('textbox', { name: 'Message' })
@@ -462,33 +735,54 @@ test('restores composer focus, draft, and selection around requests', async ({ p
 
   await dispatch(page, 'pretty-amped:request-permission')
   const permission = page.locator('[data-slot="permission-prompt"]')
-  await expect(permission).toHaveAttribute('data-origin-session-id', 'fixture-child')
-  await expect(page.getByRole('heading', { name: 'Allow preview publishing?' })).toBeFocused()
+  await expect(permission).toHaveAttribute(
+    'data-origin-session-id',
+    'fixture-child',
+  )
+  await expect(
+    page.getByRole('heading', { name: 'Allow preview publishing?' }),
+  ).toBeFocused()
   await settleLayout(page)
   const permissionTimelineBounds = await elementBounds(page.locator(viewport))
-  expect(Math.abs(permissionTimelineBounds.top - timelineBounds.top)).toBeLessThanOrEqual(1)
-  expect(Math.abs(permissionTimelineBounds.height - timelineBounds.height)).toBeLessThanOrEqual(1)
+  expect(
+    Math.abs(permissionTimelineBounds.top - timelineBounds.top),
+  ).toBeLessThanOrEqual(1)
+  expect(
+    Math.abs(permissionTimelineBounds.height - timelineBounds.height),
+  ).toBeLessThanOrEqual(1)
   await page.getByRole('button', { name: 'Allow once' }).click()
   await expect(message).toBeFocused()
   await expect(message).toHaveValue('Draft remains intact')
-  expect(await originalEditor!.evaluate((element) => element.isConnected)).toBe(true)
-  await expect(page.locator('[data-slot="active-request-layer"]')).toHaveCount(0)
+  expect(await originalEditor!.evaluate((element) => element.isConnected)).toBe(
+    true,
+  )
+  await expect(page.locator('[data-slot="active-request-layer"]')).toHaveCount(
+    0,
+  )
   await expect.poll(() => selectionStart(message)).toBe(6)
 
   await dispatch(page, 'pretty-amped:request-question')
   await settleLayout(page)
   const questionTimelineBounds = await elementBounds(page.locator(viewport))
-  expect(Math.abs(questionTimelineBounds.top - timelineBounds.top)).toBeLessThanOrEqual(1)
-  expect(Math.abs(questionTimelineBounds.height - timelineBounds.height)).toBeLessThanOrEqual(1)
+  expect(
+    Math.abs(questionTimelineBounds.top - timelineBounds.top),
+  ).toBeLessThanOrEqual(1)
+  expect(
+    Math.abs(questionTimelineBounds.height - timelineBounds.height),
+  ).toBeLessThanOrEqual(1)
   await page.getByRole('radio', { name: 'Compact' }).click()
   await page.getByRole('button', { name: 'Next' }).click()
-  await page.getByRole('textbox', { name: 'Review notes' }).fill('Keep the exact IDs.')
+  await page
+    .getByRole('textbox', { name: 'Review notes' })
+    .fill('Keep the exact IDs.')
   await page.getByRole('button', { name: 'Submit answer' }).click()
   await expect(page.locator('[data-slot="question-request"]')).toHaveCount(0)
   await expect(message).toHaveValue('Draft remains intact')
 })
 
-test('uses commands, references, and every attachment input path', async ({ page }) => {
+test('uses commands, references, and every attachment input path', async ({
+  page,
+}) => {
   await page.goto('/?fixture=workflow')
   const message = page.getByRole('textbox', { name: 'Message' })
 
@@ -538,11 +832,16 @@ test('uses commands, references, and every attachment input path', async ({ page
   await expect(failed).toHaveAttribute('data-state', 'failed')
   await failed.getByRole('button', { name: 'Retry' }).click()
   await expect(failed).toHaveAttribute('data-state', 'ready')
-  await attachments.filter({ hasText: 'picker.txt' }).getByRole('button', { name: 'Remove' }).click()
+  await attachments
+    .filter({ hasText: 'picker.txt' })
+    .getByRole('button', { name: 'Remove' })
+    .click()
   await expect(attachments).toHaveCount(3)
 })
 
-test('selects every built-in tool renderer and the generic fallback', async ({ page }) => {
+test('selects every built-in tool renderer and the generic fallback', async ({
+  page,
+}) => {
   await page.goto('/?fixture=workflow')
   const renderers = page.locator('[data-slot="tool-renderer"]')
   await expect(renderers).toHaveCount(7)
@@ -565,40 +864,71 @@ test('selects every built-in tool renderer and the generic fallback', async ({ p
   )
 })
 
-test('only offers jump to latest when detached content extends below the viewport', async ({ page }) => {
+test('only offers jump to latest when detached content extends below the viewport', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1100, height: 16000 })
   await page.goto('/?fixture=workflow')
-  const trigger = page.locator('[data-renderer="task"]').getByRole('button', { name: /Review agent · Review the chat surface/ })
+  const trigger = page
+    .locator('[data-renderer="task"]')
+    .getByRole('button', { name: /Review agent · Review the chat surface/ })
   await trigger.click()
   await settleLayout(page)
-  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute('data-follow-state', 'detached')
-  expect(await page.locator(viewport).evaluate(element => element.scrollHeight - element.clientHeight)).toBe(0)
-  await expect(page.getByRole('button', { name: /Jump to latest/ })).toHaveCount(0)
+  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute(
+    'data-follow-state',
+    'detached',
+  )
+  expect(
+    await page
+      .locator(viewport)
+      .evaluate((element) => element.scrollHeight - element.clientHeight),
+  ).toBe(0)
+  await expect(
+    page.getByRole('button', { name: /Jump to latest/ }),
+  ).toHaveCount(0)
 
   await page.setViewportSize({ width: 1100, height: 720 })
-  await expect(page.getByRole('button', { name: /Jump to latest/ })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: /Jump to latest/ }),
+  ).toBeVisible()
   await page.setViewportSize({ width: 1100, height: 16000 })
-  await expect(page.getByRole('button', { name: /Jump to latest/ })).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: /Jump to latest/ }),
+  ).toHaveCount(0)
 })
 
 for (const theme of ['light', 'dark']) {
   for (const width of [390, 1100]) {
-    test(`fades only overflowing transcript edges (${theme}, ${width})`, async ({ page }) => {
+    test(`fades only overflowing transcript edges (${theme}, ${width})`, async ({
+      page,
+    }) => {
       await page.setViewportSize({ width, height: 900 })
       await page.goto(`/?fixture=workflow&theme=${theme}`)
       const scroll = page.locator(viewport)
       await expect(scroll).toHaveAttribute('data-overflow-start', 'true')
       await expect(scroll).not.toHaveAttribute('data-overflow-end')
-      await scroll.evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) / 2 })
+      await scroll.evaluate((element) => {
+        element.scrollTop = (element.scrollHeight - element.clientHeight) / 2
+      })
       await expect(scroll).toHaveAttribute('data-overflow-start', 'true')
       await expect(scroll).toHaveAttribute('data-overflow-end', 'true')
       await expect(scroll).not.toHaveCSS('mask-image', 'none')
-      await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS('mask-image', 'none')
+      await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS(
+        'mask-image',
+        'none',
+      )
       const jump = page.getByRole('button', { name: /Jump to latest/ })
       await expect(jump).toBeVisible()
-      await expect(page.locator('[data-slot="jump-to-latest"]')).toHaveCSS('mask-image', 'none')
-      await page.screenshot({ path: test.info().outputPath('scroll-edges.png') })
-      await scroll.evaluate(element => { element.scrollTop = 0 })
+      await expect(page.locator('[data-slot="jump-to-latest"]')).toHaveCSS(
+        'mask-image',
+        'none',
+      )
+      await page.screenshot({
+        path: test.info().outputPath('scroll-edges.png'),
+      })
+      await scroll.evaluate((element) => {
+        element.scrollTop = 0
+      })
       await expect(scroll).not.toHaveAttribute('data-overflow-start')
       await expect(scroll).toHaveAttribute('data-overflow-end', 'true')
       await jump.click()
@@ -613,27 +943,40 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
-test('renders a readable subagent transcript with markdown', async ({ page }) => {
+test('renders a readable subagent transcript with markdown', async ({
+  page,
+}) => {
   await page.goto('/?fixture=workflow')
   const task = page.locator('[data-renderer="task"]')
 
-  const trigger = task.getByRole('button', { name: /Review agent · Review the chat surface/ })
-  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute('data-follow-state', 'following')
+  const trigger = task.getByRole('button', {
+    name: /Review agent · Review the chat surface/,
+  })
+  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute(
+    'data-follow-state',
+    'following',
+  )
   const headerTop = (await trigger.boundingBox())!.y
   await trigger.click()
 
   const transcript = task.locator('[data-slot="task-transcript"]')
   await expect(transcript).toBeVisible()
-  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute('data-follow-state', 'detached')
-  await settleLayout(page)
-  expect(Math.abs((await trigger.boundingBox())!.y - headerTop)).toBeLessThanOrEqual(2)
-  await expect(transcript.getByText('No blocking issues.', { exact: true })).toHaveCSS(
-    'font-weight',
-    '600',
+  await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute(
+    'data-follow-state',
+    'detached',
   )
+  await settleLayout(page)
+  expect(
+    Math.abs((await trigger.boundingBox())!.y - headerTop),
+  ).toBeLessThanOrEqual(2)
+  await expect(
+    transcript.getByText('No blocking issues.', { exact: true }),
+  ).toHaveCSS('font-weight', '600')
   await expect(task).not.toContainText('transcript is not available')
 
-  const description = transcript.getByText('Review the chat surface', { exact: true })
+  const description = transcript.getByText('Review the chat surface', {
+    exact: true,
+  })
   const result = transcript.locator(
     '[aria-label="Subagent result"] [data-slot="markdown"]',
   )
@@ -641,18 +984,22 @@ test('renders a readable subagent transcript with markdown', async ({ page }) =>
   expect((await textMetrics(result)).fontSize).toBe('15px')
 })
 
-test('bounds the stress fixture and keeps the composer responsive', async ({ page }, testInfo) => {
+test('bounds the stress fixture and keeps the composer responsive', async ({
+  page,
+}, testInfo) => {
   await page.goto('/?fixture=stress')
   await expect(page.locator('[data-slot="timeline"]')).toHaveAttribute(
     'data-virtualized',
     'true',
   )
-  await expect.poll(() => page.locator('[data-slot="turn"]').count()).toBeLessThanOrEqual(30)
+  await expect
+    .poll(() => page.locator('[data-slot="turn"]').count())
+    .toBeLessThanOrEqual(30)
 
   const markdown = page.locator('[data-source-length]').last()
-  expect(Number(await markdown.getAttribute('data-source-length'))).toBeGreaterThanOrEqual(
-    200_000,
-  )
+  expect(
+    Number(await markdown.getAttribute('data-source-length')),
+  ).toBeGreaterThanOrEqual(200_000)
   expect(await page.locator('body *').count()).toBeLessThan(1_000)
 
   const message = page.getByRole('textbox', { name: 'Message' })
@@ -665,14 +1012,18 @@ test('bounds the stress fixture and keeps the composer responsive', async ({ pag
     metrics.commitDurations.length = 0
     metrics.longTasks = []
     metrics.longTaskObserver = new PerformanceObserver((list) => {
-      metrics.longTasks?.push(...list.getEntries().map((entry) => entry.duration))
+      metrics.longTasks?.push(
+        ...list.getEntries().map((entry) => entry.duration),
+      )
     })
     metrics.longTaskObserver.observe({ type: 'longtask' })
     return metrics.getNotificationCount()
   })
   const startedAt = Date.now()
   await dispatch(page, 'pretty-amped:burst-deltas', 1_000)
-  await expect.poll(() => fixtureNotificationCount(page)).toBe(notificationCount + 1)
+  await expect
+    .poll(() => fixtureNotificationCount(page))
+    .toBe(notificationCount + 1)
   await message.fill('Responsive after a delta burst')
   await expect(message).toHaveValue('Responsive after a delta burst')
   expect(Date.now() - startedAt).toBeLessThan(1_000)
@@ -722,7 +1073,9 @@ for (const scenario of [
   { name: 'dark reduced-motion', url: '/?fixture=workflow&theme=dark' },
   { name: 'RTL', url: '/?fixture=workflow&dir=rtl' },
 ] as const) {
-  test(`has no serious accessibility violations in ${scenario.name}`, async ({ page }) => {
+  test(`has no serious accessibility violations in ${scenario.name}`, async ({
+    page,
+  }) => {
     await page.emulateMedia({
       colorScheme: scenario.name.startsWith('dark') ? 'dark' : 'light',
       forcedColors: scenario.name === 'RTL' ? 'active' : 'none',
@@ -731,8 +1084,9 @@ for (const scenario of [
     await page.goto(scenario.url)
     const results = await new AxeBuilder({ page }).analyze()
     expect(
-      results.violations.filter((violation) =>
-        violation.impact === 'serious' || violation.impact === 'critical',
+      results.violations.filter(
+        (violation) =>
+          violation.impact === 'serious' || violation.impact === 'critical',
       ),
     ).toEqual([])
   })
@@ -748,14 +1102,17 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
   expect(dimensions.scrollWidth).toBe(dimensions.clientWidth)
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
   const toolbar = page.locator('[data-slot="chat-composer-toolbar"]')
-  const toolbarChildren = await toolbar.locator(':scope > *').evaluateAll((elements) =>
-    elements.map((element) => {
-      const bounds = element.getBoundingClientRect()
-      return { bottom: bounds.bottom, top: bounds.top }
-    }),
-  )
+  const toolbarChildren = await toolbar
+    .locator(':scope > *')
+    .evaluateAll((elements) =>
+      elements.map((element) => {
+        const bounds = element.getBoundingClientRect()
+        return { bottom: bounds.bottom, top: bounds.top }
+      }),
+    )
   const firstCenter = (toolbarChildren[0]!.top + toolbarChildren[0]!.bottom) / 2
-  const secondCenter = (toolbarChildren[1]!.top + toolbarChildren[1]!.bottom) / 2
+  const secondCenter =
+    (toolbarChildren[1]!.top + toolbarChildren[1]!.bottom) / 2
   expect(Math.abs(firstCenter - secondCenter)).toBeLessThanOrEqual(1)
 
   const model = page.getByRole('combobox', { name: 'Model' })
@@ -776,23 +1133,35 @@ test('reflows without page overflow at mobile width', async ({ page }) => {
   await composerActions.click()
   await expect(page.getByRole('menuitem', { name: 'Commands' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'References' })).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: 'Attach files' })).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: 'Use Plan agent' })).toBeVisible()
+  await expect(
+    page.getByRole('menuitem', { name: 'Attach files' }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('menuitem', { name: 'Use Plan agent' }),
+  ).toBeVisible()
   await page.getByRole('menuitem', { name: 'Commands' }).click()
-  await expect(page.locator('[data-slot="filter-menu-popup"] input')).toBeFocused()
+  await expect(
+    page.locator('[data-slot="filter-menu-popup"] input'),
+  ).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeFocused()
 
   await composerActions.click()
   await page.getByRole('menuitem', { name: 'Use shell mode' }).click()
-  await expect(page.getByRole('textbox', { name: 'Shell command' })).toBeVisible()
+  await expect(
+    page.getByRole('textbox', { name: 'Shell command' }),
+  ).toBeVisible()
   await expectComposerInViewport(page)
 })
 
-test('indexes gallery categories and uses compositor-safe progress motion', async ({ page }) => {
+test('indexes gallery categories and uses compositor-safe progress motion', async ({
+  page,
+}) => {
   await page.goto('/?view=components&all=true')
 
-  const categories = page.getByRole('navigation', { name: 'Component categories' })
+  const categories = page.getByRole('navigation', {
+    name: 'Component categories',
+  })
   await expect(categories).toBeVisible()
   await expect(categories.getByRole('link')).toHaveCount(5)
 
@@ -827,18 +1196,18 @@ async function dispatch(page: Page, name: string, detail?: number) {
 async function firstVisibleTurn(page: Page) {
   return page.locator(viewport).evaluate((element) => {
     const viewportTop = element.getBoundingClientRect().top
-    const turn = Array.from(element.querySelectorAll<HTMLElement>('[data-turn-id]')).find(
-      (item) => item.getBoundingClientRect().bottom > viewportTop,
-    )
+    const turn = Array.from(
+      element.querySelectorAll<HTMLElement>('[data-turn-id]'),
+    ).find((item) => item.getBoundingClientRect().bottom > viewportTop)
     if (!turn?.dataset.turnId) throw new Error('No visible turn')
     return { id: turn.dataset.turnId, top: turn.getBoundingClientRect().top }
   })
 }
 
 async function turnTop(page: Page, id: string) {
-  return page.locator(`[data-turn-id="${id}"]`).evaluate((element) =>
-    element.getBoundingClientRect().top,
-  )
+  return page
+    .locator(`[data-turn-id="${id}"]`)
+    .evaluate((element) => element.getBoundingClientRect().top)
 }
 
 async function elementBounds(locator: ReturnType<Page['locator']>) {
@@ -874,7 +1243,9 @@ async function settleLayout(page: Page) {
 }
 
 async function selectionStart(locator: ReturnType<Page['getByRole']>) {
-  return locator.evaluate((element) => (element as HTMLTextAreaElement).selectionStart)
+  return locator.evaluate(
+    (element) => (element as HTMLTextAreaElement).selectionStart,
+  )
 }
 
 async function addClipboardFile(
@@ -921,13 +1292,12 @@ type FixtureMetrics = {
 }
 
 async function fixtureNotificationCount(page: Page) {
-  return page.evaluate(
-    () =>
-      (
-        window as Window & {
-          __prettyAmpedFixtureMetrics: FixtureMetrics
-        }
-      ).__prettyAmpedFixtureMetrics.getNotificationCount(),
+  return page.evaluate(() =>
+    (
+      window as Window & {
+        __prettyAmpedFixtureMetrics: FixtureMetrics
+      }
+    ).__prettyAmpedFixtureMetrics.getNotificationCount(),
   )
 }
 
@@ -937,10 +1307,16 @@ function percentile(values: readonly number[], quantile: number) {
 }
 
 async function expectComposerInViewport(page: Page) {
-  const bounds = await page.locator('[data-slot="chat-composer"]').evaluate((element) => {
-    const rectangle = element.getBoundingClientRect()
-    return { bottom: rectangle.bottom, top: rectangle.top, viewportHeight: innerHeight }
-  })
+  const bounds = await page
+    .locator('[data-slot="chat-composer"]')
+    .evaluate((element) => {
+      const rectangle = element.getBoundingClientRect()
+      return {
+        bottom: rectangle.bottom,
+        top: rectangle.top,
+        viewportHeight: innerHeight,
+      }
+    })
   expect(bounds.top).toBeGreaterThanOrEqual(0)
   expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight)
 }

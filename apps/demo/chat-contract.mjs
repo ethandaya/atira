@@ -10,11 +10,13 @@ export const modelSchema = z.object({
 })
 
 // Requests identify a catalog entry; display metadata is optional for older clients.
-const requestedModelSchema = z.object({
-  label: z.string().optional(),
-  modelId: z.string(),
-  providerId: z.string(),
-}).strict()
+const requestedModelSchema = z
+  .object({
+    label: z.string().optional(),
+    modelId: z.string(),
+    providerId: z.string(),
+  })
+  .strict()
 
 export const authStatusSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('signed_out') }),
@@ -22,41 +24,58 @@ export const authStatusSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('authenticated') }),
   z.object({
     state: z.literal('pending'),
-    verificationUrl: z.url().refine(value => new URL(value).origin === 'https://auth.openai.com'),
+    verificationUrl: z
+      .url()
+      .refine((value) => new URL(value).origin === 'https://auth.openai.com'),
     userCode: z.string().min(1),
     expiresAt: z.number(),
     pollAfterMs: z.number().nonnegative(),
   }),
 ])
 
-export const runtimeResponseSchema = z.object({
-  available: z.boolean(),
-  conversationSessions: z.literal(true),
-  message: z.string().optional(),
-  model: z.string(),
-  models: z.array(z.unknown()).default([]).transform((models) => models.flatMap((model) => {
-    const result = modelSchema.safeParse(model)
-    return result.success ? [result.data] : []
-  })),
-  retryTurns: z.boolean().default(false),
-  runtime: z.string(),
-}).transform(({ message, ...runtime }) => ({
-  ...runtime,
-  ...(message === undefined ? {} : { message }),
-}))
+export const runtimeResponseSchema = z
+  .object({
+    available: z.boolean(),
+    conversationSessions: z.literal(true),
+    message: z.string().optional(),
+    model: z.string(),
+    models: z
+      .array(z.unknown())
+      .default([])
+      .transform((models) =>
+        models.flatMap((model) => {
+          const result = modelSchema.safeParse(model)
+          return result.success ? [result.data] : []
+        }),
+      ),
+    retryTurns: z.boolean().default(false),
+    runtime: z.string(),
+  })
+  .transform(({ message, ...runtime }) => ({
+    ...runtime,
+    ...(message === undefined ? {} : { message }),
+  }))
 
 const turnId = z.string().regex(/^[a-z0-9:-]{1,100}$/i, 'Invalid turn ID.')
 export const cancelRequestSchema = z.object({ turnId }).strict()
-export const chatRequestSchema = z.object({
-  input: z.string().trim().min(1, 'Enter a message to continue.').max(8_000, 'Messages are limited to 8,000 characters.'),
-  model: requestedModelSchema.optional(),
-  resume: z.boolean().optional().default(false),
-  retry: z.boolean().optional().default(false),
-  turnId: turnId.optional(),
-}).strict()
+export const chatRequestSchema = z
+  .object({
+    input: z
+      .string()
+      .trim()
+      .min(1, 'Enter a message to continue.')
+      .max(8_000, 'Messages are limited to 8,000 characters.'),
+    model: requestedModelSchema.optional(),
+    resume: z.boolean().optional().default(false),
+    retry: z.boolean().optional().default(false),
+    turnId: turnId.optional(),
+  })
+  .strict()
 
 export const apiErrorSchema = z.object({ error: z.string().min(1) }).strict()
-export const cancelResponseSchema = z.object({ cancelled: z.boolean() }).strict()
+export const cancelResponseSchema = z
+  .object({ cancelled: z.boolean() })
+  .strict()
 const error = z.object({
   kind: z.enum([
     'provider',
@@ -107,17 +126,22 @@ const transcript = z
     ...value,
     ...(reasoning === undefined ? {} : { reasoning }),
   }))
-const image = z.object({
-  id: z.string(),
-  url: z.string().regex(/^\/api\/images\/[a-zA-Z0-9-]+$/),
-  downloadUrl: z.string().regex(/^\/api\/images\/[a-zA-Z0-9-]+\?download=1$/).optional(),
-  alt: z.string(),
-  width: z.number().positive(),
-  height: z.number().positive(),
-}).transform(({ downloadUrl, ...image }) => ({
-  ...image,
-  ...(downloadUrl === undefined ? {} : { downloadUrl }),
-}))
+const image = z
+  .object({
+    id: z.string(),
+    url: z.string().regex(/^\/api\/images\/[a-zA-Z0-9-]+$/),
+    downloadUrl: z
+      .string()
+      .regex(/^\/api\/images\/[a-zA-Z0-9-]+\?download=1$/)
+      .optional(),
+    alt: z.string(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+  })
+  .transform(({ downloadUrl, ...image }) => ({
+    ...image,
+    ...(downloadUrl === undefined ? {} : { downloadUrl }),
+  }))
 
 const streamTool = z.object({
   id: z.string(),
@@ -280,7 +304,11 @@ const presentation = z.discriminatedUnion('kind', [
     operation: z.enum(['read', 'list', 'glob', 'grep']),
     target: z.string().optional(),
   }),
-  z.object({ kind: z.literal('web'), operation: z.enum(['fetch', 'search']), target: z.string().optional() }),
+  z.object({
+    kind: z.literal('web'),
+    operation: z.enum(['fetch', 'search']),
+    target: z.string().optional(),
+  }),
   z.object({
     kind: z.literal('file-change'),
     operation: z.enum(['edit', 'write', 'patch']),

@@ -20,7 +20,7 @@ const catalog = JSON.parse(
   }),
 )
 await mkdir(output)
-await exportSource().catch(async error => {
+await exportSource().catch(async (error) => {
   await rm(output, { recursive: true, force: true })
   throw error
 })

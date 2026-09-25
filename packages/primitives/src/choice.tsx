@@ -10,7 +10,13 @@ import {
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
-import { createContext, useContext, useId, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type ReactNode,
+} from 'react'
 
 const RadioSelection = createContext<{
   id: string
@@ -88,7 +94,11 @@ export function RadioGroup({
 
   return (
     <div data-slot="radio-field" {...stylex.props(styles.group)}>
-      <div id={labelId} data-slot="radio-group-label" {...stylex.props(styles.legend)}>
+      <div
+        id={labelId}
+        data-slot="radio-group-label"
+        {...stylex.props(styles.legend)}
+      >
         {label}
       </div>
       <BaseRadioGroup
@@ -105,7 +115,13 @@ export function RadioGroup({
         data-slot="radio-group"
         {...stylex.props(styles.options)}
       >
-        <RadioSelection value={{ id: labelId, immediate: immediate || !!reducedMotion, value }}>
+        <RadioSelection
+          value={{
+            id: labelId,
+            immediate: immediate || !!reducedMotion,
+            value,
+          }}
+        >
           {children}
         </RadioSelection>
       </BaseRadioGroup>
@@ -128,7 +144,10 @@ export function RadioOption({
 }: RadioOptionProps) {
   const selection = useContext(RadioSelection)
   return (
-    <label data-slot="radio-option" {...stylex.props(styles.option, selection && styles.radioOption)}>
+    <label
+      data-slot="radio-option"
+      {...stylex.props(styles.option, selection && styles.radioOption)}
+    >
       {selection?.value === value && (
         <motion.span
           aria-hidden="true"
@@ -136,7 +155,11 @@ export function RadioOption({
           data-motion={selection.immediate ? 'immediate' : 'pointer'}
           layoutId={`${selection.id}-selection`}
           initial={false}
-          transition={{ type: 'spring', duration: selection.immediate ? 0 : 0.24, bounce: 0 }}
+          transition={{
+            type: 'spring',
+            duration: selection.immediate ? 0 : 0.24,
+            bounce: 0,
+          }}
           style={{ borderRadius: radii.control }}
           {...stylex.props(styles.selection)}
         />
@@ -167,7 +190,10 @@ function OptionCopy({
         {label}
       </span>
       {description && (
-        <span data-slot="choice-description" {...stylex.props(styles.description)}>
+        <span
+          data-slot="choice-description"
+          {...stylex.props(styles.description)}
+        >
           {description}
         </span>
       )}
