@@ -1,120 +1,100 @@
 # Pretty Amped
 
-Pretty Amped is the working title for two related products:
+A React 19 and StyleX component library for agent interfaces, with an interactive
+catalog and a Nanocodex playground. Applications own providers, transport,
+credentials, and persistence; the library owns presentation and interaction.
 
-1. a StyleX-first React component system with its own accessible primitives, source registry, CLI, and MCP server for AI and agent interfaces; and
-2. an ultraminimal reference client capable of replacing OpenCode's graphical UI while proving the component system against a real coding-agent workflow.
+## Development
 
-OpenCode's web/desktop UI is the behavioral north star, not a visual template. The reusable library stays protocol-neutral; OpenCode SDK handling, event reconciliation, persistence, routing, and desktop capabilities belong at the application edge. Visual language, interaction contracts, accessibility, semantic agent states, and theming belong in the library.
-
-The repository now contains the first runnable vertical slice. Start with the
-[knowledge base](docs/knowledge-base/README.md), then run the demo:
+Use Node 22.13 or newer and the declared pnpm version:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-The dev-only Lapse inspector is opt-in: add `?lapse` to the demo URL.
-Its panel appears at the bottom left; **Shift+S** cycles playback speed.
-Normal demo pages and production builds do not load its clock patches.
-Installing `@aiforui/lapse` requires access to the private `aiforui.dev` registry;
-keep its auth token in your user-level npm configuration, never this repository.
+Open `/` for the catalog and installation guide, or `/?view=playground` for chat.
+The catalog does not require credentials. Sign in with ChatGPT in the playground
+or set `OPENAI_API_KEY` on the server. `NANOCODEX_MODEL` defaults to `gpt-6-sol` and must be
+supported by the installed Nanocodex version. Each conversation uses that model.
 
-The playground keeps provider credentials server-side. Use **Sign in** to connect
-a ChatGPT subscription through OpenAI's device flow; credentials are encrypted
-per browser session and never exposed to client code. Without a subscription it
-uses Anthropic when `ANTHROPIC_API_KEY` is available and otherwise Nanocodex with
-`OPENAI_API_KEY`. Set `PRETTY_AMPED_RUNTIME` to `anthropic` or `nanocodex` to
-choose the fallback explicitly. The ChatGPT runtime can delegate bounded research,
-review, and planning tasks to isolated, non-recursive subagents.
+Nanocodex 0.6.5 owns device-code login, credential refresh, and the agent loop.
+ChatGPT credentials stay in server memory, isolated by browser session; they expire
+after an hour without API activity or a server restart. Sign-in/sign-out resets
+that browser's agent contexts; saved transcripts remain readable. This demo does
+not persist credentials or offer cross-device accounts.
 
-ChatGPT retries transient provider failures up to three attempts per request,
-with cancellable backoff (500ms, then 1s; provider Retry-After overrides, capped
-at 30s). Successful tool results are checkpointed in server memory. **Retry
-response** resumes the failed provider request or subagent checkpoint instead
-of rerunning completed searches or images. Partial output from a retried request
-is replaced, not appended twice. Invalid requests and cancellation
-are not automatically retried. This execution recovery is ChatGPT-specific;
-checkpoints expire with their conversation and do not survive server restarts.
+The agent can search the component catalog, but cannot access your workspace.
+Public web search additionally requires the server API key. There is no subagent
+service of our own or image-generation service; reusable UI components remain
+available. Nanocodex includes its built-in delegation tools by default.
 
-ChatGPT has no fixed tool-round limit. A soft research budget of 15 minutes for
-the main run and 5 minutes per subagent is checked between provider rounds.
-Once reached, the next request is answer-only, using collected results without
-offering tools. In-flight work is allowed to finish; **Stop** cancels immediately.
-The checkpoint retains its deadline across retries rather than restarting its budget.
+Deterministic workflow and stress fixtures are test-only. Playwright enables
+them with `VITE_TEST_FIXTURES=true`; ordinary development and production builds
+do not expose a deterministic chat demo.
 
-The composer's **Model** picker selects the model for the next message without
-resetting conversation history. Selection persists with the draft; retries use
-the original turn's model, and ChatGPT subagents inherit that model. Options are
-discovered server-side from the authenticated provider and cached for five minutes
-per credential/account. ChatGPT uses Codex's model-discovery endpoint (not a public
-API contract); Anthropic and OpenAI API keys use their Models APIs. Discovery failures
-show an error instead of guessed options; refresh to retry. The Nanocodex fallback
-filters discovery to its configured model because its agent is created once per
-conversation. Provider access and generation-capability errors can still apply.
+The optional Lapse inspector is not required to install, test, or build. If you
+have private registry access, install it locally with
+`pnpm --filter @pretty-amped/demo add -D @aiforui/lapse@0.19.0`, restart the dev
+server, then add `?lapse` to the URL. Keep these dependency edits out of ordinary
+library changes and credentials in user-level npm configuration. Without Lapse,
+the demo logs an explanatory warning. Production builds never mount it.
 
-ChatGPT models that advertise reasoning levels also show a **Reasoning effort**
-picker. It starts at the model's advertised default, persists with the draft,
-and is retained for retries and inherited by subagents. Unsupported effort choices
-are rejected server-side; providers without effort metadata do not show the control.
+## Conversations and recovery
 
-Paid ChatGPT subscriptions with an image-capable model can use `generate_image`
-when explicitly asked to create an image. This uses Codex's subscription image
-proxy, not a stable public API; there is no paid API-key fallback. New image
-generation is supported, not reference-image editing. The reusable `GeneratedImage`
-component handles generation, preview, load retry, opening, and downloading.
-PNG files are private to the browser session and stored under
-`.amp/data/generated-images/` until that directory or the orb is removed; there
-is no automatic retention cleanup. Files survive server restarts, but losing the
-session cookie loses access. Browser transcripts store URLs, never image payloads.
+The Conversations menu starts and reopens chats. Transcripts and drafts live in
+browser `sessionStorage`, not a durable or cross-device archive. Runtime context
+stays server-side and expires after 30 minutes idle or a server restart. Expired
+transcripts remain readable; resuming one reports an error rather than silently
+starting without context.
 
-The **Conversations** menu starts a new chat without discarding earlier ones and
-reopens saved chats with their original runtime context. Transcripts and drafts
-are stored in browser `sessionStorage` (the current tab's session, not a durable
-or cross-device archive). Runtime contexts remain server-side and expire after
-30 minutes idle, a server restart, or a provider sign-in change. Expired chats
-remain readable; resuming them shows an explicit error rather than silently
-starting without context. Runs continue server-side when a browser disconnects.
-Reloading an unfinished response reconnects and replays the latest run's events
-without resubmitting the prompt or tools. Stream interruptions reconnect automatically
-up to three times; **Stop** still explicitly cancels the run. Replay is private to
-the browser session and conversation, retained in server memory for the latest
-turn only, and does not survive a server restart.
+Runs continue when a browser disconnects. Reloading an unfinished response
+reconnects and replays the latest run without resubmitting its prompt or tools.
+Stream interruptions reconnect up to three times. Stop explicitly cancels the
+active Nanocodex turn.
 
-## Workspace
+Replay is isolated by browser session and conversation, retained in memory for
+the latest turn only, and limited to 8 MiB. Larger responses continue live, but
+reconnect reports an error rather than replaying truncated content.
 
-For private use in another application without publishing, see
-[private source consumption](docs/private-consumption.md):
-`node scripts/export-library.mjs /path/to/nanosentry/vendor/pretty-amped`.
+Retry response submits a failed prompt again and may repeat tool calls. The demo
+does not implement execution checkpoints or durable recovery.
 
-- `packages/foundations` — semantic StyleX tokens and scoped themes
+Integration tests direct the real Nanocodex agent to a local provider with
+`NANOCODEX_WEBSOCKET_URL` and `NANOCODEX_API_BASE_URL`. Leave both unset for normal
+use. These settings do not redirect the separate web-search tool.
+
+## Library boundaries
+
+- `packages/foundations` — semantic StyleX tokens, themes, and neutral chat types
 - `packages/primitives` — owned React APIs backed by Base UI and styled with StyleX
-- `packages/components` — agent-interface components built only on owned primitives
+- `packages/components` — agent-interface components built on owned primitives
 - `packages/blocks` — controlled chat-session and virtualized timeline compositions
-- `apps/demo` — Vite playground, component gallery, and reference runtime adapters
+- `apps/demo` — catalog, Nanocodex runtime, and application state
 
-## Knowledge base
+Tool renderers use explicit `ToolPresentation` fields. They do not guess meaning
+from raw JSON keys. Applications map their tool data into presentation fields;
+raw input and output remain available as evidence.
 
-- [Executive synthesis](docs/knowledge-base/README.md)
-- [OpenCode UI replacement north star and gap analysis](docs/knowledge-base/opencode-north-star.md)
-- [OpenCode chat-interface parity specification and work plan](docs/knowledge-base/opencode-chat-parity-spec.md)
-- [Library construction plan](docs/knowledge-base/library-construction.md)
-- [StyleX and React foundation](docs/knowledge-base/stylex-react.md)
-- [Design-engineering research](docs/knowledge-base/design-engineering.md)
-- [Component-system model](docs/knowledge-base/component-system.md)
-- [Human and machine accessibility](docs/knowledge-base/accessibility.md)
-- [Agent runtime options](docs/knowledge-base/agent-runtimes.md)
-- [Amp client feasibility, deferred](docs/knowledge-base/amp-client.md)
-- [Annotated sources](docs/knowledge-base/sources.md)
+Zod validates untrusted HTTP, stream, model, and saved-history data in the demo.
+The library receives typed props and controlled state; it does not import these
+schemas or require Nanocodex.
 
-## Status
+For private consumption, see [installation](docs/private-consumption.md).
+`pnpm pack:library` produces ESM, declarations, extracted CSS, and compiled themes.
+`pnpm export:library <new-directory>` exports source for hosts that own their
+StyleX compilation pipeline. Packages remain private. Publication, licensing,
+and release versioning require separate decisions.
 
-The workspace includes themed StyleX foundations, owned Base UI-backed
-primitives, conversation and agent-state components, structured coding output,
-the controlled chat composition, OpenCode and provider-backed playground adapters,
-and a component gallery. The [50-component parity tracker](docs/knowledge-base/component-system.md#external-ai-component-parity-tracker)
-records shipped equivalents and the remaining component work. Registry, CLI,
-and MCP distribution remain future tasks. Statements marked
-**Proposal** or **Hypothesis** in the knowledge base are starting positions to
-validate, not settled project decisions.
+## Verification
+
+```bash
+pnpm check
+pnpm test:consumers
+```
+
+Consumer tests install packed artifacts in isolated Vite and Next applications
+and check module boundaries, CSS, StyleX overrides, interaction, and hydration.
+Browser tests cover loading, unavailable, recovery, keyboard, and narrow layouts.
+The backend typecheck covers contracts, catalog, conversations, replay, and web
+search; server orchestration is not yet fully typechecked.
