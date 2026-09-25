@@ -49,9 +49,12 @@ import {
   type ClipboardEvent,
   type DragEvent,
   type ChangeEvent,
+  type Dispatch,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
+  type SetStateAction,
 } from 'react'
 import {
   editableDraftText,
@@ -120,136 +123,23 @@ export type ChatComposerProps = {
 
 const noCommands: readonly ComposerCommand[] = []
 
-export function ChatComposer({
-  accept,
-  actions,
-  activity,
-  capabilities,
-  composerLabel = 'Message composer',
-  commands = noCommands,
-  draft,
-  error,
-  onDraftChange,
-  onFilesAdd,
-  onRemoveAttachment,
-  onRemoveReference,
-  onRetryAttachment,
-  onStop,
-  onSubmit,
-  placeholder,
-  references = [],
-}: ChatComposerProps) {
-  const formRef = useRef<HTMLFormElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [activeMenu, setActiveMenu] = useState<ActiveComposerMenu>()
-  const [dragging, setDragging] = useState(false)
-  const value = editableDraftText(draft)
-  const intent = submitIntent(activity, capabilities)
-  const canSubmit =
-    intent !== undefined &&
-    (value.trim().length > 0 ||
-      draft.attachments.some((item) => item.state === 'ready'))
-  const showStop =
-    activity.status !== 'idle' && capabilities.canStop && !canSubmit
-  const composerMenuItems = [
-    ...(commands.length > 0 && draft.mode === 'prompt'
-      ? [
-          {
-            icon: <Command aria-hidden="true" size={15} strokeWidth={1.75} />,
-            id: 'commands',
-            label: 'Commands',
-            onSelect: () =>
-              requestAnimationFrame(() => openMenu('command', 'menu')),
-          },
-        ]
-      : []),
-    ...(references.length > 0 && capabilities.referenceTypes.length > 0
-      ? [
-          {
-            icon: <AtSign aria-hidden="true" size={15} strokeWidth={1.75} />,
-            id: 'references',
-            label: 'References',
-            onSelect: () =>
-              requestAnimationFrame(() => openMenu('reference', 'menu')),
-          },
-        ]
-      : []),
-    ...(capabilities.canAttach && onFilesAdd
-      ? [
-          {
-            icon: <Paperclip aria-hidden="true" size={15} strokeWidth={1.75} />,
-            id: 'attach',
-            label: 'Attach files',
-            onSelect: () => fileInputRef.current?.click(),
-          },
-        ]
-      : []),
-    ...(capabilities.canUseShell
-      ? [
-          {
-            icon: <Terminal aria-hidden="true" size={15} strokeWidth={1.75} />,
-            id: 'shell',
-            label:
-              draft.mode === 'shell' ? 'Use prompt mode' : 'Use shell mode',
-            onSelect: () =>
-              setMode(draft.mode === 'shell' ? 'prompt' : 'shell'),
-          },
-        ]
-      : []),
-    ...capabilities.agents
-      .filter((agent) => draft.agent?.id !== agent.id)
-      .map((agent) => ({
-        icon: <Bot aria-hidden="true" size={15} strokeWidth={1.75} />,
-        id: `agent-${agent.id}`,
-        label: `Use ${agent.label} agent`,
-        onSelect: () =>
-          onDraftChange({
-            ...draft,
-            agent,
-            revision: draft.revision + 1,
-          }),
-      })),
-    ...capabilities.variants
-      .filter((variant) => draft.variant !== variant.id)
-      .map((variant) => ({
-        description: variant.unavailableReason,
-        disabled: variant.unavailableReason !== undefined,
-        icon: (
-          <SlidersHorizontal aria-hidden="true" size={15} strokeWidth={1.75} />
-        ),
-        id: `variant-${variant.id}`,
-        label: `Use ${variant.label} variant`,
-        onSelect: () =>
-          onDraftChange({
-            ...draft,
-            revision: draft.revision + 1,
-            variant: variant.id,
-          }),
-      })),
-  ]
-
-  function updateText(next: string) {
-    const control = textareaRef.current
-    const start = control?.selectionStart ?? next.length
-    const end = control?.selectionEnd ?? next.length
-    const backward = control?.selectionDirection === 'backward'
-    onDraftChange(
-      projectTextareaEdit(draft, next, {
-        anchor: backward ? end : start,
-        focus: backward ? start : end,
-      }),
-    )
-    setActiveMenu(
-      detectComposerMenu(
-        next,
-        backward ? start : end,
-        draft.mode,
-        commands.length > 0,
-        references.length > 0,
-      ),
-    )
+function submitComposerFromKeyboard(event: KeyboardEvent<HTMLTextAreaElement>) {
+  if (
+    event.key === 'Enter' &&
+    (event.metaKey || event.ctrlKey) &&
+    !event.nativeEvent.isComposing
+  ) {
+    event.preventDefault()
+    event.currentTarget.form?.requestSubmit()
   }
+}
+
+function useTextareaSelectionSync(
+  draft: ComposerDraft,
+  onDraftChange: (draft: ComposerDraft) => void,
+  textareaRef: RefObject<HTMLTextAreaElement | null>,
+) {
+  const value = editableDraftText(draft)
 
   function updateSelection(control: HTMLTextAreaElement) {
     const selection = editableSelection(draft)
@@ -295,66 +185,55 @@ export function ChatComposer({
         selection.direction,
       )
     }
-  }, [draft, value])
+  }, [draft, textareaRef, value])
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (canSubmit && intent) onSubmit(draft, intent)
-  }
+  return { updateSelection, value }
+}
 
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (
-      event.key === 'Enter' &&
-      (event.metaKey || event.ctrlKey) &&
-      !event.nativeEvent.isComposing
-    ) {
-      event.preventDefault()
-      event.currentTarget.form?.requestSubmit()
-    }
-  }
+function useComposerMenu({
+  commands,
+  draft,
+  onDraftChange,
+  references,
+  textareaRef,
+  value,
+}: Pick<
+  ChatComposerProps,
+  'commands' | 'draft' | 'onDraftChange' | 'references'
+> & {
+  textareaRef: RefObject<HTMLTextAreaElement | null>
+  value: string
+}) {
+  const [activeMenu, setActiveMenu] = useState<ActiveComposerMenu>()
 
-  function setMode(mode: ComposerDraft['mode']) {
-    setActiveMenu(undefined)
-    onDraftChange({ ...draft, mode, revision: draft.revision + 1 })
-  }
-
-  function addFiles(
-    files: FileList | readonly File[] | null,
-    source: 'drop' | 'paste' | 'picker',
-  ) {
-    if (!onFilesAdd || !files || files.length === 0) return
-    onFilesAdd(Array.from(files), source)
-  }
-
-  function pickFiles(event: ChangeEvent<HTMLInputElement>) {
-    addFiles(event.currentTarget.files, 'picker')
-    event.currentTarget.value = ''
-  }
-
-  function pasteFiles(event: ClipboardEvent<HTMLTextAreaElement>) {
-    addFiles(event.clipboardData.files, 'paste')
-  }
-
-  function dropFiles(event: DragEvent<HTMLFormElement>) {
-    if (!event.dataTransfer.types.includes('Files')) return
-    event.preventDefault()
-    setDragging(false)
-    addFiles(event.dataTransfer.files, 'drop')
+  function updateText(next: string) {
+    const control = textareaRef.current
+    const start = control?.selectionStart ?? next.length
+    const end = control?.selectionEnd ?? next.length
+    const backward = control?.selectionDirection === 'backward'
+    onDraftChange(
+      projectTextareaEdit(draft, next, {
+        anchor: backward ? end : start,
+        focus: backward ? start : end,
+      }),
+    )
+    setActiveMenu(
+      detectComposerMenu(
+        next,
+        backward ? start : end,
+        draft.mode,
+        (commands?.length ?? 0) > 0,
+        (references?.length ?? 0) > 0,
+      ),
+    )
   }
 
   function openMenu(
     kind: ActiveComposerMenu['kind'],
     source: ActiveComposerMenu['source'] = 'trigger',
   ) {
-    const control = textareaRef.current
-    const offset = control?.selectionEnd ?? value.length
-    setActiveMenu({
-      end: offset,
-      kind,
-      query: '',
-      source,
-      start: offset,
-    })
+    const offset = textareaRef.current?.selectionEnd ?? value.length
+    setActiveMenu({ end: offset, kind, query: '', source, start: offset })
   }
 
   function closeMenu() {
@@ -402,41 +281,73 @@ export function ChatComposer({
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
+  return {
+    activeMenu,
+    closeMenu,
+    openMenu,
+    selectCommand,
+    selectReference,
+    setActiveMenu,
+    updateText,
+  }
+}
+
+function useComposerFiles(
+  onFilesAdd: ChatComposerProps['onFilesAdd'],
+  setDragging: Dispatch<SetStateAction<boolean>>,
+) {
+  function addFiles(
+    files: FileList | readonly File[] | null,
+    source: 'drop' | 'paste' | 'picker',
+  ) {
+    if (!onFilesAdd || !files || files.length === 0) return
+    onFilesAdd(Array.from(files), source)
+  }
+
+  function pickFiles(event: ChangeEvent<HTMLInputElement>) {
+    addFiles(event.currentTarget.files, 'picker')
+    event.currentTarget.value = ''
+  }
+
+  function pasteFiles(event: ClipboardEvent<HTMLTextAreaElement>) {
+    addFiles(event.clipboardData.files, 'paste')
+  }
+
+  function dropFiles(event: DragEvent<HTMLFormElement>) {
+    if (!event.dataTransfer.types.includes('Files')) return
+    event.preventDefault()
+    setDragging(false)
+    addFiles(event.dataTransfer.files, 'drop')
+  }
+
+  return { dropFiles, pasteFiles, pickFiles }
+}
+
+function ComposerDraftContext({
+  accept,
+  capabilities,
+  draft,
+  fileInputRef,
+  onDraftChange,
+  onFilesAdd,
+  onRemoveAttachment,
+  onRemoveReference,
+  onRetryAttachment,
+  pickFiles,
+}: {
+  accept: ChatComposerProps['accept']
+  capabilities: ChatCapabilities
+  draft: ComposerDraft
+  fileInputRef: RefObject<HTMLInputElement | null>
+  onDraftChange: ChatComposerProps['onDraftChange']
+  onFilesAdd: ChatComposerProps['onFilesAdd']
+  onRemoveAttachment: ChatComposerProps['onRemoveAttachment']
+  onRemoveReference: ChatComposerProps['onRemoveReference']
+  onRetryAttachment: ChatComposerProps['onRetryAttachment']
+  pickFiles: (event: ChangeEvent<HTMLInputElement>) => void
+}) {
   return (
-    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- The form delegates Escape and file-drop events from its controls.
-    <form
-      ref={formRef}
-      aria-label={composerLabel}
-      data-dragging={dragging || undefined}
-      data-mode={draft.mode}
-      data-selection-anchor={`${draft.selection.anchor.segmentId}:${draft.selection.anchor.offset}`}
-      data-selection-focus={`${draft.selection.focus.segmentId}:${draft.selection.focus.offset}`}
-      data-slot="chat-composer"
-      data-state={activity.status}
-      onDragEnter={(event) => {
-        if (event.dataTransfer.types.includes('Files')) setDragging(true)
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setDragging(false)
-        }
-      }}
-      onDragOver={(event) => {
-        if (event.dataTransfer.types.includes('Files')) event.preventDefault()
-      }}
-      onDrop={dropFiles}
-      onSelectCapture={(event) => {
-        if (event.target === textareaRef.current) {
-          updateSelection(textareaRef.current)
-        }
-      }}
-      onSubmit={submit}
-      {...stylex.props(
-        styles.root,
-        draft.mode === 'shell' && styles.shell,
-        dragging && styles.dragging,
-      )}
-    >
+    <>
       <ReferenceTray
         draft={draft}
         {...(onRemoveReference === undefined
@@ -476,11 +387,127 @@ export function ChatComposer({
           {...stylex.props(styles.fileInput)}
         />
       )}
+    </>
+  )
+}
+
+export function ChatComposer({
+  accept,
+  actions,
+  activity,
+  capabilities,
+  composerLabel = 'Message composer',
+  commands = noCommands,
+  draft,
+  error,
+  onDraftChange,
+  onFilesAdd,
+  onRemoveAttachment,
+  onRemoveReference,
+  onRetryAttachment,
+  onStop,
+  onSubmit,
+  placeholder,
+  references = [],
+}: ChatComposerProps) {
+  const formRef = useRef<HTMLFormElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragging, setDragging] = useState(false)
+  const { dropFiles, pasteFiles, pickFiles } = useComposerFiles(
+    onFilesAdd,
+    setDragging,
+  )
+  const { updateSelection, value } = useTextareaSelectionSync(
+    draft,
+    onDraftChange,
+    textareaRef,
+  )
+  const {
+    activeMenu,
+    closeMenu,
+    openMenu,
+    selectCommand,
+    selectReference,
+    setActiveMenu,
+    updateText,
+  } = useComposerMenu({
+    commands,
+    draft,
+    onDraftChange,
+    references,
+    textareaRef,
+    value,
+  })
+  const intent = submitIntent(activity, capabilities)
+  const canSubmit =
+    intent !== undefined &&
+    (value.trim().length > 0 ||
+      draft.attachments.some((item) => item.state === 'ready'))
+  const showStop =
+    activity.status !== 'idle' && capabilities.canStop && !canSubmit
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (canSubmit && intent) onSubmit(draft, intent)
+  }
+
+  function setMode(mode: ComposerDraft['mode']) {
+    setActiveMenu(undefined)
+    onDraftChange({ ...draft, mode, revision: draft.revision + 1 })
+  }
+
+  return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- The form delegates Escape and file-drop events from its controls.
+    <form
+      ref={formRef}
+      aria-label={composerLabel}
+      data-dragging={dragging || undefined}
+      data-mode={draft.mode}
+      data-selection-anchor={`${draft.selection.anchor.segmentId}:${draft.selection.anchor.offset}`}
+      data-selection-focus={`${draft.selection.focus.segmentId}:${draft.selection.focus.offset}`}
+      data-slot="chat-composer"
+      data-state={activity.status}
+      onDragEnter={(event) => {
+        if (event.dataTransfer.types.includes('Files')) setDragging(true)
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setDragging(false)
+        }
+      }}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) event.preventDefault()
+      }}
+      onDrop={dropFiles}
+      onSelectCapture={(event) => {
+        if (event.target === textareaRef.current) {
+          updateSelection(textareaRef.current)
+        }
+      }}
+      onSubmit={submit}
+      {...stylex.props(
+        styles.root,
+        draft.mode === 'shell' && styles.shell,
+        dragging && styles.dragging,
+      )}
+    >
+      <ComposerDraftContext
+        accept={accept}
+        capabilities={capabilities}
+        draft={draft}
+        fileInputRef={fileInputRef}
+        onDraftChange={onDraftChange}
+        onFilesAdd={onFilesAdd}
+        onRemoveAttachment={onRemoveAttachment}
+        onRemoveReference={onRemoveReference}
+        onRetryAttachment={onRetryAttachment}
+        pickFiles={pickFiles}
+      />
       <TextareaField
         autoComplete="off"
         label={draft.mode === 'shell' ? 'Shell command' : 'Message'}
         labelHidden
-        onKeyDown={onKeyDown}
+        onKeyDown={submitComposerFromKeyboard}
         onPaste={pasteFiles}
         onValueChange={updateText}
         placeholder={
@@ -504,163 +531,311 @@ export function ChatComposer({
         </p>
       )}
 
-      <div data-slot="chat-composer-toolbar" {...stylex.props(styles.toolbar)}>
-        <div
-          data-slot="chat-composer-context-actions"
-          {...stylex.props(styles.leading)}
-        >
-          {/* oxlint-disable-next-line react/refs -- Menu callbacks read refs only when selected, never during render. */}
-          {composerMenuItems.length > 0 && (
-            <ActionMenu
-              items={composerMenuItems}
-              label="Composer actions"
-              portalContainer={formRef}
-              side="top"
-              trigger={<Plus aria-hidden="true" size={18} strokeWidth={1.75} />}
-            />
-          )}
-          <span aria-hidden="true" {...stylex.props(styles.menuHosts)}>
-            {commands.length > 0 && draft.mode === 'prompt' && (
-              <FilterMenu
-                inputValue={
-                  activeMenu?.kind === 'command' ? activeMenu.query : ''
-                }
-                items={commands}
-                label="Commands"
-                onInputValueChange={(query) =>
-                  setActiveMenu((current) =>
-                    current?.kind === 'command'
-                      ? { ...current, query }
-                      : current,
-                  )
-                }
-                onOpenChange={(open) =>
-                  open ? openMenu('command') : closeMenu()
-                }
-                onSelect={selectCommand}
-                open={activeMenu?.kind === 'command'}
-                placeholder="Filter commands…"
-                portalContainer={formRef}
-                triggerLabel="/"
-              />
-            )}
-            {references.length > 0 &&
-              capabilities.referenceTypes.length > 0 && (
-                <FilterMenu
-                  inputValue={
-                    activeMenu?.kind === 'reference' ? activeMenu.query : ''
-                  }
-                  items={references.filter((reference) =>
-                    capabilities.referenceTypes.includes(
-                      reference.referenceType,
-                    ),
-                  )}
-                  label="References"
-                  onInputValueChange={(query) =>
-                    setActiveMenu((current) =>
-                      current?.kind === 'reference'
-                        ? { ...current, query }
-                        : current,
-                    )
-                  }
-                  onOpenChange={(open) =>
-                    open ? openMenu('reference') : closeMenu()
-                  }
-                  onSelect={selectReference}
-                  open={activeMenu?.kind === 'reference'}
-                  placeholder="Filter references…"
-                  portalContainer={formRef}
-                  triggerLabel="@"
-                />
-              )}
-          </span>
-          {capabilities.models.length > 0 && (
-            <SelectPicker
-              label="Model"
-              portalContainer={formRef}
-              onValueChange={(id) => {
-                const model = capabilities.models.find(
-                  (item) => modelOptionValue(item) === id,
-                )
-                if (model) {
-                  const { reasoningEffort, ...rest } = draft
-                  onDraftChange({
-                    ...rest,
-                    model,
-                    ...(reasoningEffort &&
-                    model.reasoningEfforts?.includes(reasoningEffort)
-                      ? { reasoningEffort }
-                      : {}),
-                    revision: draft.revision + 1,
-                  })
-                }
-              }}
-              options={capabilities.models.map((model) => ({
-                label: model.label,
-                value: modelOptionValue(model),
-              }))}
-              placeholder="Model"
-              {...(draft.model === undefined
-                ? {}
-                : { value: modelOptionValue(draft.model) })}
-            />
-          )}
-          {draft.model?.reasoningEfforts &&
-            draft.model.reasoningEfforts.length > 0 && (
-              <SelectPicker
-                label="Reasoning effort"
-                portalContainer={formRef}
-                onValueChange={(reasoningEffort) =>
-                  onDraftChange({
-                    ...draft,
-                    reasoningEffort,
-                    revision: draft.revision + 1,
-                  })
-                }
-                options={draft.model.reasoningEfforts.map((value) => ({
-                  label:
-                    value === 'xhigh'
-                      ? 'Extra high'
-                      : value.charAt(0).toUpperCase() + value.slice(1),
-                  value,
-                }))}
-                value={
-                  draft.reasoningEffort &&
-                  draft.model.reasoningEfforts.includes(draft.reasoningEffort)
-                    ? draft.reasoningEffort
-                    : (draft.model.defaultReasoningEffort ??
-                      draft.model.reasoningEfforts[0] ??
-                      '')
-                }
-                placeholder="Reasoning effort"
-              />
-            )}
-          {actions}
-        </div>
-
-        <div
-          data-slot="chat-composer-submit-controls"
-          {...stylex.props(styles.trailing)}
-        >
-          <IconButton
-            aria-label={showStop ? 'Stop' : submitLabel(intent)}
-            disabled={!showStop && !canSubmit}
-            iconSize="small"
-            onClick={showStop ? onStop : undefined}
-            title={showStop ? 'Stop response' : submitLabel(intent)}
-            type={showStop ? 'button' : 'submit'}
-            variant="primary"
-          >
-            {showStop ? (
-              <Square fill="currentColor" size={16} strokeWidth={1.75} />
-            ) : (
-              <SendHorizontal size={16} strokeWidth={1.75} />
-            )}
-          </IconButton>
-        </div>
-      </div>
+      <ComposerToolbar
+        actions={actions}
+        activeMenu={activeMenu}
+        canSubmit={canSubmit}
+        capabilities={capabilities}
+        commands={commands}
+        draft={draft}
+        fileInputRef={fileInputRef}
+        formRef={formRef}
+        intent={intent}
+        onCloseMenu={closeMenu}
+        onDraftChange={onDraftChange}
+        onFilesAdd={onFilesAdd}
+        onOpenMenu={openMenu}
+        onSelectCommand={selectCommand}
+        onSelectReference={selectReference}
+        onSetMode={setMode}
+        onStop={onStop}
+        references={references}
+        setActiveMenu={setActiveMenu}
+        showStop={showStop}
+      />
       <VisuallyHidden>Ctrl/⌘ + Enter to submit</VisuallyHidden>
     </form>
+  )
+}
+
+type ComposerToolbarProps = {
+  actions: ReactNode
+  activeMenu: ActiveComposerMenu | undefined
+  canSubmit: boolean
+  capabilities: ChatCapabilities
+  commands: readonly ComposerCommand[]
+  draft: ComposerDraft
+  fileInputRef: RefObject<HTMLInputElement | null>
+  formRef: RefObject<HTMLFormElement | null>
+  intent: SubmitIntent | undefined
+  onCloseMenu: () => void
+  onDraftChange: (draft: ComposerDraft) => void
+  onFilesAdd: ChatComposerProps['onFilesAdd']
+  onOpenMenu: (
+    kind: ActiveComposerMenu['kind'],
+    source?: ActiveComposerMenu['source'],
+  ) => void
+  onSelectCommand: (command: ComposerCommand) => void
+  onSelectReference: (reference: ComposerReference) => void
+  onSetMode: (mode: ComposerDraft['mode']) => void
+  onStop: () => void
+  references: readonly ComposerReference[]
+  setActiveMenu: Dispatch<SetStateAction<ActiveComposerMenu | undefined>>
+  showStop: boolean
+}
+
+function ComposerToolbar(props: ComposerToolbarProps) {
+  const { activeMenu, capabilities, commands, draft, formRef, references } =
+    props
+  const referenceTypes = new Set(capabilities.referenceTypes)
+  const referenceItems = references.filter((item) =>
+    referenceTypes.has(item.referenceType),
+  )
+  const menuItems = composerActionItems(props)
+  const updateQuery = (kind: ActiveComposerMenu['kind'], query: string) =>
+    props.setActiveMenu((current) =>
+      current?.kind === kind ? { ...current, query } : current,
+    )
+
+  return (
+    <div data-slot="chat-composer-toolbar" {...stylex.props(styles.toolbar)}>
+      <div
+        data-slot="chat-composer-context-actions"
+        {...stylex.props(styles.leading)}
+      >
+        {menuItems.length > 0 && (
+          <ActionMenu
+            items={menuItems}
+            label="Composer actions"
+            portalContainer={formRef}
+            side="top"
+            trigger={<Plus aria-hidden="true" size={18} strokeWidth={1.75} />}
+          />
+        )}
+        <span aria-hidden="true" {...stylex.props(styles.menuHosts)}>
+          {commands.length > 0 && draft.mode === 'prompt' && (
+            <FilterMenu
+              inputValue={
+                activeMenu?.kind === 'command' ? activeMenu.query : ''
+              }
+              items={commands}
+              label="Commands"
+              onInputValueChange={(query) => updateQuery('command', query)}
+              onOpenChange={(open) =>
+                open ? props.onOpenMenu('command') : props.onCloseMenu()
+              }
+              onSelect={props.onSelectCommand}
+              open={activeMenu?.kind === 'command'}
+              placeholder="Filter commands…"
+              portalContainer={formRef}
+              triggerLabel="/"
+            />
+          )}
+          {referenceItems.length > 0 && (
+            <FilterMenu
+              inputValue={
+                activeMenu?.kind === 'reference' ? activeMenu.query : ''
+              }
+              items={referenceItems}
+              label="References"
+              onInputValueChange={(query) => updateQuery('reference', query)}
+              onOpenChange={(open) =>
+                open ? props.onOpenMenu('reference') : props.onCloseMenu()
+              }
+              onSelect={props.onSelectReference}
+              open={activeMenu?.kind === 'reference'}
+              placeholder="Filter references…"
+              portalContainer={formRef}
+              triggerLabel="@"
+            />
+          )}
+        </span>
+        <ComposerModelControls
+          capabilities={capabilities}
+          draft={draft}
+          formRef={formRef}
+          onDraftChange={props.onDraftChange}
+        />
+        {props.actions}
+      </div>
+      <div
+        data-slot="chat-composer-submit-controls"
+        {...stylex.props(styles.trailing)}
+      >
+        <IconButton
+          aria-label={props.showStop ? 'Stop' : submitLabel(props.intent)}
+          disabled={!props.showStop && !props.canSubmit}
+          iconSize="small"
+          onClick={props.showStop ? props.onStop : undefined}
+          title={props.showStop ? 'Stop response' : submitLabel(props.intent)}
+          type={props.showStop ? 'button' : 'submit'}
+          variant="primary"
+        >
+          {props.showStop ? (
+            <Square fill="currentColor" size={16} strokeWidth={1.75} />
+          ) : (
+            <SendHorizontal size={16} strokeWidth={1.75} />
+          )}
+        </IconButton>
+      </div>
+    </div>
+  )
+}
+
+function composerActionItems(props: ComposerToolbarProps) {
+  const { capabilities, commands, draft, references } = props
+  return [
+    ...(commands.length > 0 && draft.mode === 'prompt'
+      ? [
+          {
+            icon: <Command aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'commands',
+            label: 'Commands',
+            onSelect: () =>
+              requestAnimationFrame(() => props.onOpenMenu('command', 'menu')),
+          },
+        ]
+      : []),
+    ...(references.length > 0 && capabilities.referenceTypes.length > 0
+      ? [
+          {
+            icon: <AtSign aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'references',
+            label: 'References',
+            onSelect: () =>
+              requestAnimationFrame(() =>
+                props.onOpenMenu('reference', 'menu'),
+              ),
+          },
+        ]
+      : []),
+    ...(capabilities.canAttach && props.onFilesAdd
+      ? [
+          {
+            icon: <Paperclip aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'attach',
+            label: 'Attach files',
+            onSelect: () => props.fileInputRef.current?.click(),
+          },
+        ]
+      : []),
+    ...(capabilities.canUseShell
+      ? [
+          {
+            icon: <Terminal aria-hidden="true" size={15} strokeWidth={1.75} />,
+            id: 'shell',
+            label:
+              draft.mode === 'shell' ? 'Use prompt mode' : 'Use shell mode',
+            onSelect: () =>
+              props.onSetMode(draft.mode === 'shell' ? 'prompt' : 'shell'),
+          },
+        ]
+      : []),
+    ...capabilities.agents
+      .filter((agent) => draft.agent?.id !== agent.id)
+      .map((agent) => ({
+        icon: <Bot aria-hidden="true" size={15} strokeWidth={1.75} />,
+        id: `agent-${agent.id}`,
+        label: `Use ${agent.label} agent`,
+        onSelect: () =>
+          props.onDraftChange({
+            ...draft,
+            agent,
+            revision: draft.revision + 1,
+          }),
+      })),
+    ...capabilities.variants
+      .filter((variant) => draft.variant !== variant.id)
+      .map((variant) => ({
+        description: variant.unavailableReason,
+        disabled: variant.unavailableReason !== undefined,
+        icon: (
+          <SlidersHorizontal aria-hidden="true" size={15} strokeWidth={1.75} />
+        ),
+        id: `variant-${variant.id}`,
+        label: `Use ${variant.label} variant`,
+        onSelect: () =>
+          props.onDraftChange({
+            ...draft,
+            revision: draft.revision + 1,
+            variant: variant.id,
+          }),
+      })),
+  ]
+}
+
+function ComposerModelControls({
+  capabilities,
+  draft,
+  formRef,
+  onDraftChange,
+}: Pick<
+  ComposerToolbarProps,
+  'capabilities' | 'draft' | 'formRef' | 'onDraftChange'
+>) {
+  return (
+    <>
+      {capabilities.models.length > 0 && (
+        <SelectPicker
+          label="Model"
+          portalContainer={formRef}
+          onValueChange={(id) => {
+            const model = capabilities.models.find(
+              (item) => modelOptionValue(item) === id,
+            )
+            if (!model) return
+            const { reasoningEffort, ...rest } = draft
+            onDraftChange({
+              ...rest,
+              model,
+              ...(reasoningEffort &&
+              model.reasoningEfforts?.includes(reasoningEffort)
+                ? { reasoningEffort }
+                : {}),
+              revision: draft.revision + 1,
+            })
+          }}
+          options={capabilities.models.map((model) => ({
+            label: model.label,
+            value: modelOptionValue(model),
+          }))}
+          placeholder="Model"
+          {...(draft.model === undefined
+            ? {}
+            : { value: modelOptionValue(draft.model) })}
+        />
+      )}
+      {draft.model?.reasoningEfforts &&
+        draft.model.reasoningEfforts.length > 0 && (
+          <SelectPicker
+            label="Reasoning effort"
+            portalContainer={formRef}
+            onValueChange={(reasoningEffort) =>
+              onDraftChange({
+                ...draft,
+                reasoningEffort,
+                revision: draft.revision + 1,
+              })
+            }
+            options={draft.model.reasoningEfforts.map((value) => ({
+              label:
+                value === 'xhigh'
+                  ? 'Extra high'
+                  : value.charAt(0).toUpperCase() + value.slice(1),
+              value,
+            }))}
+            value={
+              draft.reasoningEffort &&
+              draft.model.reasoningEfforts.includes(draft.reasoningEffort)
+                ? draft.reasoningEffort
+                : (draft.model.defaultReasoningEffort ??
+                  draft.model.reasoningEfforts[0] ??
+                  '')
+            }
+            placeholder="Reasoning effort"
+          />
+        )}
+    </>
   )
 }
 
