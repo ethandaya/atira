@@ -761,10 +761,18 @@ describe('chat components', () => {
   it('locks a permission request after the first local decision', () => {
     const onDecision = vi.fn()
     const request = permissionRequest()
-    render(<PermissionPrompt onDecision={onDecision} request={request} />)
+    const { rerender } = render(
+      <PermissionPrompt onDecision={onDecision} request={request} />,
+    )
     const button = screen.getByRole('button', { name: 'Allow once' })
 
     fireEvent.click(button)
+    rerender(
+      <PermissionPrompt
+        onDecision={onDecision}
+        request={{ ...request, state: { status: 'pending' } }}
+      />,
+    )
     fireEvent.click(button)
 
     expect(onDecision).toHaveBeenCalledOnce()
@@ -806,26 +814,28 @@ describe('chat components', () => {
     )
 
     await userEvent.click(screen.getByRole('button', { name: 'Allow once' }))
-    rerender(
-      <PermissionPrompt
-        onDecision={onDecision}
-        request={{
-          ...request,
-          state: {
-            decision: 'once',
-            error: {
-              kind: 'mutation',
-              message: 'Network unavailable.',
-              retryable: true,
+    for (const message of ['Network unavailable.', 'Still unavailable.']) {
+      rerender(
+        <PermissionPrompt
+          onDecision={onDecision}
+          request={{
+            ...request,
+            state: {
+              decision: 'once',
+              error: {
+                kind: 'mutation',
+                message,
+                retryable: true,
+              },
+              status: 'failed',
             },
-            status: 'failed',
-          },
-        }}
-      />,
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+          }}
+        />,
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+    }
 
-    expect(onDecision).toHaveBeenCalledTimes(2)
+    expect(onDecision).toHaveBeenCalledTimes(3)
     expect(onDecision).toHaveBeenLastCalledWith('once')
   })
 
@@ -877,6 +887,52 @@ describe('chat components', () => {
       answers: [
         { optionIds: ['stylex'], questionId: 'framework', type: 'choice' },
       ],
+    })
+  })
+
+  it('retries each question failure without losing the answer or allowing duplicate submissions', () => {
+    const onAnswer = vi.fn()
+    const request: QuestionRequestView = {
+      id: 'retry-question',
+      order: 0,
+      origin: { sessionId: 'session' },
+      questions: [{ id: 'name', label: 'Name', required: true, type: 'text' }],
+      state: { status: 'pending' },
+      type: 'question',
+    }
+    const { rerender } = render(
+      <QuestionRequest request={request} onAnswer={onAnswer} />,
+    )
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+      target: { value: 'Ada' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }))
+    for (const message of ['First failure', 'Second failure']) {
+      rerender(
+        <QuestionRequest
+          onAnswer={onAnswer}
+          request={{
+            ...request,
+            state: {
+              status: 'failed',
+              decision: {
+                type: 'answer',
+                response: {
+                  answers: [{ questionId: 'name', type: 'text', value: 'Ada' }],
+                },
+              },
+              error: { kind: 'mutation', message, retryable: true },
+            },
+          }}
+        />,
+      )
+      const button = screen.getByRole('button', { name: 'Submit answer' })
+      fireEvent.click(button)
+      fireEvent.click(button)
+    }
+    expect(onAnswer).toHaveBeenCalledTimes(3)
+    expect(onAnswer).toHaveBeenLastCalledWith({
+      answers: [{ questionId: 'name', type: 'text', value: 'Ada' }],
     })
   })
 
