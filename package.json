@@ -13,7 +13,7 @@
     "pack:library": "node scripts/build-library.mjs --pack private-packages",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm run doctor && pnpm build && pnpm test:browser && pnpm test:consumers",
     "dev": "pnpm --filter @pretty-amped/demo dev",
-    "doctor": "react-doctor --project apps/demo,packages/primitives,packages/components,packages/blocks --no-score --no-supply-chain --blocking error -y",
+    "doctor": "react-doctor --project apps/demo,packages/primitives,packages/components,packages/blocks --no-score --no-supply-chain --blocking warning -y",
     "doctor:changed": "pnpm run doctor --scope changed --include-untracked",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",

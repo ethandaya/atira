@@ -9,6 +9,7 @@ import {
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
+// react-doctor-disable-next-line react-doctor/use-lazy-motion -- Standalone choices own layout animations; requiring a consumer LazyMotion provider would change their API.
 import { motion, useReducedMotion } from 'motion/react'
 import {
   createContext,

@@ -96,10 +96,10 @@ The full gate runs formatting, lint, typechecks, tests, React Doctor, production
 builds, browser tests, and private-consumer tests in that order. It stops at the
 first failure. Oxlint covers JavaScript and TypeScript, including backend `.mjs`
 files; React Doctor covers the demo and the three React library packages.
-Oxlint warnings and React Doctor errors fail the gate. Doctor warnings remain
-visible for review: its component-size, bundle, and lifecycle heuristics are
-not all correctness defects in a composable library. Doctor's remote scoring
-and supply-chain scan are disabled; this is not a dependency security audit.
+Warnings fail both Oxlint and React Doctor. Narrow source comments explain
+exceptions for provider-free animation primitives, persistent handoff slots,
+and cancellable external-state synchronization. Doctor's remote scoring and
+supply-chain scan are disabled; this is not a dependency security audit.
 
 For focused iteration:
 
