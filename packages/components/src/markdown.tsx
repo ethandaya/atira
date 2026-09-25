@@ -174,7 +174,11 @@ function Heading1({
   style: _style,
   ...props
 }: ElementProps<'h1'>) {
-  return <h1 {...props} {...stylex.props(styles.heading, styles.heading1)} />
+  return (
+    <h1 {...props} {...stylex.props(styles.heading, styles.heading1)}>
+      {props.children}
+    </h1>
+  )
 }
 
 function Heading2({
@@ -183,7 +187,11 @@ function Heading2({
   style: _style,
   ...props
 }: ElementProps<'h2'>) {
-  return <h2 {...props} {...stylex.props(styles.heading, styles.heading2)} />
+  return (
+    <h2 {...props} {...stylex.props(styles.heading, styles.heading2)}>
+      {props.children}
+    </h2>
+  )
 }
 
 function Heading3({
@@ -192,7 +200,11 @@ function Heading3({
   style: _style,
   ...props
 }: ElementProps<'h3'>) {
-  return <h3 {...props} {...stylex.props(styles.heading, styles.heading3)} />
+  return (
+    <h3 {...props} {...stylex.props(styles.heading, styles.heading3)}>
+      {props.children}
+    </h3>
+  )
 }
 
 function Heading4({
@@ -201,7 +213,11 @@ function Heading4({
   style: _style,
   ...props
 }: ElementProps<'h4'>) {
-  return <h4 {...props} {...stylex.props(styles.heading, styles.heading4)} />
+  return (
+    <h4 {...props} {...stylex.props(styles.heading, styles.heading4)}>
+      {props.children}
+    </h4>
+  )
 }
 
 function Heading5({
@@ -210,7 +226,11 @@ function Heading5({
   style: _style,
   ...props
 }: ElementProps<'h5'>) {
-  return <h5 {...props} {...stylex.props(styles.heading, styles.heading4)} />
+  return (
+    <h5 {...props} {...stylex.props(styles.heading, styles.heading4)}>
+      {props.children}
+    </h5>
+  )
 }
 
 function Heading6({
@@ -219,7 +239,11 @@ function Heading6({
   style: _style,
   ...props
 }: ElementProps<'h6'>) {
-  return <h6 {...props} {...stylex.props(styles.heading, styles.heading4)} />
+  return (
+    <h6 {...props} {...stylex.props(styles.heading, styles.heading4)}>
+      {props.children}
+    </h6>
+  )
 }
 
 function UnorderedList({
@@ -303,6 +327,7 @@ function Code({
       <pre
         aria-label="Code block"
         role="group"
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users must be able to scroll overflowing code.
         tabIndex={0}
         data-slot="markdown-code-block"
         {...stylex.props(styles.codeBlock)}
@@ -351,6 +376,7 @@ function Table({
       aria-label="Scrollable table"
       ref={ref}
       role="region"
+      // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users must be able to scroll overflowing tables.
       tabIndex={0}
       data-overflow-start={edges.start || undefined}
       data-overflow-end={edges.end || undefined}

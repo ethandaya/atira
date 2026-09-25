@@ -1,9 +1,4 @@
-import {
-  colors,
-  radii,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import type { ToolProgress } from '@pretty-amped/foundations/chat'
 import {
   Disclosure,

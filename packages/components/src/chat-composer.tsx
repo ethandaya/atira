@@ -403,6 +403,7 @@ export function ChatComposer({
   }
 
   return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- The form delegates Escape and file-drop events from its controls.
     <form
       ref={formRef}
       aria-label={composerLabel}
@@ -508,6 +509,7 @@ export function ChatComposer({
           data-slot="chat-composer-context-actions"
           {...stylex.props(styles.leading)}
         >
+          {/* oxlint-disable-next-line react/refs -- Menu callbacks read refs only when selected, never during render. */}
           {composerMenuItems.length > 0 && (
             <ActionMenu
               items={composerMenuItems}
