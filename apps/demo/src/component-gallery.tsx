@@ -66,8 +66,6 @@ import {
 } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 
-import consumptionGuide from '../../../docs/consumption.md?raw'
-
 export function ComponentGallery() {
   return (
     <section aria-label="Component gallery">
@@ -119,16 +117,6 @@ export function ComponentGallery() {
             with your configured runtime. Component examples work without
             provider credentials.
           </p>
-          <Disclosure summary="Use the library in your app">
-            <div {...stylex.props(styles.installGuide)}>
-              <CodeBlock
-                filename="Export from this checkout"
-                language="sh"
-                code="node scripts/export-library.mjs /absolute/path/to/your-app/vendor/atira"
-              />
-              <Markdown status="complete">{consumptionGuide}</Markdown>
-            </div>
-          </Disclosure>
         </section>
         <FoundationExamples />
         <ConversationExamples />
@@ -1523,13 +1511,6 @@ const styles = stylex.create({
     outlineOffset: '3px',
     outlineStyle: 'solid',
     outlineWidth: '3px',
-  },
-  installGuide: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x6,
-    minInlineSize: 0,
-    padding: space.x4,
   },
   categoryNav: {
     backgroundColor: colors.canvas,

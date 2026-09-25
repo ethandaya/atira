@@ -140,9 +140,9 @@ Drop to a lower layer only when the application needs to own that composition.
 
 ## Minimal usage
 
-Atira is currently private and unpublished. Do not write `npm install @atira/*`.
-Inside this repository, import workspace packages directly. For another app,
-follow `docs/consumption.md` to build and install local tarballs or export source.
+Atira is currently unpublished. Inside this repository, import workspace
+packages directly. After a public npm release, install the needed `@atira/*`
+packages from npm.
 
 When using compiled artifacts, import each used package's CSS once and apply a
 theme at an ancestor:
