@@ -34,7 +34,6 @@ import {
 import * as stylex from '@stylexjs/stylex'
 import { Check, Circle, CircleDot, X } from 'lucide-react'
 import {
-  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -66,12 +65,13 @@ function PermissionPromptContent({
   const titleId = useId()
   const [localSubmission, setLocalSubmission] = useState<{
     decision: PermissionDecision
-    requestId: string
+    state: PermissionRequestView['state']
   }>()
   const localDecision =
-    (request.state.status === 'pending' || request.state.status === 'failed') &&
-    localSubmission?.requestId === request.id
-      ? localSubmission.decision
+    request.state.status === 'pending' ||
+    (request.state.status === 'failed' &&
+      localSubmission?.state === request.state)
+      ? localSubmission?.decision
       : undefined
   const pending = request.state.status === 'pending'
   const submitting =
@@ -81,13 +81,9 @@ function PermissionPromptContent({
   const activeDecision =
     'decision' in request.state ? request.state.decision : localDecision
 
-  useEffect(() => {
-    if (request.state.status === 'failed') setLocalSubmission(undefined)
-  }, [request.id, request.state.status])
-
   function decide(decision: PermissionDecision) {
     if (!actionable || !onDecision) return
-    setLocalSubmission({ decision, requestId: request.id })
+    setLocalSubmission({ decision, state: request.state })
     onDecision(decision)
   }
 
@@ -213,20 +209,18 @@ function QuestionRequestForm({
   >({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [submittingRequestId, setSubmittingRequestId] = useState<string>()
+  const [submittedState, setSubmittedState] =
+    useState<QuestionRequestView['state']>()
   const submittingLocally =
-    submittingRequestId === request.id &&
-    (request.state.status === 'pending' || request.state.status === 'failed')
+    submittedState !== undefined &&
+    (request.state.status === 'pending' ||
+      (request.state.status === 'failed' && submittedState === request.state))
   const submitting = request.state.status === 'submitting' || submittingLocally
   const actionable =
     (request.state.status === 'pending' || request.state.status === 'failed') &&
     !submittingLocally
   const activeQuestion = request.questions[questionIndex]
   const isLastQuestion = questionIndex >= request.questions.length - 1
-
-  useEffect(() => {
-    if (request.state.status === 'failed') setSubmittingRequestId(undefined)
-  }, [request.id, request.state.status])
 
   function updateValue(
     key: string,
@@ -292,7 +286,7 @@ function QuestionRequestForm({
         type: 'choice',
       }
     })
-    setSubmittingRequestId(request.id)
+    setSubmittedState(request.state)
     onAnswer({ answers })
   }
 
@@ -379,7 +373,7 @@ function QuestionRequestForm({
               disabled={!actionable || !onReject}
               onClick={() => {
                 if (!actionable || !onReject) return
-                setSubmittingRequestId(request.id)
+                setSubmittedState(request.state)
                 onReject()
               }}
               size="compact"
