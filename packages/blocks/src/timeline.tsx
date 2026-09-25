@@ -22,6 +22,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
   type RefObject,
   type UIEvent,
@@ -68,6 +69,126 @@ export function Timeline({
   turns,
   virtualizeAfter = 100,
 }: TimelineProps) {
+  const {
+    bottomSpacer,
+    follow,
+    handleDisclosureClick,
+    hasContentAbove,
+    hasContentBelow,
+    jumpToLatest,
+    loadPrevious,
+    measureRef,
+    pinnedTurnIds,
+    range,
+    topSpacer,
+    trackScroll,
+    viewportRef,
+    virtualized,
+    visibleTurns,
+  } = useTimeline({
+    estimatedTurnGap,
+    estimatedTurnHeight,
+    history,
+    onFollowStateChange,
+    onLoadPrevious,
+    turns,
+    virtualizeAfter,
+  })
+
+  return (
+    <section
+      aria-label={label}
+      data-follow-state={follow.status}
+      data-slot="timeline"
+      data-virtualized={virtualized || undefined}
+      {...stylex.props(styles.root)}
+    >
+      <div
+        ref={viewportRef}
+        onClickCapture={handleDisclosureClick}
+        onScroll={trackScroll}
+        data-slot="timeline-viewport"
+        data-overflow-start={hasContentAbove || undefined}
+        data-overflow-end={hasContentBelow || undefined}
+        {...stylex.props(
+          styles.viewport,
+          follow.status === 'following' && styles.followingViewport,
+          hasContentAbove && styles.fadeStart,
+          hasContentBelow && styles.fadeEnd,
+          hasContentAbove && hasContentBelow && styles.fadeBoth,
+        )}
+      >
+        <div ref={measureRef} {...stylex.props(styles.measure)}>
+          <HistoryControl history={history} onLoadPrevious={loadPrevious} />
+          {turns.length === 0 ? (
+            <div data-slot="timeline-empty" {...stylex.props(styles.empty)}>
+              {empty}
+            </div>
+          ) : (
+            <ol data-slot="timeline-list" {...stylex.props(styles.list)}>
+              {topSpacer > 0 && (
+                <li
+                  aria-hidden="true"
+                  data-slot="timeline-spacer-start"
+                  style={{ blockSize: topSpacer }}
+                />
+              )}
+              {visibleTurns.map((turn, index) => (
+                <TimelineTurn
+                  activityPresentation={activityPresentation}
+                  key={turn.id}
+                  pinnedTurnIds={pinnedTurnIds}
+                  position={range.start + index + 1}
+                  {...(renderTurnActions === undefined
+                    ? {}
+                    : { renderTurnActions })}
+                  setSize={turns.length}
+                  {...(toolActions === undefined ? {} : { toolActions })}
+                  turn={turn}
+                  {...(toolRenderers === undefined ? {} : { toolRenderers })}
+                />
+              ))}
+              {bottomSpacer > 0 && (
+                <li
+                  aria-hidden="true"
+                  data-slot="timeline-spacer-end"
+                  style={{ blockSize: bottomSpacer }}
+                />
+              )}
+            </ol>
+          )}
+        </div>
+      </div>
+      {follow.status === 'detached' && hasContentBelow && (
+        <JumpToLatest
+          onJump={jumpToLatest}
+          pendingCount={follow.pendingCount}
+        />
+      )}
+      <StreamStatus activity={activity} />
+    </section>
+  )
+}
+
+type TimelineControllerProps = {
+  estimatedTurnGap: number
+  estimatedTurnHeight: number
+  history: HistoryState
+  onFollowStateChange: ((state: FollowState) => void) | undefined
+  onLoadPrevious: () => Promise<void>
+  turns: readonly ChatTurn[]
+  virtualizeAfter: number
+}
+
+function useTimeline({
+  estimatedTurnGap,
+  estimatedTurnHeight,
+  history,
+  onFollowStateChange,
+  onLoadPrevious,
+  turns,
+  virtualizeAfter,
+}: TimelineControllerProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
   const pendingAnchor = useRef<ScrollAnchor | undefined>(undefined)
@@ -261,6 +382,7 @@ export function Timeline({
             : Math.max(1, follow.pendingCount),
         status: 'detached' as const,
       }
+      // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent, react-doctor/no-pass-live-state-to-parent -- Required to notify consumers after committed streamed turns change detached pendingCount.
       changeFollow(next)
     }
     previousTurnCount.current = turns.length
@@ -310,91 +432,37 @@ export function Timeline({
     changeFollow({ status: 'following' })
   }
 
-  return (
-    <section
-      aria-label={label}
-      data-follow-state={follow.status}
-      data-slot="timeline"
-      data-virtualized={virtualized || undefined}
-      {...stylex.props(styles.root)}
-    >
-      <div
-        ref={viewportRef}
-        onClickCapture={(event) => {
-          const trigger =
-            event.target instanceof Element
-              ? event.target.closest(
-                  '[data-slot="disclosure-trigger"][aria-expanded="false"]:not([disabled])',
-                )
-              : null
-          // Opening evidence is a reading action, not new streamed output.
-          // Detach before the panel resize can pull its header out of view.
-          if (trigger && followRef.current.status === 'following') {
-            changeFollow({ pendingCount: 0, status: 'detached' })
-          }
-        }}
-        onScroll={trackScroll}
-        data-slot="timeline-viewport"
-        data-overflow-start={hasContentAbove || undefined}
-        data-overflow-end={hasContentBelow || undefined}
-        {...stylex.props(
-          styles.viewport,
-          follow.status === 'following' && styles.followingViewport,
-          hasContentAbove && styles.fadeStart,
-          hasContentBelow && styles.fadeEnd,
-          hasContentAbove && hasContentBelow && styles.fadeBoth,
-        )}
-      >
-        <div ref={measureRef} {...stylex.props(styles.measure)}>
-          <HistoryControl history={history} onLoadPrevious={loadPrevious} />
-          {turns.length === 0 ? (
-            <div data-slot="timeline-empty" {...stylex.props(styles.empty)}>
-              {empty}
-            </div>
-          ) : (
-            <ol data-slot="timeline-list" {...stylex.props(styles.list)}>
-              {topSpacer > 0 && (
-                <li
-                  aria-hidden="true"
-                  data-slot="timeline-spacer-start"
-                  style={{ blockSize: topSpacer }}
-                />
-              )}
-              {visibleTurns.map((turn, index) => (
-                <TimelineTurn
-                  activityPresentation={activityPresentation}
-                  key={turn.id}
-                  pinnedTurnIds={pinnedTurnIds}
-                  position={range.start + index + 1}
-                  {...(renderTurnActions === undefined
-                    ? {}
-                    : { renderTurnActions })}
-                  setSize={turns.length}
-                  {...(toolActions === undefined ? {} : { toolActions })}
-                  turn={turn}
-                  {...(toolRenderers === undefined ? {} : { toolRenderers })}
-                />
-              ))}
-              {bottomSpacer > 0 && (
-                <li
-                  aria-hidden="true"
-                  data-slot="timeline-spacer-end"
-                  style={{ blockSize: bottomSpacer }}
-                />
-              )}
-            </ol>
-          )}
-        </div>
-      </div>
-      {follow.status === 'detached' && hasContentBelow && (
-        <JumpToLatest
-          onJump={jumpToLatest}
-          pendingCount={follow.pendingCount}
-        />
-      )}
-      <StreamStatus activity={activity} />
-    </section>
-  )
+  function handleDisclosureClick(event: MouseEvent<HTMLDivElement>) {
+    const trigger =
+      event.target instanceof Element
+        ? event.target.closest(
+            '[data-slot="disclosure-trigger"][aria-expanded="false"]:not([disabled])',
+          )
+        : null
+    // Opening evidence is a reading action, not new streamed output.
+    // Detach before the panel resize can pull its header out of view.
+    if (trigger && followRef.current.status === 'following') {
+      changeFollow({ pendingCount: 0, status: 'detached' })
+    }
+  }
+
+  return {
+    bottomSpacer,
+    follow,
+    handleDisclosureClick,
+    hasContentAbove,
+    hasContentBelow,
+    jumpToLatest,
+    loadPrevious,
+    measureRef,
+    pinnedTurnIds,
+    range,
+    topSpacer,
+    trackScroll,
+    viewportRef,
+    virtualized,
+    visibleTurns,
+  }
 }
 
 const TimelineTurn = memo(function TimelineTurn({
