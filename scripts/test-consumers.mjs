@@ -260,6 +260,7 @@ try {
       '@atira/foundations': `file:${tarballs[0]}`,
       '@atira/primitives': `file:${tarballs[1]}`,
       '@stylexjs/stylex': '0.19.0',
+      '@types/node': '22.20.4',
       '@types/react': '19.2.18',
       '@types/react-dom': '19.2.5',
       next: '15.5.9',
