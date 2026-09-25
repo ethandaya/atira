@@ -137,7 +137,11 @@ export function CatalogPreview({
             Usage
           </h2>
           <p {...stylex.props(styles.status)}>Source used by this example.</p>
-          <pre tabIndex={0} {...stylex.props(styles.source)}>
+          <pre
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users must be able to scroll the source example.
+            tabIndex={0}
+            {...stylex.props(styles.source)}
+          >
             <code>{sources[id]}</code>
           </pre>
         </section>

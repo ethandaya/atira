@@ -771,6 +771,7 @@ function formatDuration(value: number) {
 }
 
 function stripAnsi(value: string) {
+  // oxlint-disable-next-line no-control-regex -- Match the ESC byte to remove ANSI terminal sequences.
   return value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
 }
 

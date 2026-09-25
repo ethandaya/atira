@@ -102,6 +102,7 @@ export function Diff({
                 <div
                   role="region"
                   aria-label={`${file.path} changed lines`}
+                  // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Changed lines overflow horizontally and need keyboard scrolling.
                   tabIndex={0}
                   data-slot="diff-file-content"
                   {...stylex.props(styles.fileContent)}
