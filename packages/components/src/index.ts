@@ -104,12 +104,7 @@ export type {
   PermissionRequestState,
 } from './permission-request'
 export { Plan } from './plan'
-export type {
-  PlanProps,
-  PlanStatus,
-  PlanStep,
-  PlanStepStatus,
-} from './plan'
+export type { PlanProps, PlanStatus, PlanStep, PlanStepStatus } from './plan'
 export { Response } from './response'
 export type { ResponseProps } from './response'
 export { Reasoning } from './reasoning'
@@ -135,9 +130,6 @@ export type { SuggestionProps, SuggestionsProps } from './suggestion'
 export { Thread } from './thread'
 export type { ThreadProps } from './thread'
 export { ToolActivity } from './tool-activity'
-export type {
-  ToolActivityProps,
-  ToolActivityState,
-} from './tool-activity'
+export type { ToolActivityProps, ToolActivityState } from './tool-activity'
 export { Turn, TurnStatus } from './turn'
 export type { TurnProps } from './turn'

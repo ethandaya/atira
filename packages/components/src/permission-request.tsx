@@ -8,10 +8,7 @@ import { Button } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useEffect, useId, useRef, type MouseEvent } from 'react'
 
-export type PermissionConsequence =
-  | 'reversible'
-  | 'destructive'
-  | 'external'
+export type PermissionConsequence = 'reversible' | 'destructive' | 'external'
 
 export type PermissionRequestState =
   | { status: 'pending' }
@@ -114,7 +111,10 @@ export function PermissionRequest(props: PermissionRequestProps) {
       data-state={props.state.status}
       {...stylex.props(styles.root)}
     >
-      <div data-slot="permission-request-content" {...stylex.props(styles.content)}>
+      <div
+        data-slot="permission-request-content"
+        {...stylex.props(styles.content)}
+      >
         <Heading
           id={titleId}
           data-slot="permission-request-title"
@@ -140,7 +140,10 @@ export function PermissionRequest(props: PermissionRequestProps) {
         </p>
       </div>
 
-      <div data-slot="permission-request-footer" {...stylex.props(styles.footer)}>
+      <div
+        data-slot="permission-request-footer"
+        {...stylex.props(styles.footer)}
+      >
         <p
           ref={statusRef}
           role="status"

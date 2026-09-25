@@ -1,11 +1,12 @@
 import { ChatSession, useChatStore } from '@pretty-amped/blocks'
-import { Loader, Outcome, Suggestion, Suggestions } from '@pretty-amped/components'
-import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
 import {
-  colors,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+  Loader,
+  Outcome,
+  Suggestion,
+  Suggestions,
+} from '@pretty-amped/components'
+import { darkTheme, lightTheme } from '@pretty-amped/foundations/themes'
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import { ActionMenu, Button, IconButton } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, History, Moon, Plus, Sun } from 'lucide-react'
@@ -67,7 +68,11 @@ const fixtureReferences = [
 
 export function App() {
   const fixtureMode = new URLSearchParams(window.location.search).get('fixture')
-  if (import.meta.env.DEV && import.meta.env.VITE_TEST_FIXTURES === 'true' && (fixtureMode === 'workflow' || fixtureMode === 'stress')) {
+  if (
+    import.meta.env.DEV &&
+    import.meta.env.VITE_TEST_FIXTURES === 'true' &&
+    (fixtureMode === 'workflow' || fixtureMode === 'stress')
+  ) {
     return <FixtureApp mode={fixtureMode} />
   }
   return <DemoApp />
@@ -75,11 +80,17 @@ export function App() {
 
 function DemoApp() {
   const [theme, setTheme] = useState<Theme>(() =>
-    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light',
   )
   const [store] = useState(() => new NanocodexChatStore())
   const snapshot = useChatStore(store)
-  const conversations = useSyncExternalStore(store.subscribe, store.getConversations, store.getConversations)
+  const conversations = useSyncExternalStore(
+    store.subscribe,
+    store.getConversations,
+    store.getConversations,
+  )
   const runtime = useSyncExternalStore(
     store.subscribe,
     store.getRuntimeSnapshot,
@@ -101,9 +112,7 @@ function DemoApp() {
 
   function toggleTheme() {
     document.documentElement.dataset.themeSwitching = 'true'
-    setTheme((currentTheme) =>
-      currentTheme === 'dark' ? 'light' : 'dark',
-    )
+    setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
@@ -129,29 +138,44 @@ function DemoApp() {
       )}
     >
       <header {...stylex.props(styles.header)}>
-        <div
-          {...stylex.props(styles.headerInner)}
-        >
+        <div {...stylex.props(styles.headerInner)}>
           <div {...stylex.props(styles.identity)}>
             <h1 {...stylex.props(styles.title)}>Pretty Amped</h1>
             <span {...stylex.props(styles.product)}>Playground</span>
           </div>
           <nav aria-label="Demo views" {...stylex.props(styles.headerActions)}>
             <ActionMenu
-                label="Conversations"
-                disabled={snapshot.activity.status !== 'idle' || runtime.status === 'loading'}
-                trigger={<History size={16} strokeWidth={1.75} />}
-                items={[
-                  { id: 'new', label: 'New conversation', icon: <Plus size={16} />, onSelect: () => store.newConversation() },
-                  ...[...conversations].reverse().filter((conversation) => conversation.turns.length > 0 || conversation.title !== 'New conversation').map((conversation) => ({
+              label="Conversations"
+              disabled={
+                snapshot.activity.status !== 'idle' ||
+                runtime.status === 'loading'
+              }
+              trigger={<History size={16} strokeWidth={1.75} />}
+              items={[
+                {
+                  id: 'new',
+                  label: 'New conversation',
+                  icon: <Plus size={16} />,
+                  onSelect: () => store.newConversation(),
+                },
+                ...[...conversations]
+                  .reverse()
+                  .filter(
+                    (conversation) =>
+                      conversation.turns.length > 0 ||
+                      conversation.title !== 'New conversation',
+                  )
+                  .map((conversation) => ({
                     id: conversation.id,
                     label: conversation.title,
                     disabled: conversation.id === snapshot.sessionId,
-                    ...(conversation.id === snapshot.sessionId ? { icon: <Check size={16} /> } : {}),
+                    ...(conversation.id === snapshot.sessionId
+                      ? { icon: <Check size={16} /> }
+                      : {}),
                     onSelect: () => store.selectConversation(conversation.id),
                   })),
-                ]}
-              />
+              ]}
+            />
             <Button
               aria-label="Catalog"
               onClick={openCatalog}
@@ -178,11 +202,17 @@ function DemoApp() {
         </div>
       </header>
 
-      {runtime.status !== 'loading' && <ChatGptSignin store={store} disabled={snapshot.activity.status !== 'idle'} />}
+      {runtime.status !== 'loading' && (
+        <ChatGptSignin
+          store={store}
+          disabled={snapshot.activity.status !== 'idle'}
+        />
+      )}
       <div {...stylex.props(styles.workspace)}>
-          <ChatSession
-            key={snapshot.sessionId}
-            composerActions={snapshot.capabilities.models.length === 0 && (
+        <ChatSession
+          key={snapshot.sessionId}
+          composerActions={
+            snapshot.capabilities.models.length === 0 && (
               <span
                 {...stylex.props(
                   styles.runtimeMeta,
@@ -191,11 +221,12 @@ function DemoApp() {
               >
                 {runtimeLabel}
               </span>
-            )}
-            empty={<EmptyPlayground runtime={runtime} store={store} />}
-            label="Playground conversation"
-            store={store}
-          />
+            )
+          }
+          empty={<EmptyPlayground runtime={runtime} store={store} />}
+          label="Playground conversation"
+          store={store}
+        />
       </div>
     </div>
   )
@@ -208,7 +239,9 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
     getNotificationCount: store.getNotificationCount,
   }))
   const parameters = new URLSearchParams(window.location.search)
-  const [theme, setTheme] = useState<Theme>(() => parameters.get('theme') === 'dark' ? 'dark' : 'light')
+  const [theme, setTheme] = useState<Theme>(() =>
+    parameters.get('theme') === 'dark' ? 'dark' : 'light',
+  )
   const review = parameters.has('review') || parameters.has('design')
   const direction = parameters.get('dir') === 'rtl' ? 'rtl' : 'ltr'
 
@@ -228,13 +261,22 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
       store.burstDeltas(count)
     }
     window.addEventListener('pretty-amped:append-turn', appendTurn)
-    window.addEventListener('pretty-amped:request-permission', requestPermission)
+    window.addEventListener(
+      'pretty-amped:request-permission',
+      requestPermission,
+    )
     window.addEventListener('pretty-amped:request-question', requestQuestion)
     window.addEventListener('pretty-amped:burst-deltas', burstDeltas)
     return () => {
       window.removeEventListener('pretty-amped:append-turn', appendTurn)
-      window.removeEventListener('pretty-amped:request-permission', requestPermission)
-      window.removeEventListener('pretty-amped:request-question', requestQuestion)
+      window.removeEventListener(
+        'pretty-amped:request-permission',
+        requestPermission,
+      )
+      window.removeEventListener(
+        'pretty-amped:request-question',
+        requestQuestion,
+      )
       window.removeEventListener('pretty-amped:burst-deltas', burstDeltas)
       metrics.longTaskObserver?.disconnect()
       delete browserWindow.__prettyAmpedFixtureMetrics
@@ -252,28 +294,55 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
         themeStyles[theme],
       )}
     >
-      {review && <header {...stylex.props(styles.header)}>
-        <div {...stylex.props(styles.headerInner, styles.reviewHeader)}>
-          <span {...stylex.props(styles.runtimeMeta)}>Local fixture · no external actions</span>
-          <nav aria-label="Design review" {...stylex.props(styles.headerActions)}>
-            <ActionMenu label="Preview request" trigger="Requests" items={[
-              { id: 'permission', label: 'Permission request', onSelect: () => store.requestPermission() },
-              { id: 'question', label: 'Question request', onSelect: () => store.requestQuestion() },
-            ]} />
-            <IconButton aria-label={theme === 'dark' ? 'Light' : 'Dark'} variant="quiet" onClick={() => {
-              document.documentElement.dataset.themeSwitching = 'true'
-              const next = theme === 'dark' ? 'light' : 'dark'
-              setTheme(next)
-              const url = new URL(window.location.href)
-              url.searchParams.set('theme', next)
-              window.history.replaceState(null, '', url)
-              window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-                delete document.documentElement.dataset.themeSwitching
-              }))
-            }}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</IconButton>
-          </nav>
-        </div>
-      </header>}
+      {review && (
+        <header {...stylex.props(styles.header)}>
+          <div {...stylex.props(styles.headerInner, styles.reviewHeader)}>
+            <span {...stylex.props(styles.runtimeMeta)}>
+              Local fixture · no external actions
+            </span>
+            <nav
+              aria-label="Design review"
+              {...stylex.props(styles.headerActions)}
+            >
+              <ActionMenu
+                label="Preview request"
+                trigger="Requests"
+                items={[
+                  {
+                    id: 'permission',
+                    label: 'Permission request',
+                    onSelect: () => store.requestPermission(),
+                  },
+                  {
+                    id: 'question',
+                    label: 'Question request',
+                    onSelect: () => store.requestQuestion(),
+                  },
+                ]}
+              />
+              <IconButton
+                aria-label={theme === 'dark' ? 'Light' : 'Dark'}
+                variant="quiet"
+                onClick={() => {
+                  document.documentElement.dataset.themeSwitching = 'true'
+                  const next = theme === 'dark' ? 'light' : 'dark'
+                  setTheme(next)
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('theme', next)
+                  window.history.replaceState(null, '', url)
+                  window.requestAnimationFrame(() =>
+                    window.requestAnimationFrame(() => {
+                      delete document.documentElement.dataset.themeSwitching
+                    }),
+                  )
+                }}
+              >
+                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              </IconButton>
+            </nav>
+          </div>
+        </header>
+      )}
       <Profiler
         id={`${mode}-chat-fixture`}
         onRender={(_id, _phase, actualDuration) => {
@@ -285,7 +354,9 @@ function FixtureApp({ mode }: { mode: 'workflow' | 'stress' }) {
           commands={fixtureCommands}
           label={`${mode} chat fixture`}
           onFilesAdd={(files, source) => store.addFiles(files, source)}
-          onRemoveAttachment={(attachment) => store.removeAttachment(attachment)}
+          onRemoveAttachment={(attachment) =>
+            store.removeAttachment(attachment)
+          }
           onRemoveReference={(reference) => store.removeReference(reference)}
           onRetryAttachment={(attachment) => store.retryAttachment(attachment)}
           references={fixtureReferences}
@@ -305,7 +376,9 @@ function EmptyPlayground({
   store: NanocodexChatStore
 }) {
   if (runtime.status === 'loading') {
-    return <Loader label="Connecting to runtime" state={{ status: 'pending' }} />
+    return (
+      <Loader label="Connecting to runtime" state={{ status: 'pending' }} />
+    )
   }
 
   if (runtime.status === 'unavailable') {
@@ -325,7 +398,8 @@ function EmptyPlayground({
       <div {...stylex.props(styles.emptyCopy)}>
         <h2 {...stylex.props(styles.emptyTitle)}>Start a conversation</h2>
         <p {...stylex.props(styles.emptyDescription)}>
-          Ask about the component system. This demo cannot access your workspace.
+          Ask about the component system. This demo cannot access your
+          workspace.
         </p>
       </div>
       <Suggestions>

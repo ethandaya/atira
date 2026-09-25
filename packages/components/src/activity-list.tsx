@@ -16,9 +16,7 @@ import {
 import type { ActivityProps } from './activity'
 import type { ToolActivityProps } from './tool-activity'
 
-export type ActivityListItem = ReactElement<
-  ActivityProps | ToolActivityProps
->
+export type ActivityListItem = ReactElement<ActivityProps | ToolActivityProps>
 
 export type ActivityListDisplay =
   | { mode?: 'expanded' }
@@ -100,7 +98,10 @@ export function ActivityList({
         </Disclosure>
       ) : (
         <>
-          <Heading data-slot="activity-list-title" {...stylex.props(styles.title)}>
+          <Heading
+            data-slot="activity-list-title"
+            {...stylex.props(styles.title)}
+          >
             {label}
           </Heading>
           {list}

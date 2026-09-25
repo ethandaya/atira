@@ -41,69 +41,83 @@ export function ActionMenu({
   const [open, setOpen] = useState(false)
   const [immediate, setImmediate] = useState(false)
   return (
-    <span ref={portalContainerRef} data-slot="action-menu" {...stylex.props(styles.container)}>
-    <Menu.Root modal={false} open={open} onOpenChange={(next, details) => {
-      setImmediate(details.event.type.startsWith('key'))
-      setOpen(next)
-    }}>
-      <Menu.Trigger
-        aria-label={label}
-        data-slot="action-menu-trigger"
-        disabled={disabled || items.length === 0}
-        className={(state) =>
-          stylex.props(styles.trigger, state.open && styles.triggerOpen).className
-        }
+    <span
+      ref={portalContainerRef}
+      data-slot="action-menu"
+      {...stylex.props(styles.container)}
+    >
+      <Menu.Root
+        modal={false}
+        open={open}
+        onOpenChange={(next, details) => {
+          setImmediate(details.event.type.startsWith('key'))
+          setOpen(next)
+        }}
       >
-        {trigger}
-      </Menu.Trigger>
-      <AnimatePresence initial={false}>
-      {open && <Menu.Portal keepMounted container={portalContainer ?? portalContainerRef}>
-        <Menu.Positioner
-          align="start"
-          side={side}
-          sideOffset={6}
-          {...stylex.props(styles.positioner)}
+        <Menu.Trigger
+          aria-label={label}
+          data-slot="action-menu-trigger"
+          disabled={disabled || items.length === 0}
+          className={(state) =>
+            stylex.props(styles.trigger, state.open && styles.triggerOpen)
+              .className
+          }
         >
-          <Menu.Popup
-            render={<PresenceSurface immediate={immediate} />}
-            aria-label={label}
-            data-slot="action-menu-popup"
-            {...stylex.props(styles.popup)}
-          >
-            {items.map((item) => (
-              <Menu.Item
-                disabled={item.disabled}
-                key={item.id}
-                label={item.label}
-                onClick={item.onSelect}
-                className={(state) =>
-                  stylex.props(
-                    styles.item,
-                    Boolean(item.description) && styles.itemMultiline,
-                    state.highlighted && styles.itemHighlighted,
-                  ).className
-                }
+          {trigger}
+        </Menu.Trigger>
+        <AnimatePresence initial={false}>
+          {open && (
+            <Menu.Portal
+              keepMounted
+              container={portalContainer ?? portalContainerRef}
+            >
+              <Menu.Positioner
+                align="start"
+                side={side}
+                sideOffset={6}
+                {...stylex.props(styles.positioner)}
               >
-                {item.icon && (
-                  <span aria-hidden="true" {...stylex.props(styles.icon)}>
-                    {item.icon}
-                  </span>
-                )}
-                <span {...stylex.props(styles.itemCopy)}>
-                  <span>{item.label}</span>
-                  {item.description && (
-                    <span {...stylex.props(styles.description)}>
-                      {item.description}
-                    </span>
-                  )}
-                </span>
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>}
-      </AnimatePresence>
-    </Menu.Root>
+                <Menu.Popup
+                  render={<PresenceSurface immediate={immediate} />}
+                  aria-label={label}
+                  data-slot="action-menu-popup"
+                  {...stylex.props(styles.popup)}
+                >
+                  {items.map((item) => (
+                    <Menu.Item
+                      disabled={item.disabled}
+                      key={item.id}
+                      label={item.label}
+                      onClick={item.onSelect}
+                      className={(state) =>
+                        stylex.props(
+                          styles.item,
+                          Boolean(item.description) && styles.itemMultiline,
+                          state.highlighted && styles.itemHighlighted,
+                        ).className
+                      }
+                    >
+                      {item.icon && (
+                        <span aria-hidden="true" {...stylex.props(styles.icon)}>
+                          {item.icon}
+                        </span>
+                      )}
+                      <span {...stylex.props(styles.itemCopy)}>
+                        <span>{item.label}</span>
+                        {item.description && (
+                          <span {...stylex.props(styles.description)}>
+                            {item.description}
+                          </span>
+                        )}
+                      </span>
+                    </Menu.Item>
+                  ))}
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          )}
+        </AnimatePresence>
+      </Menu.Root>
     </span>
   )
 }

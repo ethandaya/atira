@@ -36,9 +36,9 @@ describe('ChatSession', () => {
     )
 
     expect(
-      document.querySelector('[data-slot="chat-session"]')?.getAttribute(
-        'data-session-id',
-      ),
+      document
+        .querySelector('[data-slot="chat-session"]')
+        ?.getAttribute('data-session-id'),
     ).toBe('session')
 
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))

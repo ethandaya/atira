@@ -73,39 +73,52 @@ export function ChatSession({
     snapshot.activity.status === 'idle' ? undefined : snapshot.activity.turnId
   const reverted = snapshot.revertedPrompt
   const latestTurn = snapshot.turns.at(-1)
-  const retryableTurnId = store.retryTurn && snapshot.capabilities.canRetryTurn && latestTurn?.state.status === 'failed'
-    ? latestTurn.id : undefined
+  const retryableTurnId =
+    store.retryTurn &&
+    snapshot.capabilities.canRetryTurn &&
+    latestTurn?.state.status === 'failed'
+      ? latestTurn.id
+      : undefined
   const resolvedTurnActions = useMemo(
     () =>
       renderTurnActions || showRevertActions || retryableTurnId
-        ? (turn: ChatTurn) => !renderTurnActions && !showRevertActions && turn.id !== retryableTurnId ? null : (
-            <>
-              {renderTurnActions?.(turn)}
-              {turn.id === retryableTurnId && (
-                <Button
-                  disabled={snapshot.activity.status !== 'idle'}
-                  onClick={() => run(store.retryTurn!(turn.id))}
-                  size="compact"
-                  variant="quiet"
-                >
-                  <RotateCcw aria-hidden="true" size={14} />
-                  Retry response
-                </Button>
-              )}
-              {showRevertActions && turn.state.status !== 'queued' && (
-                <Button
-                  aria-label={`Revert prompt ${turn.id}`}
-                  onClick={() => run(store.revert(turn.id))}
-                  size="compact"
-                  variant="quiet"
-                >
-                  Revert
-                </Button>
-              )}
-            </>
-          )
+        ? (turn: ChatTurn) =>
+            !renderTurnActions &&
+            !showRevertActions &&
+            turn.id !== retryableTurnId ? null : (
+              <>
+                {renderTurnActions?.(turn)}
+                {turn.id === retryableTurnId && (
+                  <Button
+                    disabled={snapshot.activity.status !== 'idle'}
+                    onClick={() => run(store.retryTurn!(turn.id))}
+                    size="compact"
+                    variant="quiet"
+                  >
+                    <RotateCcw aria-hidden="true" size={14} />
+                    Retry response
+                  </Button>
+                )}
+                {showRevertActions && turn.state.status !== 'queued' && (
+                  <Button
+                    aria-label={`Revert prompt ${turn.id}`}
+                    onClick={() => run(store.revert(turn.id))}
+                    size="compact"
+                    variant="quiet"
+                  >
+                    Revert
+                  </Button>
+                )}
+              </>
+            )
         : undefined,
-    [renderTurnActions, showRevertActions, store, snapshot.activity.status, retryableTurnId],
+    [
+      renderTurnActions,
+      showRevertActions,
+      store,
+      snapshot.activity.status,
+      retryableTurnId,
+    ],
   )
   const toolActions = useMemo(
     () => (onOpenChild ? { onOpenChild } : {}),

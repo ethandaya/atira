@@ -4,36 +4,38 @@ import { searchWeb } from './web-search.mjs'
 
 describe('searchWeb', () => {
   it('uses OpenAI hosted web search and returns deduplicated public sources', async () => {
-    const request = vi.fn(async () => Response.json({
-      output: [
-        {
-          action: {
-            sources: [
-              { title: 'StyleX', url: 'https://stylexjs.com/' },
-              { title: 'Duplicate', url: 'https://stylexjs.com/' },
-            ],
-          },
-          type: 'web_search_call',
-        },
-        {
-          content: [
-            {
-              annotations: [
-                {
-                  title: 'StyleX introduction',
-                  type: 'url_citation',
-                  url: 'https://stylexjs.com/docs/learn/',
-                },
-                { title: 'Unsafe', url: 'file:///etc/passwd' },
+    const request = vi.fn(async () =>
+      Response.json({
+        output: [
+          {
+            action: {
+              sources: [
+                { title: 'StyleX', url: 'https://stylexjs.com/' },
+                { title: 'Duplicate', url: 'https://stylexjs.com/' },
               ],
-              text: 'StyleX is a styling system for applications.',
-              type: 'output_text',
             },
-          ],
-          type: 'message',
-        },
-      ],
-    }))
+            type: 'web_search_call',
+          },
+          {
+            content: [
+              {
+                annotations: [
+                  {
+                    title: 'StyleX introduction',
+                    type: 'url_citation',
+                    url: 'https://stylexjs.com/docs/learn/',
+                  },
+                  { title: 'Unsafe', url: 'file:///etc/passwd' },
+                ],
+                text: 'StyleX is a styling system for applications.',
+                type: 'output_text',
+              },
+            ],
+            type: 'message',
+          },
+        ],
+      }),
+    )
 
     const result = await searchWeb({
       apiKey: 'test-key',
@@ -74,10 +76,12 @@ describe('searchWeb', () => {
   })
 
   it('fails without exposing an upstream response body', async () => {
-    const request = vi.fn(async () => Response.json(
-      { error: { message: 'sensitive upstream detail' } },
-      { status: 429 },
-    ))
+    const request = vi.fn(async () =>
+      Response.json(
+        { error: { message: 'sensitive upstream detail' } },
+        { status: 429 },
+      ),
+    )
 
     await expect(
       searchWeb({

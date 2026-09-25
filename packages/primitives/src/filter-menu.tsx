@@ -7,7 +7,13 @@ import {
   type,
 } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 
 export type FilterMenuItem = Readonly<{
   description?: string
@@ -64,88 +70,102 @@ export function FilterMenu<Item extends FilterMenuItem>({
 
   useEffect(() => {
     if (!resolvedOpen) return
-    const frame = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+    const frame = requestAnimationFrame(() =>
+      inputRef.current?.focus({ preventScroll: true }),
+    )
     return () => cancelAnimationFrame(frame)
   }, [resolvedOpen])
 
   return (
-    <span ref={portalContainerRef} data-slot="filter-menu" {...stylex.props(styles.container)}>
-    <Combobox.Root<Item>
-      autoHighlight
-      inputValue={resolvedValue}
-      itemToStringLabel={(item) => item.label}
-      items={items}
-      onInputValueChange={changeInput}
-      onOpenChange={changeOpen}
-      onValueChange={(item) => {
-        if (!item) return
-        onSelect(item)
-        changeInput('')
-        changeOpen(false)
-      }}
-      open={resolvedOpen}
-      value={null}
+    <span
+      ref={portalContainerRef}
+      data-slot="filter-menu"
+      {...stylex.props(styles.container)}
     >
-      <Combobox.Trigger
-        aria-label={label}
-        data-slot="filter-menu-trigger"
-        disabled={disabled || items.length === 0}
-        className={(state) =>
-          stylex.props(styles.trigger, state.open && styles.triggerOpen).className
-        }
+      <Combobox.Root<Item>
+        autoHighlight
+        inputValue={resolvedValue}
+        itemToStringLabel={(item) => item.label}
+        items={items}
+        onInputValueChange={changeInput}
+        onOpenChange={changeOpen}
+        onValueChange={(item) => {
+          if (!item) return
+          onSelect(item)
+          changeInput('')
+          changeOpen(false)
+        }}
+        open={resolvedOpen}
+        value={null}
       >
-        {triggerLabel}
-      </Combobox.Trigger>
-      <Combobox.Portal container={portalContainer ?? portalContainerRef}>
-        <Combobox.Positioner
-          align="start"
-          side="top"
-          sideOffset={6}
-          {...stylex.props(styles.positioner)}
+        <Combobox.Trigger
+          aria-label={label}
+          data-slot="filter-menu-trigger"
+          disabled={disabled || items.length === 0}
+          className={(state) =>
+            stylex.props(styles.trigger, state.open && styles.triggerOpen)
+              .className
+          }
         >
-          <Combobox.Popup aria-label={label} data-slot="filter-menu-popup" {...stylex.props(styles.popup)}>
-            <Combobox.Label {...stylex.props(styles.label)}>
-              {label}
-            </Combobox.Label>
-            <Combobox.Input
-              ref={inputRef}
+          {triggerLabel}
+        </Combobox.Trigger>
+        <Combobox.Portal container={portalContainer ?? portalContainerRef}>
+          <Combobox.Positioner
+            align="start"
+            side="top"
+            sideOffset={6}
+            {...stylex.props(styles.positioner)}
+          >
+            <Combobox.Popup
               aria-label={label}
-              autoComplete="off"
-              placeholder={placeholder}
-              spellCheck={false}
-              {...stylex.props(styles.input)}
-            />
-            <div data-slot="filter-menu-results" {...stylex.props(styles.results)}>
-            <Combobox.Empty {...stylex.props(styles.empty)}>
-              {emptyLabel}
-            </Combobox.Empty>
-            <Combobox.List {...stylex.props(styles.list)}>
-              {(item: Item) => (
-                <Combobox.Item
-                  disabled={item.disabled}
-                  key={item.id}
-                  value={item}
-                  className={(state) =>
-                    stylex.props(
-                      styles.item,
-                      state.highlighted && styles.itemHighlighted,
-                    ).className
-                  }
-                >
-                  <span>{item.label}</span>
-                  {item.description && (
-                    <span {...stylex.props(styles.description)}>
-                      {item.description}
-                    </span>
+              data-slot="filter-menu-popup"
+              {...stylex.props(styles.popup)}
+            >
+              <Combobox.Label {...stylex.props(styles.label)}>
+                {label}
+              </Combobox.Label>
+              <Combobox.Input
+                ref={inputRef}
+                aria-label={label}
+                autoComplete="off"
+                placeholder={placeholder}
+                spellCheck={false}
+                {...stylex.props(styles.input)}
+              />
+              <div
+                data-slot="filter-menu-results"
+                {...stylex.props(styles.results)}
+              >
+                <Combobox.Empty {...stylex.props(styles.empty)}>
+                  {emptyLabel}
+                </Combobox.Empty>
+                <Combobox.List {...stylex.props(styles.list)}>
+                  {(item: Item) => (
+                    <Combobox.Item
+                      disabled={item.disabled}
+                      key={item.id}
+                      value={item}
+                      className={(state) =>
+                        stylex.props(
+                          styles.item,
+                          state.highlighted && styles.itemHighlighted,
+                        ).className
+                      }
+                    >
+                      <span>{item.label}</span>
+                      {item.description && (
+                        <span {...stylex.props(styles.description)}>
+                          {item.description}
+                        </span>
+                      )}
+                    </Combobox.Item>
                   )}
-                </Combobox.Item>
-              )}
-            </Combobox.List>
-            </div>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
-    </Combobox.Root>
+                </Combobox.List>
+              </div>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
     </span>
   )
 }
@@ -240,8 +260,10 @@ const styles = stylex.create({
     paddingInline: space.x3,
   },
   results: {
-    minBlockSize: 'min(12rem, max(0px, calc(var(--available-height) - 6.5rem)))',
-    maxBlockSize: 'min(18rem, max(0px, calc(var(--available-height) - 6.5rem)))',
+    minBlockSize:
+      'min(12rem, max(0px, calc(var(--available-height) - 6.5rem)))',
+    maxBlockSize:
+      'min(18rem, max(0px, calc(var(--available-height) - 6.5rem)))',
     overflowY: 'auto',
     marginBlockStart: space.x2,
     overscrollBehaviorY: 'contain',

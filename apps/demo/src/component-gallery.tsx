@@ -118,10 +118,7 @@ export function ComponentGallery() {
           </p>
           <p {...stylex.props(styles.groupDescription)}>
             Explore working examples below, or{' '}
-            <a
-              href="/?view=playground"
-              {...stylex.props(styles.inlineLink)}
-            >
+            <a href="/?view=playground" {...stylex.props(styles.inlineLink)}>
               try the live playground
             </a>{' '}
             with your configured runtime. Component examples work without
@@ -360,7 +357,8 @@ function FoundationExamples() {
   )
 }
 
-const exampleResponse = 'Components own accessible presentation and named actions; adapters own runtime behavior.'
+const exampleResponse =
+  'Components own accessible presentation and named actions; adapters own runtime behavior.'
 
 function ConversationExamples() {
   const [composerValue, setComposerValue] = useState('')
@@ -382,7 +380,9 @@ function ConversationExamples() {
       await navigator.clipboard.writeText(exampleResponse)
       setActionResult('Response copied.')
     } catch {
-      setActionResult('Could not copy the response. Select the text to copy it manually.')
+      setActionResult(
+        'Could not copy the response. Select the text to copy it manually.',
+      )
     }
   }
 
@@ -413,9 +413,7 @@ function ConversationExamples() {
           <Thread label="Message and response preview">
             <Message actor="user">Summarize the component boundary.</Message>
             <Message actor="assistant">
-              <Response status="complete">
-                {exampleResponse}
-              </Response>
+              <Response status="complete">{exampleResponse}</Response>
             </Message>
             <Message actor="system">
               Runtime state remains outside the component layer.
@@ -482,10 +480,7 @@ function ConversationExamples() {
           description="A labelled toolbar of compact, named message actions."
         >
           <Actions>
-            <Action
-              label="Copy response"
-              onClick={copyResponse}
-            >
+            <Action label="Copy response" onClick={copyResponse}>
               <CopyIcon size={16} strokeWidth={1.75} />
             </Action>
             <Action
@@ -1265,7 +1260,11 @@ const galleryTurn: ChatTurn = {
         {
           callId: 'gallery-read-call',
           id: 'gallery-read-tool',
-          presentation: { kind: 'context', operation: 'read', target: 'packages/components/src/turn.tsx' },
+          presentation: {
+            kind: 'context',
+            operation: 'read',
+            target: 'packages/components/src/turn.tsx',
+          },
           state: {
             endedAt: 1_220,
             input: { filePath: 'packages/components/src/turn.tsx' },
@@ -1278,7 +1277,11 @@ const galleryTurn: ChatTurn = {
         {
           callId: 'gallery-grep-call',
           id: 'gallery-grep-tool',
-          presentation: { kind: 'context', operation: 'grep', target: 'data-slot="turn"' },
+          presentation: {
+            kind: 'context',
+            operation: 'grep',
+            target: 'data-slot="turn"',
+          },
           state: {
             endedAt: 1_240,
             input: { query: 'data-slot="turn"' },
@@ -1291,7 +1294,14 @@ const galleryTurn: ChatTurn = {
         {
           callId: 'gallery-shell-call',
           id: 'gallery-shell-tool',
-          presentation: { command: 'pnpm typecheck', durationMs: 120, exitCode: 0, kind: 'shell', outputTruncated: false, workingDirectory: '/workspace' },
+          presentation: {
+            command: 'pnpm typecheck',
+            durationMs: 120,
+            exitCode: 0,
+            kind: 'shell',
+            outputTruncated: false,
+            workingDirectory: '/workspace',
+          },
           state: {
             endedAt: 1_320,
             input: { command: 'pnpm typecheck' },

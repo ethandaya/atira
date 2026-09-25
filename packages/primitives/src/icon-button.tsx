@@ -31,7 +31,9 @@ export function IconButton({
           <StateTransition size={iconSize === 'small' ? 16 : 20} state={label}>
             {children}
           </StateTransition>
-        ) : children}
+        ) : (
+          children
+        )}
       </span>
     </Button>
   )

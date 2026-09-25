@@ -1,8 +1,4 @@
-import {
-  colors,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 

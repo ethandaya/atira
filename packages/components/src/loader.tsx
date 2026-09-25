@@ -1,8 +1,4 @@
-import {
-  colors,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import { Spinner } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
@@ -55,9 +51,7 @@ export function Loader({ label, ref, state, ...props }: LoaderProps) {
           {...stylex.props(styles.icon)}
         />
       )}
-      <span data-slot="loader-label">
-        {label ?? stateLabels[state.status]}
-      </span>
+      <span data-slot="loader-label">{label ?? stateLabels[state.status]}</span>
     </div>
   )
 }

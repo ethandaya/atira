@@ -20,7 +20,8 @@ export function resolveStyleProps(
 ): { className: string | undefined; style: CSSProperties } {
   const resolved = stylex.props(defaults, xstyle)
   return {
-    className: [resolved.className, className].filter(Boolean).join(' ') || undefined,
+    className:
+      [resolved.className, className].filter(Boolean).join(' ') || undefined,
     style: { ...resolved.style, ...style },
   }
 }

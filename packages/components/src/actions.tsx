@@ -14,10 +14,11 @@ type NativeDivProps = Omit<
   'aria-label' | 'children' | 'className' | 'style'
 >
 
-export type ActionsProps = NativeDivProps & StyleProps & {
-  children: ReactNode
-  label?: string
-}
+export type ActionsProps = NativeDivProps &
+  StyleProps & {
+    children: ReactNode
+    label?: string
+  }
 
 export function Actions({
   children,
@@ -55,7 +56,11 @@ export function Action({
   ...props
 }: ActionProps) {
   return (
-    <span data-slot="action" data-action-label={label} {...stylex.props(styles.item)}>
+    <span
+      data-slot="action"
+      data-action-label={label}
+      {...stylex.props(styles.item)}
+    >
       <IconButton
         {...props}
         aria-label={label}
@@ -63,7 +68,9 @@ export function Action({
         title={title}
         variant={variant}
       >
-        <StateTransition state={label} size={iconSize === 'small' ? 16 : 20}>{children}</StateTransition>
+        <StateTransition state={label} size={iconSize === 'small' ? 16 : 20}>
+          {children}
+        </StateTransition>
       </IconButton>
     </span>
   )

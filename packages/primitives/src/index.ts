@@ -18,7 +18,16 @@ export { IconButton } from './icon-button'
 export type { IconButtonProps } from './icon-button'
 export { Progress } from './progress'
 export type { ProgressProps } from './progress'
-export { ActivityPresence, ActivitySlot, AnimatePresence, LayoutGroup, PresenceItem, PresenceSurface, StateTransition, TextTransition } from './presence'
+export {
+  ActivityPresence,
+  ActivitySlot,
+  AnimatePresence,
+  LayoutGroup,
+  PresenceItem,
+  PresenceSurface,
+  StateTransition,
+  TextTransition,
+} from './presence'
 export { Shimmer } from './shimmer'
 export type { ShimmerProps } from './shimmer'
 export { SelectPicker, SelectPickerParts } from './select-picker'

@@ -17,11 +17,12 @@ type NativeButtonProps = Omit<
   'className' | 'style'
 >
 
-export type ButtonProps = NativeButtonProps & StyleProps & {
-  focusableWhenDisabled?: boolean
-  size?: 'chip' | 'compact' | 'regular' | 'icon'
-  variant?: 'primary' | 'secondary' | 'outline' | 'quiet' | 'danger'
-}
+export type ButtonProps = NativeButtonProps &
+  StyleProps & {
+    focusableWhenDisabled?: boolean
+    size?: 'chip' | 'compact' | 'regular' | 'icon'
+    variant?: 'primary' | 'secondary' | 'outline' | 'quiet' | 'danger'
+  }
 
 export function Button({
   disabled = false,
@@ -44,20 +45,27 @@ export function Button({
   )
   return (
     <BaseButton
-      render={<animate.button
-        initial={false}
-        animate={{ transform: pressed && !disabled && !reduced && variant !== 'quiet'
-          ? size === 'icon' ? 'translateY(0px) scale(0.98)' : 'translateY(1px) scale(1)'
-          : 'translateY(0px) scale(1)' }}
-        transition={{ duration: reduced ? 0 : 0.1, ease: 'easeOut' }}
-        onPointerDown={(event) => {
-          if (event.button === 0) setPressed(true)
-        }}
-        onPointerUp={() => setPressed(false)}
-        onPointerCancel={() => setPressed(false)}
-        onPointerLeave={() => setPressed(false)}
-        onBlur={() => setPressed(false)}
-      />}
+      render={
+        <animate.button
+          initial={false}
+          animate={{
+            transform:
+              pressed && !disabled && !reduced && variant !== 'quiet'
+                ? size === 'icon'
+                  ? 'translateY(0px) scale(0.98)'
+                  : 'translateY(1px) scale(1)'
+                : 'translateY(0px) scale(1)',
+          }}
+          transition={{ duration: reduced ? 0 : 0.1, ease: 'easeOut' }}
+          onPointerDown={(event) => {
+            if (event.button === 0) setPressed(true)
+          }}
+          onPointerUp={() => setPressed(false)}
+          onPointerCancel={() => setPressed(false)}
+          onPointerLeave={() => setPressed(false)}
+          onBlur={() => setPressed(false)}
+        />
+      }
       {...props}
       disabled={disabled}
       type={buttonType}

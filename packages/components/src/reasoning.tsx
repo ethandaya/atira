@@ -1,8 +1,4 @@
-import {
-  colors,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import {
   Disclosure,
   Spinner,
@@ -25,14 +21,15 @@ type NativeDivProps = Omit<
   'children' | 'className' | 'style'
 >
 
-export type ReasoningProps = NativeDivProps & StyleProps & {
-  children: ReactNode
-  defaultOpen?: boolean
-  label?: ReactNode
-  onOpenChange?: (open: boolean) => void
-  open?: boolean
-  state: ReasoningState
-}
+export type ReasoningProps = NativeDivProps &
+  StyleProps & {
+    children: ReactNode
+    defaultOpen?: boolean
+    label?: ReactNode
+    onOpenChange?: (open: boolean) => void
+    open?: boolean
+    state: ReasoningState
+  }
 
 export function Reasoning({
   children,
@@ -67,24 +64,24 @@ export function Reasoning({
         {...(onOpenChange === undefined ? {} : { onOpenChange })}
         {...(open === undefined ? {} : { open })}
         variant="plain"
-        summary={(
+        summary={
           <span data-slot="reasoning-summary" {...stylex.props(styles.summary)}>
             <StateTransition state={state.status}>
-            {isThinking ? (
-              <Spinner size="small" />
-            ) : (
-              <Check
-                aria-hidden="true"
-                data-slot="reasoning-state-icon"
-                focusable="false"
-                strokeWidth={1.75}
-                {...stylex.props(styles.stateIcon)}
-              />
-            )}
+              {isThinking ? (
+                <Spinner size="small" />
+              ) : (
+                <Check
+                  aria-hidden="true"
+                  data-slot="reasoning-state-icon"
+                  focusable="false"
+                  strokeWidth={1.75}
+                  {...stylex.props(styles.stateIcon)}
+                />
+              )}
             </StateTransition>
             <TextTransition state={state.status}>{summary}</TextTransition>
           </span>
-        )}
+        }
       >
         <div data-slot="reasoning-content" {...stylex.props(styles.content)}>
           {children}

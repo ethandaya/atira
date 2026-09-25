@@ -1,8 +1,4 @@
-import {
-  colors,
-  space,
-  type,
-} from '@pretty-amped/foundations/tokens.stylex'
+import { colors, space, type } from '@pretty-amped/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { resolveStyleProps, type StyleProps } from '@pretty-amped/primitives'
 import { Children, type ComponentPropsWithRef, type ReactNode } from 'react'
@@ -12,12 +8,13 @@ type NativeSectionProps = Omit<
   'aria-label' | 'children' | 'className' | 'style'
 >
 
-export type ThreadProps = NativeSectionProps & StyleProps & {
-  busy?: boolean
-  children?: ReactNode
-  empty?: ReactNode
-  label: string
-}
+export type ThreadProps = NativeSectionProps &
+  StyleProps & {
+    busy?: boolean
+    children?: ReactNode
+    empty?: ReactNode
+    label: string
+  }
 
 export function Thread({
   busy = false,

@@ -1,6 +1,10 @@
 import { ToolActivity } from '@pretty-amped/components'
 
-export function ToolActivityExample({ compact = false }: { compact?: boolean }) {
+export function ToolActivityExample({
+  compact = false,
+}: {
+  compact?: boolean
+}) {
   return (
     <ToolActivity
       defaultOpen={!compact}

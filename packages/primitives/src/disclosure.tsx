@@ -17,15 +17,16 @@ type NativeDivProps = Omit<
   'children' | 'className' | 'style'
 >
 
-export type DisclosureProps = NativeDivProps & StyleProps & {
-  children: ReactNode
-  defaultOpen?: boolean
-  disabled?: boolean
-  onOpenChange?: (open: boolean) => void
-  open?: boolean
-  summary: ReactNode
-  variant?: 'default' | 'plain'
-}
+export type DisclosureProps = NativeDivProps &
+  StyleProps & {
+    children: ReactNode
+    defaultOpen?: boolean
+    disabled?: boolean
+    onOpenChange?: (open: boolean) => void
+    open?: boolean
+    summary: ReactNode
+    variant?: 'default' | 'plain'
+  }
 
 export function Disclosure({
   children,
@@ -48,8 +49,12 @@ export function Disclosure({
       {...props}
       disabled={disabled}
       onOpenChange={(nextOpen, details) => {
-        setImmediate(details.event.type.startsWith('key') ||
-          (details.event.type === 'click' && 'detail' in details.event && details.event.detail === 0))
+        setImmediate(
+          details.event.type.startsWith('key') ||
+            (details.event.type === 'click' &&
+              'detail' in details.event &&
+              details.event.detail === 0),
+        )
         setLocalOpen(nextOpen)
         onOpenChange?.(nextOpen)
       }}
@@ -93,17 +98,19 @@ export function Disclosure({
         )}
       />
       <AnimatePresence initial={false}>
-      {isOpen && <Collapsible.Panel
-        keepMounted
-        render={<PresenceSurface kind="content" immediate={immediate} />}
-        data-slot="disclosure-panel"
-        {...stylex.props(
-          styles.panel,
-          variant === 'plain' && styles.panelPlain,
+        {isOpen && (
+          <Collapsible.Panel
+            keepMounted
+            render={<PresenceSurface kind="content" immediate={immediate} />}
+            data-slot="disclosure-panel"
+            {...stylex.props(
+              styles.panel,
+              variant === 'plain' && styles.panelPlain,
+            )}
+          >
+            {children}
+          </Collapsible.Panel>
         )}
-      >
-        {children}
-      </Collapsible.Panel>}
       </AnimatePresence>
     </Collapsible.Root>
   )

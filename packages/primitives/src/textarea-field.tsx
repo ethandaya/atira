@@ -16,19 +16,20 @@ type NativeTextareaProps = Omit<
   'className' | 'defaultValue' | 'disabled' | 'id' | 'name' | 'style' | 'value'
 >
 
-export type TextareaFieldProps = NativeTextareaProps & StyleProps & {
-  defaultValue?: string
-  description?: ReactNode
-  disabled?: boolean
-  id?: string
-  invalid?: boolean
-  label: ReactNode
-  labelHidden?: boolean
-  name?: string
-  onValueChange?: (value: string) => void
-  value?: string
-  variant?: 'outlined' | 'plain'
-}
+export type TextareaFieldProps = NativeTextareaProps &
+  StyleProps & {
+    defaultValue?: string
+    description?: ReactNode
+    disabled?: boolean
+    id?: string
+    invalid?: boolean
+    label: ReactNode
+    labelHidden?: boolean
+    name?: string
+    onValueChange?: (value: string) => void
+    value?: string
+    variant?: 'outlined' | 'plain'
+  }
 
 export function TextareaField({
   className,
@@ -48,7 +49,16 @@ export function TextareaField({
   xstyle,
   ...props
 }: TextareaFieldProps) {
-  const controlStyle = resolveStyleProps([styles.control, variant === 'outlined' ? styles.outlined : styles.plain, invalid && styles.invalid], xstyle, className, style)
+  const controlStyle = resolveStyleProps(
+    [
+      styles.control,
+      variant === 'outlined' ? styles.outlined : styles.plain,
+      invalid && styles.invalid,
+    ],
+    xstyle,
+    className,
+    style,
+  )
   return (
     <Field.Root
       disabled={disabled}
@@ -117,7 +127,8 @@ const styles = stylex.create({
     fontFamily: type.family,
     fontSize: {
       default: type.sizeInput,
-      '@media (min-width: 48rem) and (hover: hover) and (pointer: fine)': type.sizeBody,
+      '@media (min-width: 48rem) and (hover: hover) and (pointer: fine)':
+        type.sizeBody,
     },
     fontWeight: type.weightRegular,
     inlineSize: '100%',
@@ -170,8 +181,14 @@ const styles = stylex.create({
     minBlockSize: '4rem',
     outlineWidth: 0,
     resize: 'none',
-    paddingBlock: stylex.firstThatWorks(chatAppearance.inputPaddingBlock, space.x2),
-    paddingInline: stylex.firstThatWorks(chatAppearance.inputPaddingInline, space.x3),
+    paddingBlock: stylex.firstThatWorks(
+      chatAppearance.inputPaddingBlock,
+      space.x2,
+    ),
+    paddingInline: stylex.firstThatWorks(
+      chatAppearance.inputPaddingInline,
+      space.x3,
+    ),
   },
   invalid: {
     borderColor: colors.danger,

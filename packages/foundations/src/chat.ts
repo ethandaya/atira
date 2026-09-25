@@ -168,9 +168,7 @@ export type AttachmentDescriptor = Readonly<{
 export type AttachmentPart = Readonly<{
   attachment: AttachmentDescriptor
   id: string
-  state:
-    | { status: 'complete' }
-    | { status: 'failed'; error: ChatError }
+  state: { status: 'complete' } | { status: 'failed'; error: ChatError }
   type: 'attachment'
 }>
 

@@ -7,13 +7,33 @@
       "id": "chat-turn",
       "components": ["Turn", "TurnStatus", "MessageParts"],
       "summary": "Renders one stable user/assistant turn and dispatches every normalized message part without owning runtime state.",
-      "useWhen": ["Rendering protocol-neutral chat turns from stable message and part IDs"],
-      "avoidWhen": ["Rendering an unstructured text log or inferring lifecycle state from prose"],
-      "anatomy": ["turn", "turn-user", "turn-assistant", "turn-meta", "turn-status"],
-      "states": ["queued", "running", "retrying", "complete", "interrupted", "failed"],
+      "useWhen": [
+        "Rendering protocol-neutral chat turns from stable message and part IDs"
+      ],
+      "avoidWhen": [
+        "Rendering an unstructured text log or inferring lifecycle state from prose"
+      ],
+      "anatomy": [
+        "turn",
+        "turn-user",
+        "turn-assistant",
+        "turn-meta",
+        "turn-status"
+      ],
+      "states": [
+        "queued",
+        "running",
+        "retrying",
+        "complete",
+        "interrupted",
+        "failed"
+      ],
       "actions": ["render turn actions", "open registered tool evidence"],
       "sideEffects": [],
-      "accessibility": ["Ordered list item with a labelled turn article", "Visible terminal status with coarse announcements"],
+      "accessibility": [
+        "Ordered list item with a labelled turn article",
+        "Visible terminal status with coarse announcements"
+      ],
       "examples": ["Render ChatTurn values projected by an adapter"],
       "nonExamples": ["Pass provider events directly to Turn"]
     },
@@ -21,84 +41,248 @@
       "id": "chat-markdown-reasoning",
       "components": ["Markdown", "Reasoning"],
       "summary": "Renders sanitized streaming Markdown and explicitly disclosed reasoning with terminal state.",
-      "useWhen": ["Displaying model-authored prose or reasoning from a normalized part"],
-      "avoidWhen": ["Displaying commands, file paths, or structured tool evidence"],
-      "anatomy": ["markdown", "reasoning", "reasoning-summary", "reasoning-content"],
+      "useWhen": [
+        "Displaying model-authored prose or reasoning from a normalized part"
+      ],
+      "avoidWhen": [
+        "Displaying commands, file paths, or structured tool evidence"
+      ],
+      "anatomy": [
+        "markdown",
+        "reasoning",
+        "reasoning-summary",
+        "reasoning-content"
+      ],
       "states": ["streaming", "complete", "interrupted", "failed"],
       "actions": ["toggle reasoning disclosure"],
       "sideEffects": [],
-      "accessibility": ["Preserves heading, list, table, and code semantics", "Token deltas are not a live log"],
-      "examples": ["Render a TextPart with status=streaming while retaining its complete source"],
-      "nonExamples": ["Enable raw HTML or unsafe image URLs in generated Markdown"]
+      "accessibility": [
+        "Preserves heading, list, table, and code semantics",
+        "Token deltas are not a live log"
+      ],
+      "examples": [
+        "Render a TextPart with status=streaming while retaining its complete source"
+      ],
+      "nonExamples": [
+        "Enable raw HTML or unsafe image URLs in generated Markdown"
+      ]
     },
     {
       "id": "chat-tool-activity",
       "components": ["ToolActivity", "ContextToolGroup", "GenericTool"],
       "summary": "Presents one compact tool lifecycle line with progressively disclosed, lossless evidence.",
-      "useWhen": ["Showing normalized tool input, execution, permission, result, error, or cancellation"],
+      "useWhen": [
+        "Showing normalized tool input, execution, permission, result, error, or cancellation"
+      ],
       "avoidWhen": ["Adding a second spinner or dropping an unknown tool"],
-      "anatomy": ["tool-activity", "tool-activity-header", "tool-activity-summary", "tool-activity-state", "tool-activity-evidence"],
-      "states": ["receiving-input", "queued", "running", "awaiting-permission", "succeeded", "failed", "cancelled"],
+      "anatomy": [
+        "tool-activity",
+        "tool-activity-header",
+        "tool-activity-summary",
+        "tool-activity-state",
+        "tool-activity-evidence"
+      ],
+      "states": [
+        "receiving-input",
+        "queued",
+        "running",
+        "awaiting-permission",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
       "actions": ["toggle evidence", "copy or reveal bounded evidence"],
       "sideEffects": [],
-      "accessibility": ["Tool and status remain visible text", "Disclosure has native keyboard behavior"],
+      "accessibility": [
+        "Tool and status remain visible text",
+        "Disclosure has native keyboard behavior"
+      ],
       "examples": ["Fall through to GenericTool for an unregistered MCP tool"],
       "nonExamples": ["Render every running tool as an inset loading card"]
     },
     {
       "id": "chat-coding-tools",
-      "components": ["ContextTool", "ShellTool", "FileChangeTool", "TaskTool", "WebTool", "SkillTool"],
+      "components": [
+        "ContextTool",
+        "ShellTool",
+        "FileChangeTool",
+        "TaskTool",
+        "WebTool",
+        "SkillTool"
+      ],
       "summary": "Specializes coding-agent evidence while preserving the common tool lifecycle contract.",
-      "useWhen": ["A validated ToolPresentation names a supported coding operation"],
-      "avoidWhen": ["Tool input does not validate for the specialization; use GenericTool instead"],
-      "anatomy": ["tool-activity", "tool-evidence", "shell-tool-evidence", "file-change-evidence", "file-change-diagnostics"],
-      "states": ["receiving-input", "queued", "running", "awaiting-permission", "succeeded", "failed", "cancelled"],
-      "actions": ["open child session", "open safe web source", "reveal bounded output"],
-      "sideEffects": ["Named callbacks may open a child session or external HTTP(S) source"],
-      "accessibility": ["Commands, paths, and coordinates remain LTR", "Large outputs use labelled bounded regions"],
-      "examples": ["Render normalized file hunks and diagnostics from edit metadata"],
-      "nonExamples": ["Parse visible tool labels to recover file or child-session identity"]
+      "useWhen": [
+        "A validated ToolPresentation names a supported coding operation"
+      ],
+      "avoidWhen": [
+        "Tool input does not validate for the specialization; use GenericTool instead"
+      ],
+      "anatomy": [
+        "tool-activity",
+        "tool-evidence",
+        "shell-tool-evidence",
+        "file-change-evidence",
+        "file-change-diagnostics"
+      ],
+      "states": [
+        "receiving-input",
+        "queued",
+        "running",
+        "awaiting-permission",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "actions": [
+        "open child session",
+        "open safe web source",
+        "reveal bounded output"
+      ],
+      "sideEffects": [
+        "Named callbacks may open a child session or external HTTP(S) source"
+      ],
+      "accessibility": [
+        "Commands, paths, and coordinates remain LTR",
+        "Large outputs use labelled bounded regions"
+      ],
+      "examples": [
+        "Render normalized file hunks and diagnostics from edit metadata"
+      ],
+      "nonExamples": [
+        "Parse visible tool labels to recover file or child-session identity"
+      ]
     },
     {
       "id": "chat-requests",
-      "components": ["RequestRegion", "PermissionPrompt", "QuestionRequest", "TodoDock"],
+      "components": [
+        "RequestRegion",
+        "PermissionPrompt",
+        "QuestionRequest",
+        "TodoDock"
+      ],
       "summary": "Arbitrates consequential requests ahead of the composer while retaining exact origin and decision identity.",
-      "useWhen": ["A session or descendant session has an unresolved permission or question"],
-      "avoidWhen": ["Implementing permission policy or network mutations inside presentation"],
-      "anatomy": ["request-region", "permission-prompt", "question-request", "todo-dock"],
+      "useWhen": [
+        "A session or descendant session has an unresolved permission or question"
+      ],
+      "avoidWhen": [
+        "Implementing permission policy or network mutations inside presentation"
+      ],
+      "anatomy": [
+        "request-region",
+        "permission-prompt",
+        "question-request",
+        "todo-dock"
+      ],
       "states": ["pending", "submitting", "failed", "resolved", "expired"],
       "actions": ["allow once", "always allow", "reject", "answer", "dismiss"],
-      "sideEffects": ["Invokes exact request ID and origin session callbacks supplied by the adapter"],
-      "accessibility": ["Moves focus from an active composer to the request heading", "Restores focus only when ownership remains in the request"],
+      "sideEffects": [
+        "Invokes exact request ID and origin session callbacks supplied by the adapter"
+      ],
+      "accessibility": [
+        "Moves focus from an active composer to the request heading",
+        "Restores focus only when ownership remains in the request"
+      ],
       "examples": ["Render a child-session permission with its origin label"],
-      "nonExamples": ["Auto-approve a visually similar request or use Escape as rejection"]
+      "nonExamples": [
+        "Auto-approve a visually similar request or use Escape as rejection"
+      ]
     },
     {
       "id": "chat-composer",
-      "components": ["ChatComposer", "AttachmentTray", "ReferenceTray", "PromptHistory"],
+      "components": [
+        "ChatComposer",
+        "AttachmentTray",
+        "ReferenceTray",
+        "PromptHistory"
+      ],
       "summary": "Edits a controlled structured draft with native text behavior, typed references, files, commands, and model controls.",
-      "useWhen": ["Composing prompt or shell input against explicit runtime capabilities"],
-      "avoidWhen": ["Mutating transport state or interpreting ordinary prose as shell input"],
-      "anatomy": ["chat-composer", "attachment-tray", "reference-tray", "chat-composer-toolbar", "chat-composer-model-controls"],
+      "useWhen": [
+        "Composing prompt or shell input against explicit runtime capabilities"
+      ],
+      "avoidWhen": [
+        "Mutating transport state or interpreting ordinary prose as shell input"
+      ],
+      "anatomy": [
+        "chat-composer",
+        "attachment-tray",
+        "reference-tray",
+        "chat-composer-toolbar",
+        "chat-composer-model-controls"
+      ],
       "states": ["idle", "busy", "retrying", "prompt", "shell", "dragging"],
-      "actions": ["submit", "queue", "follow up", "stop", "attach", "select command", "select reference", "select model, agent, or variant"],
-      "sideEffects": ["Invokes controlled draft, attachment, submit, and stop callbacks"],
-      "accessibility": ["Uses a labelled native textarea", "Suppresses submit during IME composition", "Picker, paste, and drop have equivalent button access"],
-      "examples": ["Provide capabilities and update ComposerDraft on every edit and semantic selection change"],
-      "nonExamples": ["Show an attachment or follow-up control unsupported by the runtime"]
+      "actions": [
+        "submit",
+        "queue",
+        "follow up",
+        "stop",
+        "attach",
+        "select command",
+        "select reference",
+        "select model, agent, or variant"
+      ],
+      "sideEffects": [
+        "Invokes controlled draft, attachment, submit, and stop callbacks"
+      ],
+      "accessibility": [
+        "Uses a labelled native textarea",
+        "Suppresses submit during IME composition",
+        "Picker, paste, and drop have equivalent button access"
+      ],
+      "examples": [
+        "Provide capabilities and update ComposerDraft on every edit and semantic selection change"
+      ],
+      "nonExamples": [
+        "Show an attachment or follow-up control unsupported by the runtime"
+      ]
     },
     {
       "id": "chat-recovery",
-      "components": ["QueueList", "RevertDock", "SubmissionError", "ConnectionNotice", "StreamStatus"],
+      "components": [
+        "QueueList",
+        "RevertDock",
+        "SubmissionError",
+        "ConnectionNotice",
+        "StreamStatus"
+      ],
       "summary": "Makes queued work, revert recovery, submission failure, connection loss, and coarse stream state explicit.",
-      "useWhen": ["The adapter exposes recoverable session or submission state"],
-      "avoidWhen": ["Showing fake retry or redo controls without a supported callback"],
-      "anatomy": ["queue-list", "revert-dock", "submission-error", "connection-notice", "stream-status"],
-      "states": ["queued", "submitting", "failed", "reconnecting", "offline", "busy", "retrying"],
-      "actions": ["edit queue item", "remove queue item", "retry", "restore reverted prompt", "redo", "dismiss"],
+      "useWhen": [
+        "The adapter exposes recoverable session or submission state"
+      ],
+      "avoidWhen": [
+        "Showing fake retry or redo controls without a supported callback"
+      ],
+      "anatomy": [
+        "queue-list",
+        "revert-dock",
+        "submission-error",
+        "connection-notice",
+        "stream-status"
+      ],
+      "states": [
+        "queued",
+        "submitting",
+        "failed",
+        "reconnecting",
+        "offline",
+        "busy",
+        "retrying"
+      ],
+      "actions": [
+        "edit queue item",
+        "remove queue item",
+        "retry",
+        "restore reverted prompt",
+        "redo",
+        "dismiss"
+      ],
       "sideEffects": ["Invokes adapter-owned recovery mutations"],
-      "accessibility": ["Mutation failures use alerts", "Routine stream state uses one coarse status region"],
-      "examples": ["Restore a reverted prompt only after the user chooses Edit prompt"],
+      "accessibility": [
+        "Mutation failures use alerts",
+        "Routine stream state uses one coarse status region"
+      ],
+      "examples": [
+        "Restore a reverted prompt only after the user chooses Edit prompt"
+      ],
       "nonExamples": ["Clear queued prompts automatically when Stop is invoked"]
     }
   ]

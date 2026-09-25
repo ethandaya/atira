@@ -16,7 +16,14 @@ import {
 } from '@pretty-amped/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check, Minus, ShieldAlert, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type ComponentPropsWithRef, type ReactNode } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentPropsWithRef,
+  type ReactNode,
+} from 'react'
 
 export type ToolActivityState =
   | { status: 'receiving-input' }
@@ -33,16 +40,17 @@ type NativeDivProps = Omit<
   'aria-label' | 'children' | 'className' | 'id' | 'style'
 >
 
-export type ToolActivityProps = NativeDivProps & StyleProps & {
-  children?: ReactNode
-  defaultOpen?: boolean
-  id: string
-  state: ToolActivityState
-  summary: string
-  /** Discrete activity changes, not streamed argument or timer updates. */
-  summaryTransitionKey?: string
-  tool: string
-}
+export type ToolActivityProps = NativeDivProps &
+  StyleProps & {
+    children?: ReactNode
+    defaultOpen?: boolean
+    id: string
+    state: ToolActivityState
+    summary: string
+    /** Discrete activity changes, not streamed argument or timer updates. */
+    summaryTransitionKey?: string
+    tool: string
+  }
 
 const stateLabels: Record<ToolActivityState['status'], string> = {
   'awaiting-approval': 'Needs approval',
@@ -74,7 +82,9 @@ export function ToolActivity({
     const element = summaryRef.current
     if (!element) return
     const measure = () => {
-      const current = element.querySelector<HTMLElement>('[data-text-state]:not([aria-hidden="true"])')
+      const current = element.querySelector<HTMLElement>(
+        '[data-text-state]:not([aria-hidden="true"])',
+      )
       setOverflowing((current ?? element).scrollWidth > element.clientWidth + 1)
     }
     measure()
@@ -83,8 +93,15 @@ export function ToolActivity({
     observer.observe(element)
     if (element.firstElementChild) observer.observe(element.firstElementChild)
     const changes = new MutationObserver(measure)
-    changes.observe(element, { childList: true, characterData: true, subtree: true })
-    return () => { observer.disconnect(); changes.disconnect() }
+    changes.observe(element, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    })
+    return () => {
+      observer.disconnect()
+      changes.disconnect()
+    }
   }, [summary])
   const stateLabel = toolStateLabel(state)
   const terminalMark = toolStateMark(state)
@@ -103,10 +120,10 @@ export function ToolActivity({
           state.status === 'failed' && styles.stateDanger,
         )}
       >
-        <StateTransition state={state.status}>
-          {terminalMark}
-        </StateTransition>
-        {state.status === 'succeeded' && <VisuallyHidden>{stateLabel}</VisuallyHidden>}
+        <StateTransition state={state.status}>{terminalMark}</StateTransition>
+        {state.status === 'succeeded' && (
+          <VisuallyHidden>{stateLabel}</VisuallyHidden>
+        )}
       </span>
       <span {...stylex.props(styles.heading)}>
         <span
@@ -120,18 +137,37 @@ export function ToolActivity({
             state.status === 'failed' && styles.summaryFailed,
           )}
         >
-          {summaryTransitionKey === undefined ? summary : <TextTransition state={summaryTransitionKey}>{summary}</TextTransition>}
+          {summaryTransitionKey === undefined ? (
+            summary
+          ) : (
+            <TextTransition state={summaryTransitionKey}>
+              {summary}
+            </TextTransition>
+          )}
         </span>
       </span>
-      <span data-slot="tool-activity-status" {...stylex.props(styles.statusLabel)}>
+      <span
+        data-slot="tool-activity-status"
+        {...stylex.props(styles.statusLabel)}
+      >
         <TextTransition state={state.status}>
-          {state.status !== 'succeeded' && <span {...stylex.props(styles.statusLabel)}>
-            {state.status === 'running' ? <>
-              <VisuallyHidden>Running</VisuallyHidden>
-              {state.progress && stateLabel !== 'Running' && stateLabel.replace(/^Running · /, '')}
-            </> : stateLabel}
-            {state.status === 'running' && state.startedAt !== undefined && <ElapsedTime startedAt={state.startedAt} />}
-          </span>}
+          {state.status !== 'succeeded' && (
+            <span {...stylex.props(styles.statusLabel)}>
+              {state.status === 'running' ? (
+                <>
+                  <VisuallyHidden>Running</VisuallyHidden>
+                  {state.progress &&
+                    stateLabel !== 'Running' &&
+                    stateLabel.replace(/^Running · /, '')}
+                </>
+              ) : (
+                stateLabel
+              )}
+              {state.status === 'running' && state.startedAt !== undefined && (
+                <ElapsedTime startedAt={state.startedAt} />
+              )}
+            </span>
+          )}
         </TextTransition>
       </span>
     </span>
@@ -155,19 +191,19 @@ export function ToolActivity({
           {summary}. {stateLabel}.
         </VisuallyHidden>
       )}
-        <Disclosure
-          disabled={!canDisclose}
-          summary={header}
-          variant="plain"
-          {...(defaultOpen === undefined ? {} : { defaultOpen })}
+      <Disclosure
+        disabled={!canDisclose}
+        summary={header}
+        variant="plain"
+        {...(defaultOpen === undefined ? {} : { defaultOpen })}
+      >
+        <div
+          data-slot="tool-activity-evidence"
+          {...stylex.props(styles.evidence)}
         >
-          <div
-            data-slot="tool-activity-evidence"
-            {...stylex.props(styles.evidence)}
-          >
-            {children}
-          </div>
-        </Disclosure>
+          {children}
+        </div>
+      </Disclosure>
       {state.status === 'failed' && (
         <p role="alert" {...stylex.props(styles.error)}>
           {state.error}
@@ -239,7 +275,11 @@ function ElapsedTime({ startedAt }: { startedAt: number }) {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [])
-  return <span aria-label="Elapsed time">{Math.max(0, Math.floor((now - startedAt) / 1000))}s</span>
+  return (
+    <span aria-label="Elapsed time">
+      {Math.max(0, Math.floor((now - startedAt) / 1000))}s
+    </span>
+  )
 }
 
 const styles = stylex.create({
@@ -276,8 +316,10 @@ const styles = stylex.create({
   },
   summaryFade: {
     maskImage: {
-      default: 'linear-gradient(to right, oklch(0 0 0) calc(100% - 2rem), oklch(0 0 0 / 0.85) calc(100% - 1.4rem), oklch(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
-      ':is([dir="rtl"] *)': 'linear-gradient(to left, oklch(0 0 0) calc(100% - 2rem), oklch(0 0 0 / 0.85) calc(100% - 1.4rem), oklch(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
+      default:
+        'linear-gradient(to right, oklch(0 0 0) calc(100% - 2rem), oklch(0 0 0 / 0.85) calc(100% - 1.4rem), oklch(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
+      ':is([dir="rtl"] *)':
+        'linear-gradient(to left, oklch(0 0 0) calc(100% - 2rem), oklch(0 0 0 / 0.85) calc(100% - 1.4rem), oklch(0 0 0 / 0.35) calc(100% - 0.6rem), transparent)',
     },
   },
   summaryComplete: {

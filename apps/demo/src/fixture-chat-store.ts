@@ -29,9 +29,7 @@ const capabilities: ChatCapabilities = {
   canStop: true,
   canSubmit: true,
   canUseShell: true,
-  models: [
-    { label: 'Fixture 1', modelId: 'fixture-1', providerId: 'fixture' },
-  ],
+  models: [{ label: 'Fixture 1', modelId: 'fixture-1', providerId: 'fixture' }],
   permissionDecisions: ['once', 'always', 'reject'],
   referenceTypes: ['file', 'range', 'resource', 'agent'],
   variants: [{ id: 'precise', label: 'Precise' }],
@@ -60,13 +58,20 @@ export class FixtureChatStore implements ChatStore {
     const index = this.#snapshot.turns.length
     this.#snapshot = {
       ...this.#snapshot,
-      turns: [...this.#snapshot.turns, createTurn(index, `New output ${index + 1}`)],
+      turns: [
+        ...this.#snapshot.turns,
+        createTurn(index, `New output ${index + 1}`),
+      ],
     }
     this.#commit()
   }
 
   requestPermission() {
-    if (this.#snapshot.requests.some((request) => request.id === 'fixture-permission')) {
+    if (
+      this.#snapshot.requests.some(
+        (request) => request.id === 'fixture-permission',
+      )
+    ) {
       return
     }
     this.#snapshot = {
@@ -94,7 +99,11 @@ export class FixtureChatStore implements ChatStore {
   }
 
   requestQuestion() {
-    if (this.#snapshot.requests.some((request) => request.id === 'fixture-question')) {
+    if (
+      this.#snapshot.requests.some(
+        (request) => request.id === 'fixture-question',
+      )
+    ) {
       return
     }
     this.#snapshot = {
@@ -168,7 +177,9 @@ export class FixtureChatStore implements ChatStore {
       const id = fixtureId('attachment')
       const attachment = {
         id,
-        kind: file.type.startsWith('image/') ? 'image' as const : 'file' as const,
+        kind: file.type.startsWith('image/')
+          ? ('image' as const)
+          : ('file' as const),
         mediaType: file.type || 'application/octet-stream',
         name: file.name,
         size: file.size,
@@ -472,7 +483,8 @@ export class FixtureChatStore implements ChatStore {
       })),
       state: {
         endedAt: Date.now(),
-        startedAt: turn.state.status === 'running' ? turn.state.startedAt : Date.now(),
+        startedAt:
+          turn.state.status === 'running' ? turn.state.startedAt : Date.now(),
         status: 'interrupted',
       },
     }))
@@ -491,7 +503,10 @@ export class FixtureChatStore implements ChatStore {
         item.id === input.requestId &&
         item.origin.sessionId === input.originSessionId,
     )
-    if (!request || (request.state.status !== 'pending' && request.state.status !== 'failed')) {
+    if (
+      !request ||
+      (request.state.status !== 'pending' && request.state.status !== 'failed')
+    ) {
       return
     }
     this.#setPermissionState(request.id, {
@@ -516,7 +531,10 @@ export class FixtureChatStore implements ChatStore {
         item.id === input.requestId &&
         item.origin.sessionId === input.originSessionId,
     )
-    if (!request || (request.state.status !== 'pending' && request.state.status !== 'failed')) {
+    if (
+      !request ||
+      (request.state.status !== 'pending' && request.state.status !== 'failed')
+    ) {
       return
     }
     const decision = { response: input.response, type: 'answer' as const }
@@ -532,7 +550,10 @@ export class FixtureChatStore implements ChatStore {
         item.id === input.requestId &&
         item.origin.sessionId === input.originSessionId,
     )
-    if (!request || (request.state.status !== 'pending' && request.state.status !== 'failed')) {
+    if (
+      !request ||
+      (request.state.status !== 'pending' && request.state.status !== 'failed')
+    ) {
       return
     }
     const decision = { type: 'reject' as const }
@@ -548,11 +569,17 @@ export class FixtureChatStore implements ChatStore {
   }
 
   editQueued(item: QueuedPrompt) {
-    if (!this.#snapshot.queue.some((candidate) => candidate.id === item.id)) return
+    if (!this.#snapshot.queue.some((candidate) => candidate.id === item.id))
+      return
     this.#snapshot = {
       ...this.#snapshot,
-      composer: { ...item.draft, revision: this.#snapshot.composer.revision + 1 },
-      queue: this.#snapshot.queue.filter((candidate) => candidate.id !== item.id),
+      composer: {
+        ...item.draft,
+        revision: this.#snapshot.composer.revision + 1,
+      },
+      queue: this.#snapshot.queue.filter(
+        (candidate) => candidate.id !== item.id,
+      ),
     }
     this.#commit()
   }
@@ -560,7 +587,9 @@ export class FixtureChatStore implements ChatStore {
   removeQueued(item: QueuedPrompt) {
     this.#snapshot = {
       ...this.#snapshot,
-      queue: this.#snapshot.queue.filter((candidate) => candidate.id !== item.id),
+      queue: this.#snapshot.queue.filter(
+        (candidate) => candidate.id !== item.id,
+      ),
     }
     this.#commit()
   }
@@ -725,7 +754,11 @@ function createToolFixtureTurn(index: number): ChatTurn {
     completedTool(
       'context-read',
       'read',
-      { kind: 'context', operation: 'read', target: 'packages/components/src/turn.tsx' },
+      {
+        kind: 'context',
+        operation: 'read',
+        target: 'packages/components/src/turn.tsx',
+      },
       { path: 'packages/components/src/turn.tsx' },
       'export function Turn() {}',
     ),
@@ -739,7 +772,14 @@ function createToolFixtureTurn(index: number): ChatTurn {
     completedTool(
       'shell',
       'shell',
-      { command: 'pnpm typecheck', durationMs: 420, exitCode: 0, kind: 'shell', outputTruncated: false, workingDirectory: '/workspace' },
+      {
+        command: 'pnpm typecheck',
+        durationMs: 420,
+        exitCode: 0,
+        kind: 'shell',
+        outputTruncated: false,
+        workingDirectory: '/workspace',
+      },
       { command: 'pnpm typecheck' },
       'Done',
     ),
@@ -795,7 +835,8 @@ function createToolFixtureTurn(index: number): ChatTurn {
         kind: 'task',
         transcript: {
           reasoning: 'I compared the activity states and transcript hierarchy.',
-          result: '**No blocking issues.** The activity rail remains stable across states.',
+          result:
+            '**No blocking issues.** The activity rail remains stable across states.',
           steps: [
             {
               id: 'fixture-child-inspect',
@@ -814,7 +855,11 @@ function createToolFixtureTurn(index: number): ChatTurn {
     completedTool(
       'web',
       'webfetch',
-      { kind: 'web', operation: 'fetch', target: 'https://example.com/reference' },
+      {
+        kind: 'web',
+        operation: 'fetch',
+        target: 'https://example.com/reference',
+      },
       { url: 'https://example.com/reference' },
       'Reference loaded.',
     ),
@@ -870,7 +915,8 @@ function cancelTool(part: ToolPart): ToolPart {
   ) {
     return part
   }
-  const input = state.status === 'receiving-input' ? state.partialInput : state.input
+  const input =
+    state.status === 'receiving-input' ? state.partialInput : state.input
   return {
     ...part,
     state: {
@@ -904,7 +950,11 @@ function createStressTurn(index: number, large: boolean): ChatTurn {
           callId: 'large-output-call',
           id: 'large-output-tool',
           metadata: { truncated: false },
-          presentation: { command: 'generate-large-output', kind: 'shell' as const, outputTruncated: false },
+          presentation: {
+            command: 'generate-large-output',
+            kind: 'shell' as const,
+            outputTruncated: false,
+          },
           state: {
             endedAt: index + 2,
             input: { command: 'generate-large-output' },
@@ -958,7 +1008,11 @@ function createTurn(index: number, response: string): ChatTurn {
       },
     ],
     id,
-    state: { endedAt: index * 10 + 3, startedAt: index * 10 + 1, status: 'complete' },
+    state: {
+      endedAt: index * 10 + 3,
+      startedAt: index * 10 + 1,
+      status: 'complete',
+    },
     user: {
       createdAt: index * 10 + 1,
       delivery: { status: 'confirmed' },

@@ -48,11 +48,13 @@ export function Turn({
     message.parts.some(isActiveAssistantIndicator),
   )
   const lastPart = turn.assistant.at(-1)?.parts.at(-1)
-  const streamingText = lastPart?.type === 'text'
-    && lastPart.state.status === 'streaming'
-    && lastPart.markdown.trim().length > 0
-  const showStatus = turn.state.status !== 'running'
-    || !(hasActiveAssistantIndicator || streamingText)
+  const streamingText =
+    lastPart?.type === 'text' &&
+    lastPart.state.status === 'streaming' &&
+    lastPart.markdown.trim().length > 0
+  const showStatus =
+    turn.state.status !== 'running' ||
+    !(hasActiveAssistantIndicator || streamingText)
 
   return (
     <li
@@ -78,30 +80,52 @@ export function Turn({
         </section>
 
         <LayoutGroup id={turn.id}>
-        <div data-slot="turn-assistant" {...stylex.props(styles.assistant)}>
-          {(turn.agent || turn.model) && (
-            <div aria-label="Response author" role="group" data-slot="turn-identity" {...stylex.props(styles.identity)}>
-              {turn.agent && (
-                <span data-slot="turn-agent" {...stylex.props(styles.agentName)}>
-                  <VisuallyHidden>Agent: </VisuallyHidden>{turn.agent.label}
-                </span>
-              )}
-              {turn.model && (
-                <span data-slot="turn-model" {...stylex.props(styles.modelName)}>
-                  <VisuallyHidden>Model: </VisuallyHidden>{turn.model.label}
-                </span>
-              )}
-            </div>
-          )}
-          <AssistantSequence
-            messages={assistant}
-            activityPresentation={activityPresentation}
-            pending={active && showStatus ? <TurnStatus state={turn.state} compact={assistant.length > 0} /> : undefined}
-            {...(toolActions === undefined ? {} : { toolActions })}
-            {...(toolRenderers === undefined ? {} : { toolRenderers })}
-          />
-          {!active && <TurnStatus state={turn.state} compact={assistant.length > 0} />}
-        </div>
+          <div data-slot="turn-assistant" {...stylex.props(styles.assistant)}>
+            {(turn.agent || turn.model) && (
+              <div
+                aria-label="Response author"
+                role="group"
+                data-slot="turn-identity"
+                {...stylex.props(styles.identity)}
+              >
+                {turn.agent && (
+                  <span
+                    data-slot="turn-agent"
+                    {...stylex.props(styles.agentName)}
+                  >
+                    <VisuallyHidden>Agent: </VisuallyHidden>
+                    {turn.agent.label}
+                  </span>
+                )}
+                {turn.model && (
+                  <span
+                    data-slot="turn-model"
+                    {...stylex.props(styles.modelName)}
+                  >
+                    <VisuallyHidden>Model: </VisuallyHidden>
+                    {turn.model.label}
+                  </span>
+                )}
+              </div>
+            )}
+            <AssistantSequence
+              messages={assistant}
+              activityPresentation={activityPresentation}
+              pending={
+                active && showStatus ? (
+                  <TurnStatus
+                    state={turn.state}
+                    compact={assistant.length > 0}
+                  />
+                ) : undefined
+              }
+              {...(toolActions === undefined ? {} : { toolActions })}
+              {...(toolRenderers === undefined ? {} : { toolRenderers })}
+            />
+            {!active && (
+              <TurnStatus state={turn.state} compact={assistant.length > 0} />
+            )}
+          </div>
         </LayoutGroup>
 
         {actions && (
@@ -114,7 +138,13 @@ export function Turn({
   )
 }
 
-export function TurnStatus({ state, compact = false }: { state: TurnState; compact?: boolean }) {
+export function TurnStatus({
+  state,
+  compact = false,
+}: {
+  state: TurnState
+  compact?: boolean
+}) {
   const label = turnStateLabel(state)
   const active =
     state.status === 'queued' ||
@@ -139,7 +169,9 @@ export function TurnStatus({ state, compact = false }: { state: TurnState; compa
     >
       {active && <Spinner size="small" />}
       <span>{label}</span>
-      {active && <span aria-hidden="true" {...stylex.props(styles.statusEnd)} />}
+      {active && (
+        <span aria-hidden="true" {...stylex.props(styles.statusEnd)} />
+      )}
       {state.status === 'failed' && (
         <span {...stylex.props(styles.error)}>{state.error.message}</span>
       )}
