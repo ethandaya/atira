@@ -23,6 +23,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
   type UIEvent,
 } from 'react'
 
@@ -72,7 +73,9 @@ export function Timeline({
   const pendingAnchor = useRef<ScrollAnchor | undefined>(undefined)
   const previousVersion = useRef('')
   const previousTurnCount = useRef(turns.length)
-  const measuredHeights = useRef(new Map<string, number>())
+  const [measuredHeights, setMeasuredHeights] = useState(
+    () => new Map<string, number>(),
+  )
   const pinnedTurnIds = useRef(new Set<string>())
   const initialized = useRef(false)
   const [follow, setFollow] = useState<FollowState>({ status: 'following' })
@@ -91,7 +94,7 @@ export function Timeline({
     turns,
     0,
     range.start,
-    measuredHeights.current,
+    measuredHeights,
     estimatedTurnGap,
     estimatedTurnHeight,
   )
@@ -99,7 +102,7 @@ export function Timeline({
     turns,
     range.end,
     turns.length,
-    measuredHeights.current,
+    measuredHeights,
     estimatedTurnGap,
     estimatedTurnHeight,
   )
@@ -129,7 +132,7 @@ export function Timeline({
       const next = calculateWindowRange({
         estimatedTurnHeight,
         estimatedTurnGap,
-        heights: measuredHeights.current,
+        heights: measuredHeights,
         pinnedTurnIds: pinnedTurnIds.current,
         scrollTop: viewport.scrollTop,
         turns,
@@ -144,6 +147,7 @@ export function Timeline({
     [
       estimatedTurnGap,
       estimatedTurnHeight,
+      measuredHeights,
       turns,
       updateScrollEdges,
       virtualized,
@@ -155,24 +159,24 @@ export function Timeline({
     if (!viewport) return
 
     const previousTopSpacer = topSpacer
-    let measured = false
+    let nextHeights: Map<string, number> | undefined
     for (const element of viewport.querySelectorAll<HTMLElement>(
       '[data-turn-id]',
     )) {
       const id = element.dataset.turnId
       if (!id) continue
       const height = element.getBoundingClientRect().height
-      if (height > 0 && measuredHeights.current.get(id) !== height) {
-        measuredHeights.current.set(id, height)
-        measured = true
+      if (height > 0 && measuredHeights.get(id) !== height) {
+        nextHeights ??= new Map(measuredHeights)
+        nextHeights.set(id, height)
       }
     }
-    if (measured) {
+    if (nextHeights) {
       const nextTopSpacer = spacerHeight(
         turns,
         0,
         range.start,
-        measuredHeights.current,
+        nextHeights,
         estimatedTurnGap,
         estimatedTurnHeight,
       )
@@ -182,7 +186,7 @@ export function Timeline({
       ) {
         viewport.scrollTop += nextTopSpacer - previousTopSpacer
       }
-      setMeasurementVersion((current) => current + 1)
+      setMeasuredHeights(nextHeights)
     }
 
     if (pendingAnchor.current) {
@@ -206,8 +210,10 @@ export function Timeline({
 
   // Follow changes alone must not consume the anchor before older turns arrive.
   useLayoutEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- Spacer state depends on committed DOM measurements before paint.
     measureLayout()
   }, [
+    measuredHeights,
     measurementVersion,
     range.end,
     range.start,
@@ -358,7 +364,7 @@ export function Timeline({
                 <TimelineTurn
                   activityPresentation={activityPresentation}
                   key={turn.id}
-                  pinnedTurnIds={pinnedTurnIds.current}
+                  pinnedTurnIds={pinnedTurnIds}
                   position={range.start + index + 1}
                   {...(renderTurnActions === undefined
                     ? {}
@@ -402,7 +408,7 @@ const TimelineTurn = memo(function TimelineTurn({
   turn,
 }: {
   activityPresentation: 'expanded' | 'summary'
-  pinnedTurnIds: Set<string>
+  pinnedTurnIds: RefObject<Set<string>>
   position: number
   renderTurnActions?: (turn: ChatTurn) => ReactNode
   setSize: number
@@ -420,10 +426,10 @@ const TimelineTurn = memo(function TimelineTurn({
           !event.currentTarget.contains(event.relatedTarget) &&
           !event.currentTarget.querySelector('details[open]')
         ) {
-          pinnedTurnIds.delete(turn.id)
+          pinnedTurnIds.current.delete(turn.id)
         }
       }}
-      onFocus={() => pinnedTurnIds.add(turn.id)}
+      onFocus={() => pinnedTurnIds.current.add(turn.id)}
       {...(renderTurnActions === undefined
         ? {}
         : { actions: renderTurnActions(turn) })}
