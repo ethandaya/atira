@@ -1,9 +1,9 @@
 import { Reasoning } from '@atira/components'
 
-export function ReasoningExample({ compact = false }: { compact?: boolean }) {
+export function ReasoningExample() {
   return (
     <Reasoning
-      defaultOpen={!compact}
+      defaultOpen
       state={{ duration: '8 seconds', status: 'complete' }}
     >
       The component boundary is explicit and testable.

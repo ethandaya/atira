@@ -780,15 +780,15 @@ export function QuestionAnswerSummary({ request }: QuestionAnswerSummaryProps) {
 export type RequestRegionProps = {
   children: ReactNode
   draftRevision?: number
-  onPermissionDecision: (
+  onPermissionDecision?: (
     request: PermissionRequestView,
     decision: PermissionDecision,
   ) => void
-  onQuestionAnswer: (
+  onQuestionAnswer?: (
     request: QuestionRequestView,
     response: QuestionResponse,
   ) => void
-  onQuestionReject: (request: QuestionRequestView) => void
+  onQuestionReject?: (request: QuestionRequestView) => void
   permissionDecisions?: readonly PermissionDecision[]
   requests: readonly ChatRequest[]
   reverted?: ReactNode
@@ -888,7 +888,13 @@ export function RequestRegion({
       {...stylex.props(styles.region)}
     >
       {todos && <TodoDock todos={todos} />}
-      <div data-slot="request-history" {...stylex.props(styles.decisionSlot)}>
+      <div
+        data-slot="request-history"
+        {...stylex.props(
+          styles.decisionSlot,
+          !active && !latestDecision && styles.decisionSlotEmpty,
+        )}
+      >
         {latestDecision && (
           <Disclosure
             variant="plain"
@@ -945,28 +951,72 @@ export function RequestRegion({
               data-slot="active-request-layer"
               {...stylex.props(styles.requestLayer)}
             >
-              {active.type === 'permission' ? (
-                <PermissionPrompt
-                  {...(permissionDecisions === undefined
-                    ? {}
-                    : { availableDecisions: permissionDecisions })}
-                  onDecision={(decision) =>
-                    onPermissionDecision(active, decision)
-                  }
-                  request={active}
-                />
-              ) : (
-                <QuestionRequest
-                  onAnswer={(response) => onQuestionAnswer(active, response)}
-                  onReject={() => onQuestionReject(active)}
-                  request={active}
-                />
-              )}
+              <ActiveRequest
+                {...(onPermissionDecision === undefined
+                  ? {}
+                  : { onPermissionDecision })}
+                {...(onQuestionAnswer === undefined
+                  ? {}
+                  : { onQuestionAnswer })}
+                {...(onQuestionReject === undefined
+                  ? {}
+                  : { onQuestionReject })}
+                {...(permissionDecisions === undefined
+                  ? {}
+                  : { permissionDecisions })}
+                request={active}
+              />
             </PresenceSurface>
           )}
         </AnimatePresence>
       </div>
     </div>
+  )
+}
+
+function ActiveRequest({
+  onPermissionDecision,
+  onQuestionAnswer,
+  onQuestionReject,
+  permissionDecisions,
+  request,
+}: Pick<
+  RequestRegionProps,
+  | 'onPermissionDecision'
+  | 'onQuestionAnswer'
+  | 'onQuestionReject'
+  | 'permissionDecisions'
+> & { request: ChatRequest }) {
+  if (request.type === 'permission') {
+    return (
+      <PermissionPrompt
+        {...(permissionDecisions === undefined
+          ? {}
+          : { availableDecisions: permissionDecisions })}
+        {...(onPermissionDecision === undefined
+          ? {}
+          : {
+              onDecision: (decision: PermissionDecision) =>
+                onPermissionDecision(request, decision),
+            })}
+        request={request}
+      />
+    )
+  }
+
+  return (
+    <QuestionRequest
+      {...(onQuestionAnswer === undefined
+        ? {}
+        : {
+            onAnswer: (response: QuestionResponse) =>
+              onQuestionAnswer(request, response),
+          })}
+      {...(onQuestionReject === undefined
+        ? {}
+        : { onReject: () => onQuestionReject(request) })}
+      request={request}
+    />
   )
 }
 
@@ -1102,6 +1152,10 @@ const styles = stylex.create({
     // Reserve one row so resolving a request does not move the transcript.
     minBlockSize: { default: '2.125rem', '@media (hover: none)': '2.875rem' },
     minInlineSize: 0,
+  },
+  decisionSlotEmpty: {
+    // Keep the reserved space without separating an untouched composer from its prompts.
+    order: 1,
   },
   decisionSummary: {
     display: 'block',

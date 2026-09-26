@@ -1,19 +1,13 @@
 import { Composer } from '@atira/components'
+import * as stylex from '@stylexjs/stylex'
 import { useState } from 'react'
 
-export function ComposerExample({ compact = false }: { compact?: boolean }) {
+export function ComposerExample() {
   const [value, setValue] = useState('Review the component boundary.')
   const [submitted, setSubmitted] = useState('')
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-        minWidth: 0,
-      }}
-    >
+    <div {...stylex.props(styles.stack)}>
       <Composer
         value={value}
         onValueChange={setValue}
@@ -22,13 +16,23 @@ export function ComposerExample({ compact = false }: { compact?: boolean }) {
           setValue('')
         }}
       />
-      {!compact && (
-        <p role="status" style={{ margin: 0 }}>
-          {submitted
-            ? `Submitted: ${submitted}`
-            : 'Ctrl+Enter or Cmd+Enter submits. Enter adds a line.'}
-        </p>
-      )}
+      <p role="status" {...stylex.props(styles.status)}>
+        {submitted
+          ? `Submitted: ${submitted}`
+          : 'Ctrl+Enter or Cmd+Enter submits. Enter adds a line.'}
+      </p>
     </div>
   )
 }
+
+const styles = stylex.create({
+  stack: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+    minWidth: 0,
+  },
+  status: {
+    margin: 0,
+  },
+})

@@ -1,40 +1,79 @@
-// @ts-check
+import type { RunStream } from './run-stream.ts'
+import type { DefaultAgent, Turn as AgentTurn } from 'nanocodex'
 
-/** @typedef {{cancelRequested: boolean, abortController: AbortController, turn?: {cancel: () => Promise<unknown>, dispose: () => void} | undefined}} TurnControl */
-/** @typedef {{id: string, input: string, completed?: boolean, stream?: import('./run-stream.mjs').RunStream}} Turn */
-/** @typedef {{agent?: Promise<{session: {shutdown: () => Promise<unknown>}}>}} ProviderSession */
-/** @typedef {ProviderSession & {lastUsed: number, lastTurn?: Turn, active?: TurnControl | undefined}} Conversation */
+export type TurnControl = {
+  abortController: AbortController
+  cancelRequested: boolean
+  turn?: AgentTurn
+}
+
+type ConversationTurn = {
+  completed?: boolean
+  id: string
+  input: string
+  stream?: RunStream
+}
+
+export type ProviderSession = {
+  agent?: Promise<DefaultAgent>
+}
+
+export type Conversation = ProviderSession & {
+  active?: TurnControl
+  lastTurn?: ConversationTurn
+  lastUsed: number
+}
+
+type ConversationRequest = {
+  input: string
+  key: string
+  resume: boolean
+  retry: boolean
+  turnId: string
+}
+
+type ConversationServiceOptions = {
+  createSession: (key: string) => ProviderSession
+  disposeSession: (session: Conversation) => Promise<void>
+  maxAge?: number
+  maxSessions?: number
+  now?: () => number
+}
+
+type ActiveConversation = Conversation & {
+  active: TurnControl
+  lastTurn: ConversationTurn
+}
+
+type Acquisition =
+  | { kind: 'replay'; replay: RunStream; session: Conversation }
+  | { control: TurnControl; kind: 'active'; session: ActiveConversation }
 
 export class ConversationError extends Error {
-  /** @param {string} message @param {number} status */
-  constructor(message, status) {
+  status: number
+
+  constructor(message: string, status: number) {
     super(message)
     this.status = status
   }
 }
 
 export class ConversationService {
-  /** @type {Map<string, Conversation>} */
-  #sessions = new Map()
-  /** @type {Map<string, Promise<void>>} */
-  #locks = new Map()
+  #sessions = new Map<string, Conversation>()
+  #locks = new Map<string, Promise<void>>()
+  createSession: ConversationServiceOptions['createSession']
+  disposeSession: ConversationServiceOptions['disposeSession']
+  maxAge: number
+  maxSessions: number
+  now: () => number
 
-  /**
-   * @param {{
-   *   createSession: (key: string) => ProviderSession,
-   *   disposeSession: (session: Conversation) => Promise<void>,
-   *   maxAge?: number,
-   *   maxSessions?: number,
-   *   now?: () => number,
-   * }} options
-   */
   constructor({
     createSession,
     disposeSession,
     maxAge = 30 * 60 * 1000,
     maxSessions = 20,
     now = Date.now,
-  }) {
+  }: ConversationServiceOptions) {
     this.createSession = createSession
     this.disposeSession = disposeSession
     this.maxAge = maxAge
@@ -42,8 +81,7 @@ export class ConversationService {
     this.now = now
   }
 
-  /** @param {string} key @param {string} turnId */
-  attach(key, turnId) {
+  attach(key: string, turnId: string) {
     const session = this.#sessions.get(key)
     if (!session?.lastTurn?.stream || session.lastTurn.id !== turnId)
       return undefined
@@ -51,12 +89,8 @@ export class ConversationService {
     return session.lastTurn.stream
   }
 
-  /**
-   * Atomically selects the session and reserves its active turn. The
-   * reservation exists before the caller can begin asynchronous provider work.
-   * @param {{key: string, resume: boolean, retry: boolean, turnId: string, input: string}} request
-   */
-  async acquire(request) {
+  // The reservation exists before the caller can begin asynchronous provider work.
+  async acquire(request: ConversationRequest): Promise<Acquisition> {
     return this.#locked(request.key, async () => {
       let session = this.#sessions.get(request.key)
       if (request.resume && !session) {
@@ -102,37 +136,37 @@ export class ConversationService {
             409,
           )
         session.lastUsed = this.now()
-        return { replay: previous.stream, session }
+        return { kind: 'replay', replay: previous.stream, session }
       }
       session.lastTurn = {
         id: request.turnId,
         input: request.input,
       }
-      const control = {
+      const control: TurnControl = {
         cancelRequested: false,
-        turn: undefined,
         abortController: new AbortController(),
       }
       session.active = control
       session.lastUsed = this.now()
-      return { control, session }
+      return {
+        control,
+        kind: 'active',
+        session: session as ActiveConversation,
+      }
     })
   }
 
-  /** @param {Conversation} session @param {TurnControl} control */
-  complete(session, control) {
+  complete(session: Conversation, control: TurnControl) {
     if (session.active === control && session.lastTurn)
       session.lastTurn.completed = true
   }
 
-  /** @param {Conversation} session @param {TurnControl} control */
-  release(session, control) {
-    if (session.active === control) session.active = undefined
+  release(session: Conversation, control: TurnControl) {
+    if (session.active === control) delete session.active
     session.lastUsed = this.now()
   }
 
-  /** @param {string} key @param {string} turnId */
-  async cancel(key, turnId) {
+  async cancel(key: string, turnId: string) {
     const session = this.#sessions.get(key)
     const active = session?.active
     if (!active || session.lastTurn?.id !== turnId) return false
@@ -142,8 +176,7 @@ export class ConversationService {
     return true
   }
 
-  /** @param {string} key */
-  async reset(key) {
+  async reset(key: string) {
     await this.#locked(key, async () => {
       const session = this.#sessions.get(key)
       this.#sessions.delete(key)
@@ -165,8 +198,7 @@ export class ConversationService {
     )
   }
 
-  /** @param {string} accountId */
-  async resetAccount(accountId) {
+  async resetAccount(accountId: string) {
     await Promise.all(
       [...this.#sessions.keys()]
         .filter((key) => key === accountId || key.startsWith(`${accountId}:`))
@@ -180,13 +212,11 @@ export class ConversationService {
     )
   }
 
-  /** @template T @param {string} key @param {() => Promise<T>} operation @returns {Promise<T>} */
-  async #locked(key, operation) {
+  async #locked<T>(key: string, operation: () => Promise<T>): Promise<T> {
     const previous = this.#locks.get(key) ?? Promise.resolve()
     let unlock = () => {}
-    /** @type {Promise<void>} */
-    const current = new Promise((resolve) => {
-      unlock = () => resolve()
+    const current = new Promise<void>((resolve) => {
+      unlock = resolve
     })
     this.#locks.set(key, current)
     await previous

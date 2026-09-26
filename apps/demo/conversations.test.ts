@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
-import { ConversationError, ConversationService } from './conversations.mjs'
-import { RunStream } from './run-stream.mjs'
+import { ConversationError, ConversationService } from './conversations.ts'
+import { RunStream } from './run-stream.ts'
 
 const turn = (key = 'account:conversation') => ({
   key,
@@ -18,9 +18,18 @@ function service(options = {}) {
   })
 }
 
+async function acquireActive(
+  conversations: ConversationService,
+  request = turn(),
+) {
+  const acquisition = await conversations.acquire(request)
+  if (acquisition.kind !== 'active') throw new Error('Expected active turn')
+  return acquisition
+}
+
 it('owns turn identity, retries, replay, and active exclusion', async () => {
   const conversations = service()
-  const first = await conversations.acquire(turn())
+  const first = await acquireActive(conversations)
   await expect(conversations.acquire(turn())).rejects.toMatchObject({
     status: 409,
   })
@@ -50,14 +59,21 @@ it('owns turn identity, retries, replay, and active exclusion', async () => {
   stream.end()
   conversations.complete(first.session, first.control)
   conversations.release(first.session, first.control)
-  const replay = (await conversations.acquire({ ...turn(), retry: true }))
-    .replay
+  const replayAcquisition = await conversations.acquire({
+    ...turn(),
+    retry: true,
+  })
+  if (replayAcquisition.kind !== 'replay')
+    throw new Error('Expected replay turn')
+  const replay = replayAcquisition.replay
   expect(replay).toBe(stream)
   const response = {
+    writableEnded: false,
     writeHead: vi.fn(),
     flushHeaders: vi.fn(),
     write: vi.fn(),
     end: vi.fn(),
+    once: vi.fn(),
   }
   replay.attach(response)
   expect(response.write.mock.calls.map(([chunk]) => JSON.parse(chunk))).toEqual(
@@ -71,9 +87,12 @@ it('owns turn identity, retries, replay, and active exclusion', async () => {
 
 it('does not let a delayed cancellation abort a newer turn', async () => {
   const conversations = service()
-  const first = await conversations.acquire(turn())
+  const first = await acquireActive(conversations)
   conversations.release(first.session, first.control)
-  const next = await conversations.acquire({ ...turn(), turnId: 'turn-2' })
+  const next = await acquireActive(conversations, {
+    ...turn(),
+    turnId: 'turn-2',
+  })
   expect(await conversations.cancel(turn().key, 'turn-1')).toBe(false)
   expect(next.control.abortController.signal.aborted).toBe(false)
   expect(await conversations.cancel(turn().key, 'turn-2')).toBe(true)
@@ -84,14 +103,14 @@ it('cancels, resets, prunes, and disposes sessions', async () => {
   let now = 0
   const disposeSession = vi.fn(async () => {})
   const conversations = service({ disposeSession, maxAge: 10, now: () => now })
-  const acquired = await conversations.acquire(turn('one'))
+  const acquired = await acquireActive(conversations, turn('one'))
   expect(await conversations.cancel('one', 'turn-1')).toBe(true)
   expect(acquired.control.abortController.signal.aborted).toBe(true)
   conversations.release(acquired.session, acquired.control)
   now = 11
   await conversations.prune()
   expect(disposeSession).toHaveBeenCalledTimes(1)
-  const next = await conversations.acquire(turn('two'))
+  const next = await acquireActive(conversations, turn('two'))
   conversations.release(next.session, next.control)
   await conversations.dispose()
   expect(disposeSession).toHaveBeenCalledTimes(2)
@@ -101,10 +120,13 @@ it('does not prune a conversation that became active while waiting for its lock'
   let now = 0
   const disposeSession = vi.fn(async () => {})
   const conversations = service({ disposeSession, maxAge: 10, now: () => now })
-  const first = await conversations.acquire(turn())
+  const first = await acquireActive(conversations)
   conversations.release(first.session, first.control)
   now = 11
-  const next = conversations.acquire({ ...turn(), turnId: 'turn-2' })
+  const next = acquireActive(conversations, {
+    ...turn(),
+    turnId: 'turn-2',
+  })
   const pruning = conversations.prune()
   await next
   await pruning

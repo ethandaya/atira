@@ -1,16 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
     "types": ["node"]
   },
-  "include": [
-    "auth.mjs",
-    "chat-contract.mjs",
-    "component-catalog.mjs",
-    "conversations.mjs",
-    "run-stream.mjs",
-    "web-search.mjs"
-  ]
+  "include": ["*.ts"]
 }

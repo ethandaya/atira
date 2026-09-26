@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "kind": "primitive",
+  "version": "0.1.0",
+  "items": [
+    {
+      "id": "controls",
+      "components": [
+        "ActionMenu",
+        "Button",
+        "CheckboxField",
+        "ComposerField",
+        "FilterMenu",
+        "IconButton",
+        "RadioGroup",
+        "RadioOption",
+        "SelectPicker",
+        "SelectPickerParts",
+        "TextareaField",
+        "TextField"
+      ],
+      "summary": "Accessible inputs and actions with controlled state and StyleX styling.",
+      "useWhen": [
+        "Collecting user input or invoking an application-owned action"
+      ],
+      "avoidWhen": [
+        "The application cannot implement the visible action or own the controlled value"
+      ],
+      "anatomy": ["control", "label", "description", "validation-message"],
+      "states": ["default", "disabled", "focused", "invalid", "pending"],
+      "actions": ["activate action", "edit value", "select option"],
+      "sideEffects": [
+        "Invokes controlled value and action callbacks supplied by the application"
+      ],
+      "accessibility": [
+        "Native controls retain keyboard and form semantics",
+        "Labels, descriptions, validation, and icon-only actions have accessible names"
+      ],
+      "examples": [
+        "Render a controlled TextField with an associated label and validation message"
+      ],
+      "nonExamples": [
+        "Render an enabled action without an observable application callback"
+      ]
+    },
+    {
+      "id": "feedback",
+      "components": ["Progress", "Shimmer", "Spinner", "Status"],
+      "summary": "Semantic progress and status feedback with reduced-motion behavior.",
+      "useWhen": [
+        "Communicating coarse progress or a user-relevant operation state"
+      ],
+      "avoidWhen": [
+        "Repeating lifecycle feedback already announced by the owning region"
+      ],
+      "anatomy": ["feedback", "label", "value"],
+      "states": ["active", "complete", "failed", "pending"],
+      "actions": ["announce meaningful state transition"],
+      "sideEffects": [],
+      "accessibility": [
+        "Reduced-motion preferences disable nonessential animation",
+        "Status text remains available without relying on color or motion"
+      ],
+      "examples": [
+        "Render determinate Progress with a visible label and current value"
+      ],
+      "nonExamples": [
+        "Mount a second live spinner for an operation already represented by its parent"
+      ]
+    },
+    {
+      "id": "surfaces",
+      "components": ["Dialog", "DialogParts", "Disclosure"],
+      "summary": "Accessible modal and disclosure surfaces with managed focus and state.",
+      "useWhen": [
+        "Revealing secondary content or requiring focused modal interaction"
+      ],
+      "avoidWhen": [
+        "Permanent page content can remain visible in the normal reading flow"
+      ],
+      "anatomy": ["trigger", "title", "description", "content", "actions"],
+      "states": ["closed", "open"],
+      "actions": ["open", "close", "toggle disclosure"],
+      "sideEffects": [
+        "Dialog moves focus into the modal surface and restores it on close"
+      ],
+      "accessibility": [
+        "Dialog traps focus and supports Escape",
+        "Disclosure exposes expanded state through its native trigger"
+      ],
+      "examples": [
+        "Use Dialog for a reversible confirmation with an explicit close path"
+      ],
+      "nonExamples": [
+        "Open a modal without a title, description, or focus restoration"
+      ]
+    },
+    {
+      "id": "presence",
+      "components": [
+        "ActivityPresence",
+        "ActivitySlot",
+        "AnimatePresence",
+        "LayoutGroup",
+        "PresenceItem",
+        "PresenceSurface",
+        "StateTransition",
+        "TextTransition"
+      ],
+      "summary": "Coordinates bounded enter, exit, layout, state, and text transitions without owning application state.",
+      "useWhen": [
+        "A component needs identity-preserving presence or state transition behavior"
+      ],
+      "avoidWhen": [
+        "Immediate state replacement is clearer or the interaction is too frequent to animate"
+      ],
+      "anatomy": ["presence-root", "presence-item", "transition-surface"],
+      "states": ["entering", "present", "exiting"],
+      "actions": ["enter", "exit", "replace keyed content"],
+      "sideEffects": [
+        "Coordinates mounted presence and transition completion callbacks"
+      ],
+      "accessibility": [
+        "Reduced-motion preferences remove nonessential movement",
+        "Accessible state updates are not delayed by visual transitions"
+      ],
+      "examples": [
+        "Use StateTransition to preserve identity while a visible lifecycle label changes"
+      ],
+      "nonExamples": [
+        "Animate a high-frequency keyboard action or delay semantic state until animation completes"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "components": ["VisuallyHidden"],
+      "summary": "Screen-reader text without visual layout changes.",
+      "useWhen": [
+        "Visible content does not provide the accessible text required by its context"
+      ],
+      "avoidWhen": ["The same text should remain visible to every user"],
+      "anatomy": ["hidden-text"],
+      "states": ["hidden"],
+      "actions": ["provide an accessible name or description"],
+      "sideEffects": [],
+      "accessibility": [
+        "Text remains in the accessibility tree without affecting visual layout"
+      ],
+      "examples": [
+        "Name an icon-only control when no visible label is appropriate"
+      ],
+      "nonExamples": ["Hide instructions that sighted keyboard users also need"]
+    }
+  ]
+}

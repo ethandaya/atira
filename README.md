@@ -13,10 +13,13 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open `/` for the catalog, or `/?view=playground` for chat.
-The catalog does not require credentials. Sign in with ChatGPT in the playground
-or set `OPENAI_API_KEY` on the server. `NANOCODEX_MODEL` defaults to `gpt-6-sol` and must be
-supported by the installed Nanocodex version. Each conversation uses that model.
+Open `/` for the docs overview. The docs navigate client-side to the full-height
+playground at `/playground` and the component reference at `/components`.
+Component examples do not require credentials. Sign in with ChatGPT in the
+playground or set `OPENAI_API_KEY` on the server.
+
+`NANOCODEX_MODEL` defaults to `gpt-6-sol` and must be supported by the installed
+Nanocodex version. Each conversation uses that model.
 
 Nanocodex 0.6.5 owns device-code login, credential refresh, and the agent loop.
 ChatGPT credentials stay in server memory, isolated by browser session; they expire
@@ -35,11 +38,11 @@ do not expose a deterministic chat demo.
 
 ## Conversations and recovery
 
-The Conversations menu starts and reopens chats. Transcripts and drafts live in
-browser `sessionStorage`, not a durable or cross-device archive. Runtime context
-stays server-side and expires after 30 minutes idle or a server restart. Expired
-transcripts remain readable; resuming one reports an error rather than silently
-starting without context.
+The Conversation history menu starts and reopens chats. Transcripts and drafts
+live in browser `sessionStorage`, not a durable or cross-device archive. Runtime
+context stays server-side and expires after 30 minutes idle or a server restart.
+Expired transcripts remain readable; resuming one reports an error rather than
+silently starting without context.
 
 Runs continue when a browser disconnects. Reloading an unfinished response
 reconnects and replays the latest run without resubmitting its prompt or tools.
@@ -85,7 +88,7 @@ pnpm check
 
 The full gate runs formatting, lint, typechecks, tests, React Doctor, production
 builds, and browser tests in that order. It stops at the
-first failure. Oxlint covers JavaScript and TypeScript, including backend `.mjs`
+first failure. Oxlint covers JavaScript and TypeScript, including backend `.ts`
 files; React Doctor covers the demo and the three React library packages.
 Warnings fail both Oxlint and React Doctor. Narrow source comments explain
 exceptions for provider-free animation primitives, persistent handoff slots,

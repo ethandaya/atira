@@ -1,13 +1,9 @@
 import { ToolActivity } from '@atira/components'
 
-export function ToolActivityExample({
-  compact = false,
-}: {
-  compact?: boolean
-}) {
+export function ToolActivityExample() {
   return (
     <ToolActivity
-      defaultOpen={!compact}
+      defaultOpen
       id="catalog-tool"
       state={{ status: 'succeeded' }}
       summary="Registry updated"

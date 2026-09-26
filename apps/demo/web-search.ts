@@ -1,17 +1,50 @@
-// @ts-check
+import { z } from 'zod'
+
 const endpoint = 'https://api.openai.com/v1/responses'
 const maxSources = 8
+const sourceSchema = z.object({
+  title: z.string().optional(),
+  url: z.string().optional(),
+})
+const responseSchema = z.object({
+  output: z
+    .array(
+      z.object({
+        action: z
+          .object({ sources: z.array(sourceSchema).optional() })
+          .optional(),
+        content: z
+          .array(
+            z.object({
+              annotations: z.array(sourceSchema).optional(),
+              text: z.string().optional(),
+              type: z.string().optional(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .optional(),
+  output_text: z.string().optional(),
+})
 
-/**
- * @param {{apiKey?: string, model: string, query: unknown, request?: typeof fetch, signal?: AbortSignal}} options
- */
+type SearchResponse = z.infer<typeof responseSchema>
+
+type SearchWebOptions = {
+  apiKey?: string
+  model: string
+  query: unknown
+  request?: typeof fetch
+  signal?: AbortSignal
+}
+
 export async function searchWeb({
   apiKey,
   model,
   query,
   request = globalThis.fetch,
   signal,
-}) {
+}: SearchWebOptions) {
   const normalizedQuery = typeof query === 'string' ? query.trim() : ''
   if (!normalizedQuery) throw new Error('Web search requires a query.')
   if (typeof apiKey !== 'string' || !apiKey.trim()) {
@@ -49,70 +82,51 @@ export async function searchWeb({
   if (!response.ok) {
     throw new Error(`Web search failed with HTTP ${response.status}.`)
   }
+  const result = responseSchema.safeParse(payload)
+  if (!result.success)
+    throw new Error('Web search returned an invalid response.')
 
-  const answer = responseText(payload)
+  const answer = responseText(result.data)
   if (!answer) throw new Error('Web search returned no readable result.')
 
   return {
     answer,
     query: normalizedQuery,
-    sources: responseSources(payload).slice(0, maxSources),
+    sources: responseSources(result.data).slice(0, maxSources),
   }
 }
 
-/** @param {unknown} payload */
-function responseText(payload) {
-  if (isRecord(payload) && typeof payload.output_text === 'string') {
-    return payload.output_text.trim()
-  }
-  if (!isRecord(payload) || !Array.isArray(payload.output)) return ''
+function responseText(payload: SearchResponse) {
+  if (payload.output_text) return payload.output_text.trim()
 
-  return payload.output
-    .flatMap((item) =>
-      isRecord(item) && Array.isArray(item.content) ? item.content : [],
-    )
+  return (payload.output ?? [])
+    .flatMap((item) => item.content ?? [])
     .map((content) =>
-      isRecord(content) && content.type === 'output_text'
-        ? content.text
-        : undefined,
+      content.type === 'output_text' ? content.text : undefined,
     )
     .filter((text) => typeof text === 'string')
     .join('\n')
     .trim()
 }
 
-/** @param {unknown} payload */
-function responseSources(payload) {
-  if (!isRecord(payload) || !Array.isArray(payload.output)) return []
-
-  /** @type {unknown[]} */
-  const candidates = []
-  for (const item of payload.output) {
-    if (!isRecord(item)) continue
-    if (!Array.isArray(item.content)) continue
-    for (const content of item.content) {
-      if (isRecord(content) && Array.isArray(content.annotations)) {
-        candidates.push(...content.annotations)
-      }
+function responseSources(payload: SearchResponse) {
+  const candidates: {
+    title?: string | undefined
+    url?: string | undefined
+  }[] = []
+  for (const item of payload.output ?? []) {
+    for (const content of item.content ?? []) {
+      candidates.push(...(content.annotations ?? []))
     }
   }
-  for (const item of payload.output) {
-    if (
-      isRecord(item) &&
-      isRecord(item.action) &&
-      Array.isArray(item.action.sources)
-    ) {
-      candidates.push(...item.action.sources)
-    }
+  for (const item of payload.output ?? []) {
+    candidates.push(...(item.action?.sources ?? []))
   }
 
-  /** @type {{title: string, url: string}[]} */
-  const sources = []
-  /** @type {Set<string>} */
-  const seen = new Set()
+  const sources: { title: string; url: string }[] = []
+  const seen = new Set<string>()
   for (const candidate of candidates) {
     if (
-      !isRecord(candidate) ||
       typeof candidate.url !== 'string' ||
       !safeHttpUrl(candidate.url) ||
       seen.has(candidate.url)
@@ -132,8 +146,7 @@ function responseSources(payload) {
   return sources
 }
 
-/** @param {unknown} value */
-function safeHttpUrl(value) {
+function safeHttpUrl(value: unknown) {
   if (typeof value !== 'string') return false
   try {
     const url = new URL(value)
@@ -141,9 +154,4 @@ function safeHttpUrl(value) {
   } catch {
     return false
   }
-}
-
-/** @returns {value is Record<string, unknown>} @param {unknown} value */
-function isRecord(value) {
-  return typeof value === 'object' && value !== null
 }

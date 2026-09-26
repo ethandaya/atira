@@ -1,16 +1,22 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, expect, it, vi } from 'vitest'
-import { RunStream } from './run-stream.mjs'
+import { RunStream } from './run-stream.ts'
 
 afterEach(() => vi.useRealTimers())
 
+class TestResponse extends EventEmitter {
+  writableEnded = false
+  writeHead = vi.fn()
+  flushHeaders = vi.fn()
+  write = vi.fn()
+  end = vi.fn((chunk?: string) => {
+    this.emit('close')
+    return chunk
+  })
+}
+
 function response() {
-  const client = new EventEmitter()
-  client.writeHead = vi.fn()
-  client.flushHeaders = vi.fn()
-  client.write = vi.fn()
-  client.end = vi.fn(() => client.emit('close'))
-  return client
+  return new TestResponse()
 }
 
 it('replays buffered events before live events and survives a disconnected client', () => {
@@ -53,9 +59,9 @@ it('keeps live output but refuses partial replay above the byte limit', () => {
   stream.attach(overLimit)
   expect(overLimit.writeHead).toHaveBeenCalledWith(409, expect.any(Object))
   expect(overLimit.write).not.toHaveBeenCalled()
-  expect(JSON.parse(overLimit.end.mock.calls[0][0]).error).toContain(
-    'replay limit',
-  )
+  const errorBody = overLimit.end.mock.calls[0]?.[0]
+  if (!errorBody) throw new Error('Expected replay error body')
+  expect(JSON.parse(errorBody).error).toContain('replay limit')
   expect(live.write.mock.calls).toEqual([['éé'], ['x']])
   stream.end()
   expect(vi.getTimerCount()).toBe(0)
