@@ -1090,7 +1090,12 @@ const galleryDraft: ComposerDraft = {
   agent: { id: 'build', label: 'Build' },
   attachments: [],
   mode: 'prompt',
-  model: { label: 'Nanocodex', modelId: 'nanocodex', providerId: 'nanocodex' },
+  model: {
+    description: 'OpenAI via Nanocodex',
+    label: 'Nanocodex',
+    modelId: 'nanocodex',
+    providerId: 'nanocodex',
+  },
   revision: 0,
   segments: [
     {
@@ -1116,7 +1121,12 @@ const galleryCapabilities: ChatCapabilities = {
   canSubmit: true,
   canUseShell: true,
   models: [
-    { label: 'Nanocodex', modelId: 'nanocodex', providerId: 'nanocodex' },
+    {
+      description: 'OpenAI via Nanocodex',
+      label: 'Nanocodex',
+      modelId: 'nanocodex',
+      providerId: 'nanocodex',
+    },
   ],
   permissionDecisions: ['once', 'always', 'reject'],
   referenceTypes: ['file', 'range', 'resource', 'agent'],

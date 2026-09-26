@@ -43,6 +43,7 @@ export function SelectPicker({
   value,
 }: SelectPickerProps) {
   const portalContainerRef = useRef<HTMLSpanElement>(null)
+  const detailed = options.some((option) => option.description)
   return (
     <span
       ref={portalContainerRef}
@@ -82,8 +83,15 @@ export function SelectPicker({
           >
             <Select.Popup
               data-slot="select-picker-popup"
-              {...stylex.props(styles.popup)}
+              {...stylex.props(styles.popup, detailed && styles.popupDetailed)}
             >
+              <div
+                aria-hidden="true"
+                data-slot="select-picker-label"
+                {...stylex.props(styles.popupLabel)}
+              >
+                {label}
+              </div>
               <Select.List {...stylex.props(styles.list)}>
                 {options.map((option) => (
                   <Select.Item
@@ -93,6 +101,7 @@ export function SelectPicker({
                     className={(state) =>
                       stylex.props(
                         styles.item,
+                        detailed && styles.itemDetailed,
                         state.highlighted && styles.itemHighlighted,
                         state.selected && styles.itemSelected,
                       ).className
@@ -101,12 +110,18 @@ export function SelectPicker({
                     <Select.ItemText {...stylex.props(styles.itemCopy)}>
                       <span>{option.label}</span>
                       {option.description && (
-                        <span {...stylex.props(styles.description)}>
+                        <span
+                          data-slot="select-picker-description"
+                          {...stylex.props(styles.description)}
+                        >
                           {option.description}
                         </span>
                       )}
                     </Select.ItemText>
-                    <Select.ItemIndicator aria-hidden="true">
+                    <Select.ItemIndicator
+                      aria-hidden="true"
+                      {...stylex.props(styles.indicator)}
+                    >
                       <Check
                         strokeWidth={1.75}
                         {...stylex.props(styles.icon)}
@@ -214,6 +229,18 @@ const styles = stylex.create({
     outline: 'none',
     overflow: 'hidden',
   },
+  popupDetailed: {
+    inlineSize: 'min(18rem, var(--available-width))',
+  },
+  popupLabel: {
+    color: colors.textMuted,
+    fontFamily: type.family,
+    fontSize: type.sizeCaption,
+    fontWeight: type.weightMedium,
+    paddingBlockEnd: space.x1,
+    paddingBlockStart: space.x3,
+    paddingInline: space.x3,
+  },
   list: {
     maxBlockSize: 'min(20rem, var(--available-height))',
     overflowY: 'auto',
@@ -236,11 +263,13 @@ const styles = stylex.create({
     paddingInline: space.x2,
     userSelect: 'none',
   },
+  itemDetailed: {
+    minBlockSize: '3.25rem',
+  },
   itemHighlighted: {
     backgroundColor: colors.surfaceHover,
   },
   itemSelected: {
-    backgroundColor: colors.surfaceSelected,
     color: colors.text,
     fontWeight: type.weightMedium,
   },
@@ -254,5 +283,12 @@ const styles = stylex.create({
     color: colors.textMuted,
     fontSize: type.sizeCaption,
     fontWeight: type.weightRegular,
+    lineHeight: type.lineCompact,
+  },
+  indicator: {
+    alignItems: 'center',
+    color: colors.text,
+    display: 'inline-flex',
+    flexShrink: 0,
   },
 })
