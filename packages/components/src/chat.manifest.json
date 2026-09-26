@@ -5,7 +5,18 @@
   "items": [
     {
       "id": "chat-turn",
-      "components": ["Turn", "TurnStatus", "MessageParts"],
+      "components": [
+        "Turn",
+        "TurnStatus",
+        "MessageParts",
+        "Thread",
+        "Message",
+        "Response",
+        "Action",
+        "Actions",
+        "Suggestion",
+        "Suggestions"
+      ],
       "summary": "Renders one stable user/assistant turn and dispatches every normalized message part without owning runtime state.",
       "useWhen": [
         "Rendering protocol-neutral chat turns from stable message and part IDs"
@@ -39,7 +50,7 @@
     },
     {
       "id": "chat-markdown-reasoning",
-      "components": ["Markdown", "Reasoning"],
+      "components": ["Markdown", "Reasoning", "CodeBlock"],
       "summary": "Renders sanitized streaming Markdown and explicitly disclosed reasoning with terminal state.",
       "useWhen": [
         "Displaying model-authored prose or reasoning from a normalized part"
@@ -69,7 +80,15 @@
     },
     {
       "id": "chat-tool-activity",
-      "components": ["ToolActivity", "ContextToolGroup", "GenericTool"],
+      "components": [
+        "ToolActivity",
+        "ContextToolGroup",
+        "GenericTool",
+        "Activity",
+        "ActivitySummary",
+        "ActivityList",
+        "Loader"
+      ],
       "summary": "Presents one compact tool lifecycle line with progressively disclosed, lossless evidence.",
       "useWhen": [
         "Showing normalized tool input, execution, permission, result, error, or cancellation"
@@ -106,6 +125,7 @@
         "ContextTool",
         "ShellTool",
         "FileChangeTool",
+        "ImageGenerationTool",
         "TaskTool",
         "WebTool",
         "SkillTool"
@@ -156,7 +176,9 @@
       "id": "chat-requests",
       "components": [
         "RequestRegion",
+        "PermissionRequest",
         "PermissionPrompt",
+        "QuestionAnswerSummary",
         "QuestionRequest",
         "TodoDock"
       ],
@@ -191,6 +213,7 @@
       "id": "chat-composer",
       "components": [
         "ChatComposer",
+        "Composer",
         "AttachmentTray",
         "ReferenceTray",
         "PromptHistory"
@@ -233,6 +256,59 @@
       ],
       "nonExamples": [
         "Show an attachment or follow-up control unsupported by the runtime"
+      ]
+    },
+    {
+      "id": "chat-structured-output",
+      "components": [
+        "Artifact",
+        "GeneratedImage",
+        "CitationList",
+        "InlineCitation",
+        "Diff",
+        "Outcome",
+        "Plan"
+      ],
+      "summary": "Presents generated artifacts, provenance, changes, plans, and terminal outcomes from normalized application state.",
+      "useWhen": [
+        "Displaying structured model or tool output with explicit availability and lifecycle state"
+      ],
+      "avoidWhen": [
+        "Parsing provider events or inventing actions unsupported by the application"
+      ],
+      "anatomy": [
+        "artifact",
+        "generated-image",
+        "citation-list",
+        "diff",
+        "plan",
+        "outcome"
+      ],
+      "states": [
+        "generating",
+        "ready",
+        "failed",
+        "queued",
+        "active",
+        "complete"
+      ],
+      "actions": [
+        "open available artifact",
+        "open validated citation",
+        "toggle file change"
+      ],
+      "sideEffects": [
+        "Named callbacks may open application-owned artifacts or validated HTTP(S) sources"
+      ],
+      "accessibility": [
+        "Structured regions use explicit headings and lifecycle labels",
+        "File changes and generated images retain meaningful text alternatives"
+      ],
+      "examples": [
+        "Render an available generated image with dimensions and an application-owned open callback"
+      ],
+      "nonExamples": [
+        "Report an artifact as opened without displaying or navigating to its content"
       ]
     },
     {

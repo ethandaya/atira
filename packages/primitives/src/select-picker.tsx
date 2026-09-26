@@ -225,6 +225,9 @@ const styles = stylex.create({
     borderWidth: '1px',
     boxShadow: shadows.overlay,
     color: colors.text,
+    display: 'flex',
+    flexDirection: 'column',
+    maxBlockSize: 'var(--available-height)',
     minInlineSize: 'max(10rem, var(--anchor-width))',
     outline: 'none',
     overflow: 'hidden',
@@ -234,6 +237,10 @@ const styles = stylex.create({
   },
   popupLabel: {
     color: colors.textMuted,
+    display: {
+      default: 'block',
+      '@media (hover: none)': 'none',
+    },
     fontFamily: type.family,
     fontSize: type.sizeCaption,
     fontWeight: type.weightMedium,
@@ -243,6 +250,7 @@ const styles = stylex.create({
   },
   list: {
     maxBlockSize: 'min(20rem, var(--available-height))',
+    minBlockSize: 0,
     overflowY: 'auto',
     padding: space.x1,
   },
@@ -264,7 +272,14 @@ const styles = stylex.create({
     userSelect: 'none',
   },
   itemDetailed: {
-    minBlockSize: '3.25rem',
+    minBlockSize: {
+      default: '3.25rem',
+      '@media (hover: none)': '2.75rem',
+    },
+    paddingBlock: {
+      default: space.x2,
+      '@media (hover: none)': space.x1,
+    },
   },
   itemHighlighted: {
     backgroundColor: colors.surfaceHover,

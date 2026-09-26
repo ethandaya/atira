@@ -36,6 +36,38 @@ describe('Timeline', () => {
     expect(container.querySelector('[data-virtualized="true"]')).not.toBeNull()
   })
 
+  it('does not offer history actions without a loading callback', () => {
+    const { rerender } = render(
+      <Timeline
+        activity={{ status: 'idle' }}
+        history={{ hasPrevious: true, status: 'ready' }}
+        label="Conversation"
+        turns={[]}
+      />,
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Load earlier messages' }),
+    ).toBeNull()
+
+    rerender(
+      <Timeline
+        activity={{ status: 'idle' }}
+        history={{
+          canRetry: true,
+          error: {
+            kind: 'connection',
+            message: 'History unavailable.',
+            retryable: true,
+          },
+          status: 'failed',
+        }}
+        label="Conversation"
+        turns={[]}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
   it('recalculates the virtual window when estimates change without a new transcript', () => {
     const turns = Array.from({ length: 500 }, (_, index) => turn(index))
     const view = (estimatedTurnHeight: number) => (

@@ -1,35 +1,90 @@
-import { Button } from '@atira/primitives'
 import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { Button, Dialog, Status, VisuallyHidden } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
-import { useEffect, useRef, useState } from 'react'
+import {
+  CircleCheck,
+  CircleUserRound,
+  Clock3,
+  TriangleAlert,
+} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { z } from 'zod'
 
-import { authStatusSchema } from '../chat-contract.mjs'
+import { authStatusSchema } from '../chat-contract.ts'
 import type { NanocodexChatStore } from './nanocodex-store'
 
 type AuthStatus = z.infer<typeof authStatusSchema>
+const authChannelName = 'atira:chatgpt-auth'
 
-function useSigninLifecycle(store: NanocodexChatStore) {
+export function useChatGptSignin(store: NanocodexChatStore) {
   const [status, setStatus] = useState<AuthStatus>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const statusRef = useRef<AuthStatus | undefined>(undefined)
   const manualController = useRef<AbortController>(null)
+  const refreshController = useRef<AbortController>(null)
+  const updateStatus = useCallback((next: AuthStatus) => {
+    statusRef.current = next
+    setStatus(next)
+  }, [])
 
-  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect, react-doctor/no-set-state-after-await-in-effect -- This abortable status request publishes only after initialization and a cancellation check.
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect, react-doctor/no-set-state-after-await-in-effect -- This abortable request publishes server-owned state before refreshing an authenticated runtime.
   useEffect(() => {
     const controller = new AbortController()
     void requestStatus('GET', controller.signal)
       .then(async (next) => {
-        await store.initialize()
         controller.signal.throwIfAborted()
-        setStatus(next)
+        updateStatus(next)
+        if (next.state === 'authenticated') await store.initialize()
+        controller.signal.throwIfAborted()
       })
       .catch(() => {
         if (!controller.signal.aborted)
           setError('Could not check ChatGPT sign-in. Try again.')
       })
     return () => controller.abort()
-  }, [store])
+  }, [store, updateStatus])
+
+  // Re-read the server-owned session when another tab changes it or this tab returns to the foreground.
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- Browser lifecycle events invalidate the local status snapshot.
+  useEffect(() => {
+    const channel = new BroadcastChannel(authChannelName)
+
+    function refresh() {
+      if (manualController.current || statusRef.current?.state === 'pending')
+        return
+      refreshController.current?.abort()
+      const controller = new AbortController()
+      refreshController.current = controller
+      void requestStatus('GET', controller.signal)
+        .then(async (next) => {
+          if (next.state !== 'authenticated') updateStatus(next)
+          await store.initialize()
+          controller.signal.throwIfAborted()
+          updateStatus(next)
+          setError('')
+        })
+        .catch(() => {
+          if (!controller.signal.aborted)
+            setError('Could not check ChatGPT sign-in. Try again.')
+        })
+    }
+
+    function refreshVisible() {
+      if (document.visibilityState === 'visible') refresh()
+    }
+
+    channel.addEventListener('message', refresh)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refreshVisible)
+    return () => {
+      refreshController.current?.abort()
+      refreshController.current = null
+      channel.close()
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refreshVisible)
+    }
+  }, [store, updateStatus])
 
   // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- This effect owns and aborts device-code polling; its signal guards state and conversation reset after awaited work.
   useEffect(() => {
@@ -42,11 +97,11 @@ function useSigninLifecycle(store: NanocodexChatStore) {
             if (next.state === 'authenticated') {
               await store.initialize()
               controller.signal.throwIfAborted()
-              setStatus(next)
+              updateStatus(next)
               store.newConversation()
               return
             }
-            setStatus(next)
+            updateStatus(next)
           })
           .catch(() => {
             if (!controller.signal.aborted)
@@ -59,12 +114,14 @@ function useSigninLifecycle(store: NanocodexChatStore) {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [status, store, error, busy])
+  }, [status, store, error, busy, updateStatus])
 
   useEffect(
     () => () => {
       manualController.current?.abort()
       manualController.current = null
+      refreshController.current?.abort()
+      refreshController.current = null
     },
     [],
   )
@@ -77,13 +134,21 @@ function useSigninLifecycle(store: NanocodexChatStore) {
     setError('')
     try {
       const next = await requestStatus(method, controller.signal)
-      if (method === 'DELETE' || next.state === 'authenticated') {
+      if (method === 'DELETE') {
+        updateStatus(next)
+        broadcastAuthChange()
         await store.initialize()
         controller.signal.throwIfAborted()
-        setStatus(next)
         store.newConversation()
+      } else if (next.state === 'authenticated') {
+        await store.initialize()
+        controller.signal.throwIfAborted()
+        updateStatus(next)
+        store.newConversation()
+        if (method === 'POST') broadcastAuthChange()
       } else {
-        setStatus(next)
+        updateStatus(next)
+        if (method === 'POST') broadcastAuthChange()
       }
     } catch {
       if (!controller.signal.aborted)
@@ -101,95 +166,225 @@ function useSigninLifecycle(store: NanocodexChatStore) {
 }
 
 export function ChatGptSignin({
-  store,
   disabled,
+  signin,
 }: {
-  store: NanocodexChatStore
   disabled: boolean
+  signin: ReturnType<typeof useChatGptSignin>
 }) {
-  const { status, busy, error, change } = useSigninLifecycle(store)
+  const { status, busy, error, change } = signin
+  const presentation = signinPresentation(status, error)
+
+  const actions = (
+    <SigninActions
+      busy={busy}
+      change={change}
+      disabled={disabled}
+      error={error}
+      status={status}
+    />
+  )
 
   return (
-    <section aria-label="ChatGPT sign-in" {...stylex.props(styles.root)}>
-      <SigninControl
-        status={status}
-        busy={busy}
-        disabled={disabled}
-        error={error}
-        change={change}
-      />
-      {status?.state === 'expired' && (
-        <span role="status">Sign-in expired. Start again.</span>
-      )}
-      {error && (
-        <>
-          <span role="alert">{error}</span>
-          <Button
-            variant="quiet"
-            disabled={busy || disabled}
-            onClick={() => void change('GET')}
-          >
-            Retry sign-in status
-          </Button>
-        </>
-      )}
-    </section>
+    <Dialog
+      actions={actions}
+      closeLabel="Done"
+      description={presentation.description}
+      title={presentation.title}
+      trigger={
+        <span {...stylex.props(styles.trigger)}>
+          <span aria-hidden="true" {...stylex.props(styles.triggerIcon)}>
+            {presentation.triggerIcon}
+          </span>
+          <span>{presentation.triggerLabel}</span>
+          <VisuallyHidden> ChatGPT</VisuallyHidden>
+        </span>
+      }
+    >
+      <SigninBody error={error} status={status} />
+    </Dialog>
   )
 }
 
-function SigninControl({
-  status,
+function signinPresentation(status: AuthStatus | undefined, error: string) {
+  let presentation: {
+    description: string
+    title: string
+    triggerIcon: ReactNode
+    triggerLabel: string
+  }
+  if (status?.state === 'pending') {
+    presentation = {
+      description: 'Enter the device code in ChatGPT, then return here.',
+      title: 'Finish signing in',
+      triggerIcon: <Clock3 size={16} strokeWidth={1.75} />,
+      triggerLabel: 'Pending',
+    }
+  } else if (status?.state === 'authenticated') {
+    presentation = {
+      description: 'This browser session can use the Nanocodex runtime.',
+      title: 'ChatGPT connected',
+      triggerIcon: <CircleCheck size={16} strokeWidth={1.75} />,
+      triggerLabel: 'Connected',
+    }
+  } else {
+    presentation = {
+      description: 'Connect ChatGPT to use the Nanocodex runtime.',
+      title: 'ChatGPT sign-in',
+      triggerIcon: <CircleUserRound size={16} strokeWidth={1.75} />,
+      triggerLabel: status ? 'Sign in' : 'Checking',
+    }
+  }
+  if (!error) return presentation
+  return {
+    ...presentation,
+    description: 'ChatGPT sign-in could not be updated.',
+    triggerIcon: <TriangleAlert size={16} strokeWidth={1.75} />,
+    triggerLabel: 'Sign-in error',
+  }
+}
+
+function SigninActions({
   busy,
+  change,
   disabled,
   error,
-  change,
+  status,
 }: {
-  status: AuthStatus | undefined
   busy: boolean
+  change: (method: 'POST' | 'DELETE' | 'GET') => Promise<void>
   disabled: boolean
   error: string
+  status: AuthStatus | undefined
+}) {
+  const actionDisabled = busy || disabled
+  if (status?.state === 'pending') {
+    return (
+      <PendingSigninActions
+        busy={busy}
+        change={change}
+        disabled={actionDisabled}
+        error={error}
+      />
+    )
+  }
+  if (status?.state === 'authenticated') {
+    return (
+      <Button
+        disabled={actionDisabled}
+        onClick={() => void change('DELETE')}
+        size="compact"
+        variant="danger"
+      >
+        {busy ? 'Signing out…' : 'Sign out'}
+      </Button>
+    )
+  }
+  if (!status && !error) return null
+  return (
+    <Button
+      disabled={actionDisabled}
+      onClick={() => void change('POST')}
+      size="compact"
+      variant="primary"
+    >
+      {busy ? 'Starting…' : error ? 'Try again' : 'Continue with ChatGPT'}
+    </Button>
+  )
+}
+
+function PendingSigninActions({
+  busy,
+  change,
+  disabled,
+  error,
+}: {
+  busy: boolean
   change: (method: 'POST' | 'DELETE' | 'GET') => Promise<void>
+  disabled: boolean
+  error: string
+}) {
+  return (
+    <>
+      {error ? (
+        <Button
+          disabled={disabled}
+          onClick={() => void change('GET')}
+          size="compact"
+          variant="primary"
+        >
+          {busy ? 'Checking…' : 'Retry sign-in status'}
+        </Button>
+      ) : null}
+      <Button
+        disabled={disabled}
+        onClick={() => void change('DELETE')}
+        size="compact"
+        variant="quiet"
+      >
+        Cancel sign-in
+      </Button>
+    </>
+  )
+}
+
+function SigninBody({
+  error,
+  status,
+}: {
+  error: string
+  status: AuthStatus | undefined
+}) {
+  return (
+    <div {...stylex.props(styles.body)}>
+      {error ? (
+        <Status role="alert" tone="danger">
+          {error}
+        </Status>
+      ) : null}
+      <SigninStatus error={error} status={status} />
+    </div>
+  )
+}
+
+function SigninStatus({
+  error,
+  status,
+}: {
+  error: string
+  status: AuthStatus | undefined
 }) {
   if (status?.state === 'pending') {
     return (
       <>
+        <span {...stylex.props(styles.code)}>{status.userCode}</span>
         <p {...stylex.props(styles.copy)} role="status">
-          Enter <strong>{status.userCode}</strong> at{' '}
+          Open{' '}
           <a
             href={status.verificationUrl}
             target="_blank"
             rel="noopener noreferrer"
+            {...stylex.props(styles.link)}
           >
-            ChatGPT sign-in
-          </a>
-          . Waiting for approval…
+            ChatGPT device sign-in
+          </a>{' '}
+          and enter this code. Waiting for approval…
         </p>
-        <Button
-          variant="quiet"
-          disabled={busy || disabled}
-          onClick={() => void change('DELETE')}
-        >
-          Cancel sign-in
-        </Button>
       </>
     )
   }
-
-  const method = status?.state === 'authenticated' ? 'DELETE' : 'POST'
-  let label = 'Sign in with ChatGPT'
-  if (busy) label = 'Updating sign-in…'
-  else if (!status && !error) label = 'Checking sign-in…'
-  else if (status?.state === 'authenticated') label = 'Sign out of ChatGPT'
-
-  return (
-    <Button
-      variant="quiet"
-      disabled={busy || disabled || (!status && !error)}
-      onClick={() => void change(method)}
-    >
-      {label}
-    </Button>
-  )
+  if (status?.state === 'authenticated') return <Status>Connected</Status>
+  if (status?.state === 'expired')
+    return <Status tone="danger">Sign-in expired. Start again.</Status>
+  if (status && !error) {
+    return (
+      <p {...stylex.props(styles.copy)}>
+        ChatGPT credentials stay in server memory for this browser session.
+      </p>
+    )
+  }
+  if (!error) return <Status>Checking sign-in…</Status>
+  return null
 }
 
 async function requestStatus(method: string, signal?: AbortSignal) {
@@ -203,18 +398,44 @@ async function requestStatus(method: string, signal?: AbortSignal) {
   return status
 }
 
+function broadcastAuthChange() {
+  const channel = new BroadcastChannel(authChannelName)
+  channel.postMessage('changed')
+  channel.close()
+}
+
 const styles = stylex.create({
-  root: {
+  trigger: {
     alignItems: 'center',
     display: 'flex',
-    flexWrap: 'wrap',
     gap: space.x2,
-    justifyContent: 'center',
-    paddingBlock: space.x2,
-    paddingInline: space.x4,
-    color: colors.textMuted,
-    fontSize: type.sizeCaption,
-    lineHeight: type.lineBody,
   },
-  copy: { margin: 0 },
+  triggerIcon: { alignItems: 'center', display: 'inline-flex' },
+  body: {
+    alignItems: 'flex-start',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x4,
+  },
+  code: {
+    backgroundColor: colors.surfaceInset,
+    borderRadius: '0.5rem',
+    color: colors.text,
+    fontFamily: type.familyMono,
+    fontSize: type.sizeHeading,
+    fontWeight: type.weightStrong,
+    letterSpacing: '0.08em',
+    padding: `${space.x3} ${space.x4}`,
+  },
+  copy: {
+    color: colors.textMuted,
+    fontSize: type.sizeSmall,
+    lineHeight: type.lineBody,
+    margin: 0,
+  },
+  link: {
+    color: colors.text,
+    textDecorationThickness: '1px',
+    textUnderlineOffset: '3px',
+  },
 })

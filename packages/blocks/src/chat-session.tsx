@@ -18,7 +18,7 @@ import type {
   DraftAttachment,
   DraftSegment,
 } from '@atira/foundations/chat'
-import { colors, space } from '@atira/foundations/tokens.stylex'
+import { space } from '@atira/foundations/tokens.stylex'
 import { Button } from '@atira/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { RotateCcw } from 'lucide-react'
@@ -81,7 +81,9 @@ export function ChatSession({
       : undefined
   const resolvedTurnActions = useMemo(
     () =>
-      renderTurnActions || showRevertActions || retryableTurnId
+      renderTurnActions ||
+      (showRevertActions && store.revert) ||
+      retryableTurnId
         ? (turn: ChatTurn) =>
             !renderTurnActions &&
             !showRevertActions &&
@@ -91,7 +93,7 @@ export function ChatSession({
                 {turn.id === retryableTurnId && (
                   <Button
                     disabled={snapshot.activity.status !== 'idle'}
-                    onClick={() => run(store.retryTurn!(turn.id))}
+                    onClick={() => run(store.retryTurn?.(turn.id))}
                     size="compact"
                     variant="quiet"
                   >
@@ -99,16 +101,18 @@ export function ChatSession({
                     Retry response
                   </Button>
                 )}
-                {showRevertActions && turn.state.status !== 'queued' && (
-                  <Button
-                    aria-label={`Revert prompt ${turn.id}`}
-                    onClick={() => run(store.revert(turn.id))}
-                    size="compact"
-                    variant="quiet"
-                  >
-                    Revert
-                  </Button>
-                )}
+                {showRevertActions &&
+                  store.revert &&
+                  turn.state.status !== 'queued' && (
+                    <Button
+                      aria-label={`Revert prompt ${turn.id}`}
+                      onClick={() => run(store.revert?.(turn.id))}
+                      size="compact"
+                      variant="quiet"
+                    >
+                      Revert
+                    </Button>
+                  )}
               </>
             )
         : undefined,
@@ -146,48 +150,65 @@ export function ChatSession({
           {snapshot.submissionError && (
             <SubmissionError
               error={snapshot.submissionError}
-              onDismiss={() => store.dismissSubmissionError()}
-              onRetry={() => run(store.retrySubmission())}
+              {...(store.dismissSubmissionError
+                ? { onDismiss: () => store.dismissSubmissionError?.() }
+                : {})}
+              {...(store.retrySubmission
+                ? { onRetry: () => run(store.retrySubmission?.()) }
+                : {})}
             />
           )}
           <RequestRegion
             draftRevision={snapshot.composer.revision}
-            onPermissionDecision={(request, decision) =>
-              run(
-                store.decidePermission({
-                  decision,
-                  originSessionId: request.origin.sessionId,
-                  requestId: request.id,
-                }),
-              )
-            }
-            onQuestionAnswer={(request, response) =>
-              run(
-                store.answerQuestion({
-                  originSessionId: request.origin.sessionId,
-                  requestId: request.id,
-                  response,
-                }),
-              )
-            }
-            onQuestionReject={(request) =>
-              run(
-                store.rejectQuestion({
-                  originSessionId: request.origin.sessionId,
-                  requestId: request.id,
-                }),
-              )
-            }
+            {...(store.decidePermission
+              ? {
+                  onPermissionDecision: (request, decision) =>
+                    run(
+                      store.decidePermission?.({
+                        decision,
+                        originSessionId: request.origin.sessionId,
+                        requestId: request.id,
+                      }),
+                    ),
+                }
+              : {})}
+            {...(store.answerQuestion
+              ? {
+                  onQuestionAnswer: (request, response) =>
+                    run(
+                      store.answerQuestion?.({
+                        originSessionId: request.origin.sessionId,
+                        requestId: request.id,
+                        response,
+                      }),
+                    ),
+                }
+              : {})}
+            {...(store.rejectQuestion
+              ? {
+                  onQuestionReject: (request) =>
+                    run(
+                      store.rejectQuestion?.({
+                        originSessionId: request.origin.sessionId,
+                        requestId: request.id,
+                      }),
+                    ),
+                }
+              : {})}
             permissionDecisions={snapshot.capabilities.permissionDecisions}
             requests={snapshot.requests}
-            {...(reverted === undefined
+            {...(reverted === undefined ||
+            !store.dismissReverted ||
+            !store.restoreReverted
               ? {}
               : {
                   reverted: (
                     <RevertDock
-                      onDismiss={() => run(store.dismissReverted(reverted))}
-                      onRedo={() => run(store.redoReverted(reverted))}
-                      onRestore={() => run(store.restoreReverted(reverted))}
+                      onDismiss={() => run(store.dismissReverted?.(reverted))}
+                      {...(store.redoReverted
+                        ? { onRedo: () => run(store.redoReverted?.(reverted)) }
+                        : {})}
+                      onRestore={() => run(store.restoreReverted?.(reverted))}
                       reverted={reverted}
                     />
                   ),
@@ -196,9 +217,15 @@ export function ChatSession({
           >
             <QueueList
               items={snapshot.queue}
-              onEdit={(item) => store.editQueued(item)}
-              onRemove={(item) => store.removeQueued(item)}
-              onRetry={(item) => run(store.retryQueued(item))}
+              {...(store.editQueued
+                ? { onEdit: (item) => store.editQueued?.(item) }
+                : {})}
+              {...(store.removeQueued
+                ? { onRemove: (item) => store.removeQueued?.(item) }
+                : {})}
+              {...(store.retryQueued
+                ? { onRetry: (item) => run(store.retryQueued?.(item)) }
+                : {})}
             />
             <ChatComposer
               {...(accept === undefined ? {} : { accept })}
@@ -261,7 +288,9 @@ export function ChatSession({
       {...stylex.props(styles.root)}
     >
       <ConnectionNotice
-        onRetry={() => run(store.reconnect())}
+        {...(store.reconnect
+          ? { onRetry: () => run(store.reconnect?.()) }
+          : {})}
         state={snapshot.connection}
       />
       <div data-slot="chat-session-timeline" {...stylex.props(styles.timeline)}>
@@ -271,7 +300,13 @@ export function ChatSession({
           {...(empty === undefined ? {} : { empty })}
           history={snapshot.history}
           label={`${label} transcript`}
-          onLoadPrevious={() => store.loadPrevious()}
+          {...(store.loadPrevious
+            ? {
+                onLoadPrevious: async () => {
+                  await store.loadPrevious?.()
+                },
+              }
+            : {})}
           {...(resolvedTurnActions === undefined
             ? {}
             : { renderTurnActions: resolvedTurnActions })}
@@ -286,13 +321,13 @@ export function ChatSession({
   )
 }
 
-function run(task: Promise<void>) {
-  void task.catch(() => undefined)
+function run(task: Promise<void> | undefined) {
+  void task?.catch(() => undefined)
 }
 
 const styles = stylex.create({
   root: {
-    backgroundColor: colors.canvas,
+    backgroundColor: 'transparent',
     blockSize: '100%',
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr)',
@@ -307,7 +342,7 @@ const styles = stylex.create({
     minBlockSize: 0,
   },
   dock: {
-    backgroundColor: colors.canvas,
+    backgroundColor: 'transparent',
     gridRow: 3,
     paddingBlockEnd: 'max(env(safe-area-inset-bottom), 0px)',
   },

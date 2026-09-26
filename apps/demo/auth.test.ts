@@ -1,16 +1,18 @@
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
+import type { IncomingHttpHeaders } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 import { Agent } from 'nanocodex/node'
 import { expect, it, vi } from 'vitest'
 import { WebSocketServer } from 'ws'
 
-import { DemoAuth } from './auth.mjs'
-import { authStatusSchema } from './chat-contract.mjs'
+import { DemoAuth } from './auth.ts'
+import { authStatusSchema } from './chat-contract.ts'
 
 it('uses native device login and ChatGPT transport without exposing credentials or sharing accounts', async () => {
   const reset = vi.fn(async () => {})
-  const requests = []
+  const requests: string[] = []
   const accessToken = jwt({ exp: Math.floor(Date.now() / 1000) + 3600 })
   const auth = new DemoAuth({
     reset,
@@ -45,7 +47,7 @@ it('uses native device login and ChatGPT transport without exposing credentials 
   const otherId = randomUUID()
   const provider = new WebSocketServer({ host: '127.0.0.1', port: 0 })
   await once(provider, 'listening')
-  const headers = []
+  const headers: IncomingHttpHeaders[] = []
   provider.on('connection', (socket, request) => {
     headers.push(request.headers)
     socket.on('message', () =>
@@ -69,8 +71,10 @@ it('uses native device login and ChatGPT transport without exposing credentials 
       ),
     )
   })
-  let agent
-  let turn
+  let agent: Awaited<ReturnType<typeof Agent.create>> | undefined
+  let turn:
+    | ReturnType<Awaited<ReturnType<typeof Agent.create>>['turn']['prompt']>
+    | undefined
   try {
     const [first, duplicate] = await Promise.all([
       auth.change(id, 'start'),
@@ -81,6 +85,7 @@ it('uses native device login and ChatGPT transport without exposing credentials 
       state: 'pending',
       userCode: 'DEMO-CODE',
     })
+    if (first.state !== 'pending') throw new Error('Expected pending login')
     expect(requests).toEqual(['/api/accounts/deviceauth/usercode'])
     expect(await auth.change(otherId, 'status')).toEqual({
       state: 'signed_out',
@@ -100,7 +105,7 @@ it('uses native device login and ChatGPT transport without exposing credentials 
       '/oauth/token',
     ])
 
-    const endpoint = `127.0.0.1:${provider.address().port}`
+    const endpoint = `127.0.0.1:${(provider.address() as AddressInfo).port}`
     agent = await Agent.create({
       transport: auth.transport(id, undefined, {
         apiBaseUrl: `http://${endpoint}`,
@@ -115,8 +120,8 @@ it('uses native device login and ChatGPT transport without exposing credentials 
     const result = await turn.result()
     expect(result.finalMessage).toBe('Subscription works')
     result.dispose()
-    expect(headers[0].authorization).toBe(`Bearer ${accessToken}`)
-    expect(headers[0]['chatgpt-account-id']).toBe('account-secret')
+    expect(headers[0]?.authorization).toBe(`Bearer ${accessToken}`)
+    expect(headers[0]?.['chatgpt-account-id']).toBe('account-secret')
     await agent.session.shutdown()
     agent = undefined
 
@@ -134,14 +139,14 @@ it('uses native device login and ChatGPT transport without exposing credentials 
 }, 15_000)
 
 it('serializes account changes with turn acquisition without blocking other browsers', async () => {
-  const operations = []
+  const operations: string[] = []
   const auth = new DemoAuth({
     reset: async (id) => {
       operations.push(`reset:${id}`)
     },
   })
-  let finish
-  const gate = new Promise((resolve) => {
+  let finish: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
     finish = resolve
   })
   try {
@@ -164,6 +169,6 @@ it('serializes account changes with turn acquisition without blocking other brow
   }
 })
 
-function jwt(payload) {
+function jwt(payload: Record<string, unknown>) {
   return `header.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.signature`
 }

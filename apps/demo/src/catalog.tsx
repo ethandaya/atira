@@ -1,53 +1,7 @@
 import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 
-import { CodeBlockExample } from './catalog-examples/code-block-example'
-import codeBlockSource from './catalog-examples/code-block-example.tsx?raw'
-import { ComposerExample } from './catalog-examples/composer-example'
-import composerSource from './catalog-examples/composer-example.tsx?raw'
-import { MessageExample } from './catalog-examples/message-example'
-import messageSource from './catalog-examples/message-example.tsx?raw'
-import { ReasoningExample } from './catalog-examples/reasoning-example'
-import reasoningSource from './catalog-examples/reasoning-example.tsx?raw'
-import { RequestsExample } from './catalog-examples/requests-example'
-import requestsSource from './catalog-examples/requests-example.tsx?raw'
-import { ToolActivityExample } from './catalog-examples/tool-activity-example'
-import toolActivitySource from './catalog-examples/tool-activity-example.tsx?raw'
-
-export type CatalogEntry = {
-  accessibility: string
-  description: string
-  family: string
-  id: CatalogId
-  name: string
-  props: string
-}
-
-export type CatalogId =
-  | 'message'
-  | 'reasoning'
-  | 'tool-activity'
-  | 'requests'
-  | 'composer'
-  | 'code-block'
-
-const sources: Record<CatalogId, string> = {
-  'code-block': codeBlockSource,
-  composer: composerSource,
-  message: messageSource,
-  reasoning: reasoningSource,
-  requests: requestsSource,
-  'tool-activity': toolActivitySource,
-}
-
-function Example({ id, compact }: { id: CatalogId; compact: boolean }) {
-  if (id === 'message') return <MessageExample />
-  if (id === 'reasoning') return <ReasoningExample compact={compact} />
-  if (id === 'tool-activity') return <ToolActivityExample compact={compact} />
-  if (id === 'requests') return <RequestsExample compact={compact} />
-  if (id === 'composer') return <ComposerExample compact={compact} />
-  return <CodeBlockExample compact={compact} />
-}
+import { catalog, type CatalogId } from './catalog-definition'
 
 export function CatalogPreview({
   id,
@@ -58,10 +12,13 @@ export function CatalogPreview({
   compact?: boolean
   showSource?: boolean
 }) {
+  const entry = catalog.find((item) => item.id === id)
+  if (!entry) throw new Error(`Unknown catalog example: ${id}`)
+  const Example = entry.component
   return (
     <>
       <div {...stylex.props(styles.preview, compact && styles.compact)}>
-        <Example id={id} compact={compact} />
+        <Example />
       </div>
       {showSource && (
         <section aria-labelledby="code-heading" {...stylex.props(styles.usage)}>
@@ -74,7 +31,7 @@ export function CatalogPreview({
             tabIndex={0}
             {...stylex.props(styles.source)}
           >
-            <code>{sources[id]}</code>
+            <code>{entry.source}</code>
           </pre>
         </section>
       )}

@@ -1,21 +1,29 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
-import { createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 import { expect, it } from 'vitest'
 import { WebSocketServer } from 'ws'
+import type { StreamEvent } from './chat-contract.ts'
+
+type ProviderRequest = {
+  generate?: boolean
+  input: Record<string, unknown>[]
+  model?: string
+}
 
 it(
   'runs Nanocodex through an isolated Responses transport and replays turns',
   { timeout: 30_000 },
   async () => {
-    const providerRequests = []
+    const providerRequests: ProviderRequest[] = []
     const provider = new WebSocketServer({ host: '127.0.0.1', port: 0 })
     await once(provider, 'listening')
     provider.on('connection', (socket) =>
       socket.on('message', (bytes) => {
-        const body = JSON.parse(bytes.toString())
+        const body = JSON.parse(bytes.toString()) as ProviderRequest
         if (body.generate === false) {
           socket.send(
             JSON.stringify({
@@ -78,22 +86,26 @@ it(
         )
       }),
     )
-    const providerPort = provider.address().port
+    const providerPort = (provider.address() as AddressInfo).port
 
     const port = await reservePort()
-    const child = spawn(process.execPath, ['server.mjs'], {
-      cwd: new URL('.', import.meta.url),
-      env: {
-        ...process.env,
-        HOST: '127.0.0.1',
-        NANOCODEX_API_BASE_URL: `http://127.0.0.1:${providerPort}/v1`,
-        NANOCODEX_WEBSOCKET_URL: `ws://127.0.0.1:${providerPort}/v1/responses`,
-        NANOCODEX_MODEL: 'gpt-6-sol',
-        OPENAI_API_KEY: 'isolated-test-key',
-        PORT: String(port),
+    const child = spawn(
+      process.execPath,
+      ['--experimental-strip-types', 'server.ts'],
+      {
+        cwd: new URL('.', import.meta.url),
+        env: {
+          ...process.env,
+          HOST: '127.0.0.1',
+          NANOCODEX_API_BASE_URL: `http://127.0.0.1:${providerPort}/v1`,
+          NANOCODEX_WEBSOCKET_URL: `ws://127.0.0.1:${providerPort}/v1/responses`,
+          NANOCODEX_MODEL: 'gpt-6-sol',
+          OPENAI_API_KEY: 'isolated-test-key',
+          PORT: String(port),
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    )
     let output = ''
     child.stdout.on('data', (chunk) => {
       output += chunk
@@ -115,10 +127,13 @@ it(
         ],
         runtime: 'Nanocodex',
       })
-      const cookie = runtime.headers.get('set-cookie').split(';')[0]
+      const setCookie = runtime.headers.get('set-cookie')
+      if (!setCookie) throw new Error('Runtime did not set a session cookie')
+      const cookie = setCookie.split(';')[0]
+      if (!cookie) throw new Error('Runtime returned an empty session cookie')
       const conversationId = randomUUID()
       const turnId = randomUUID()
-      const headers = {
+      const headers: Record<string, string> = {
         Cookie: cookie,
         'Content-Type': 'application/json',
         'X-Conversation-Id': conversationId,
@@ -161,15 +176,22 @@ it(
         status: 'succeeded',
         tool: 'inspect_component_catalog',
       })
-      expect(
-        events.find((event) => event.type === 'tool-completed').output,
-      ).toContain('Button')
+      const toolCompleted = events.find(
+        (event) => event.type === 'tool-completed',
+      )
+      expect(toolCompleted).toMatchObject({
+        status: 'succeeded',
+        tool: 'inspect_component_catalog',
+      })
+      if (toolCompleted?.type !== 'tool-completed')
+        throw new Error('Expected completed tool event')
+      expect(toolCompleted.output).toContain('Button')
       expect(events.find((event) => event.type === 'completed')).toMatchObject({
         message: 'DONE',
       })
       expect(providerRequests).toHaveLength(2)
-      expect(providerRequests[0].model).toBe('gpt-6-sol')
-      expect(providerRequests[1].input).toContainEqual(
+      expect(providerRequests[0]?.model).toBe('gpt-6-sol')
+      expect(providerRequests[1]?.input).toContainEqual(
         expect.objectContaining({
           type: 'function_call_output',
           call_id: 'call1',
@@ -238,7 +260,7 @@ it(
         }),
       })
       await expect.poll(() => providerRequests.length).toBe(5)
-      const cancel = (requestHeaders, id) =>
+      const cancel = (requestHeaders: Record<string, string>, id: string) =>
         fetch(`${base}/api/cancel`, {
           method: 'POST',
           headers: requestHeaders,
@@ -327,16 +349,16 @@ it(
   },
 )
 
-async function streamEvents(response) {
+async function streamEvents(response: Response): Promise<StreamEvent[]> {
   expect(response.status).toBe(200)
   return (await response.text())
     .trim()
     .split('\n')
     .filter(Boolean)
-    .map((line) => JSON.parse(line))
+    .map((line) => JSON.parse(line) as StreamEvent)
 }
 
-async function listen(server) {
+async function listen(server: Server) {
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
 }
@@ -344,12 +366,16 @@ async function listen(server) {
 async function reservePort() {
   const server = createServer()
   await listen(server)
-  const port = server.address().port
+  const port = (server.address() as AddressInfo).port
   await new Promise((resolve) => server.close(resolve))
   return port
 }
 
-async function waitForServer(base, child, getOutput) {
+async function waitForServer(
+  base: string,
+  child: ChildProcess,
+  getOutput: () => string,
+) {
   for (let attempt = 0; attempt < 100; attempt++) {
     const response = await fetch(`${base}/api/runtime`).catch(() => undefined)
     if (response?.ok) return response
@@ -360,7 +386,7 @@ async function waitForServer(base, child, getOutput) {
   throw new Error(`Isolated demo server did not start: ${getOutput()}`)
 }
 
-async function stopChild(child) {
+async function stopChild(child: ChildProcess) {
   if (child.exitCode !== null) return
   const exited = once(child, 'exit')
   child.kill('SIGTERM')

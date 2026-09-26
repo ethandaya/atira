@@ -42,7 +42,7 @@ export type TimelineProps = {
   history: HistoryState
   label: string
   onFollowStateChange?: (state: FollowState) => void
-  onLoadPrevious: () => Promise<void>
+  onLoadPrevious?: () => Promise<void>
   renderTurnActions?: (turn: ChatTurn) => ReactNode
   toolActions?: ToolActions
   toolRenderers?: readonly ToolRenderer[]
@@ -119,7 +119,10 @@ export function Timeline({
         )}
       >
         <div ref={measureRef} {...stylex.props(styles.measure)}>
-          <HistoryControl history={history} onLoadPrevious={loadPrevious} />
+          <HistoryControl
+            history={history}
+            {...(onLoadPrevious ? { onLoadPrevious: loadPrevious } : {})}
+          />
           {turns.length === 0 ? (
             <div data-slot="timeline-empty" {...stylex.props(styles.empty)}>
               {empty}
@@ -175,7 +178,7 @@ type TimelineControllerProps = {
   estimatedTurnHeight: number
   history: HistoryState
   onFollowStateChange: ((state: FollowState) => void) | undefined
-  onLoadPrevious: () => Promise<void>
+  onLoadPrevious: (() => Promise<void>) | undefined
   turns: readonly ChatTurn[]
   virtualizeAfter: number
 }
@@ -390,7 +393,8 @@ function useTimeline({
 
   async function loadPrevious() {
     const viewport = viewportRef.current
-    if (!viewport || history.status === 'loading-previous') return
+    if (!viewport || !onLoadPrevious || history.status === 'loading-previous')
+      return
 
     const firstVisible = firstVisibleTurn(viewport)
     if (firstVisible) {
@@ -510,7 +514,7 @@ const TimelineTurn = memo(function TimelineTurn({
 
 export type HistoryControlProps = {
   history: HistoryState
-  onLoadPrevious: () => void
+  onLoadPrevious?: () => void
 }
 
 export function HistoryControl({
@@ -532,7 +536,7 @@ export function HistoryControl({
     return (
       <div role="alert" {...stylex.props(styles.historyFailure)}>
         <span>{history.error.message}</span>
-        {history.canRetry && (
+        {history.canRetry && onLoadPrevious && (
           <Button onClick={onLoadPrevious} size="compact" variant="quiet">
             Retry
           </Button>
@@ -541,6 +545,7 @@ export function HistoryControl({
     )
   }
   if (!history.hasPrevious) return null
+  if (!onLoadPrevious) return null
 
   return (
     <div {...stylex.props(styles.historyControl)}>

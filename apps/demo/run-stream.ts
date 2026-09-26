@@ -1,22 +1,25 @@
-// @ts-check
-/** @typedef {import('node:http').ServerResponse} ServerResponse */
+type StreamResponse = {
+  end: (chunk?: string) => unknown
+  flushHeaders: () => void
+  once: (event: 'close', listener: () => void) => unknown
+  writableEnded: boolean
+  write: (chunk: string | Uint8Array) => unknown
+  writeHead: (status: number, headers: Record<string, string>) => unknown
+}
 
 // A provider writes once; browser connections may come and go independently.
 export class RunStream {
-  /** @type {(string | Uint8Array)[] | undefined} */
-  #chunks = []
+  #chunks: (string | Uint8Array)[] | undefined = []
   #bytes = 0
-  /** @type {Set<ServerResponse>} */
-  #clients = new Set()
+  #clients = new Set<StreamResponse>()
+  maxReplayBytes: number
   writableEnded = false
-  destroyed = false
 
   constructor(maxReplayBytes = 8 * 1024 * 1024) {
     this.maxReplayBytes = maxReplayBytes
   }
 
-  /** @param {ServerResponse} response */
-  attach(response) {
+  attach(response: StreamResponse) {
     if (!this.#chunks) {
       response.writeHead(409, {
         'Content-Type': 'application/json',
@@ -48,10 +51,7 @@ export class RunStream {
     })
   }
 
-  writeHead() {}
-  flushHeaders() {}
-  /** @param {string | Uint8Array} chunk */
-  write(chunk) {
+  write(chunk: string | Uint8Array) {
     if (this.writableEnded) return
     this.#bytes += Buffer.byteLength(chunk)
     if (this.#bytes > this.maxReplayBytes) this.#chunks = undefined

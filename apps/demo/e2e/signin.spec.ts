@@ -2,6 +2,52 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
 for (const width of [1280, 390]) {
+  test(`uses an available API-key runtime while signed out at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.route('**/api/auth/chatgpt', (route) =>
+      route.fulfill({ json: { state: 'signed_out' } }),
+    )
+    await page.route('**/api/runtime', (route) =>
+      route.fulfill({
+        json: {
+          available: true,
+          model: 'gpt-6-sol',
+          models: [
+            {
+              defaultReasoningEffort: 'medium',
+              description: 'OpenAI via Nanocodex',
+              label: 'GPT-6 Sol',
+              modelId: 'gpt-6-sol',
+              providerId: 'openai',
+              reasoningEfforts: ['low', 'medium', 'high'],
+            },
+          ],
+          retryTurns: true,
+          runtime: 'Nanocodex',
+        },
+      }),
+    )
+
+    await page.goto('/playground')
+
+    await expect(
+      page.getByRole('textbox', { name: 'Message', exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Model' })).toHaveText(
+      'GPT-6 Sol',
+    )
+    await expect(
+      page.getByRole('button', { name: 'New conversation' }),
+    ).toBeEnabled()
+    await expect(
+      page.getByRole('button', { name: 'Sign in ChatGPT', exact: true }),
+    ).toBeVisible()
+  })
+}
+
+for (const width of [1280, 390]) {
   test(`signs in with a device code and signs out at ${width}px`, async ({
     page,
   }) => {

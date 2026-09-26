@@ -1032,6 +1032,7 @@ export function QueueList({
                           onClick={() => onRetry(item)}
                           size="compact"
                           variant="primary"
+                          xstyle={styles.queueAction}
                         >
                           Retry
                         </Button>
@@ -1041,6 +1042,7 @@ export function QueueList({
                         onClick={() => onEdit(item)}
                         size="compact"
                         variant="quiet"
+                        xstyle={styles.queueAction}
                       >
                         Edit
                       </Button>
@@ -1049,7 +1051,8 @@ export function QueueList({
                       <Button
                         onClick={() => onRemove(item)}
                         size="compact"
-                        variant="danger"
+                        variant="quiet"
+                        xstyle={[styles.queueAction, styles.queueRemove]}
                       >
                         Remove
                       </Button>
@@ -1346,9 +1349,9 @@ const styles = stylex.create({
     alignItems: 'center',
     backgroundColor: colors.surfaceInset,
     borderRadius: radii.surface,
-    padding: space.x3,
+    padding: { default: space.x2, '@media (min-width: 40rem)': space.x3 },
     display: 'grid',
-    gap: space.x2,
+    gap: { default: space.x1, '@media (min-width: 40rem)': space.x2 },
     gridTemplateColumns: {
       default: 'minmax(0, 1fr) auto',
       '@media (min-width: 40rem)': 'minmax(0, 1fr) 5rem auto',
@@ -1382,6 +1385,7 @@ const styles = stylex.create({
     alignItems: 'center',
     display: 'flex',
     gap: space.x1,
+    minBlockSize: '2.75rem',
     minInlineSize: { default: 0, '@media (min-width: 40rem)': '12rem' },
     gridColumn: {
       default: '1 / -1',
@@ -1392,6 +1396,19 @@ const styles = stylex.create({
       '@media (min-width: 40rem)': 1,
     },
     justifyContent: 'flex-end',
+  },
+  queueAction: {
+    minHeight: '2rem',
+    position: 'relative',
+    '::before': {
+      content: '""',
+      insetBlock: '-0.375rem',
+      insetInline: 0,
+      position: 'absolute',
+    },
+  },
+  queueRemove: {
+    color: colors.danger,
   },
   queueState: {
     gridColumn: 2,

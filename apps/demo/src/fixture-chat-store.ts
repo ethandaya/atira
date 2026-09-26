@@ -1,12 +1,10 @@
 import type {
-  ChatCapabilities,
   ChatSnapshot,
   ChatStore,
   ChatTurn,
   ComposerDraft,
   DraftAttachment,
   DraftSegment,
-  JsonValue,
   PermissionDecision,
   PermissionRequestView,
   QuestionRequestView,
@@ -14,32 +12,26 @@ import type {
   QueuedPrompt,
   RevertedPrompt,
   SubmitIntent,
-  ToolPart,
-  ToolPresentation,
 } from '@atira/foundations/chat'
 import { composerDraftText } from '@atira/foundations/chat-invariants'
 
-const capabilities: ChatCapabilities = {
-  agents: [
-    { id: 'build', label: 'Build' },
-    { id: 'plan', label: 'Plan' },
-  ],
-  busySubmission: ['queue'],
-  canAttach: true,
-  canStop: true,
-  canSubmit: true,
-  canUseShell: true,
-  models: [{ label: 'Fixture 1', modelId: 'fixture-1', providerId: 'fixture' }],
-  permissionDecisions: ['once', 'always', 'reject'],
-  referenceTypes: ['file', 'range', 'resource', 'agent'],
-  variants: [{ id: 'precise', label: 'Precise' }],
-}
+import {
+  applyStreamEvent,
+  assistantMessage,
+  settleAssistantParts,
+} from './chat-stream-state'
+
+import { createDraft, createTurn } from './fixtures/chat-fixture'
+import { createStressSnapshot } from './fixtures/stress-snapshot'
+import { createWorkflowSnapshot } from './fixtures/workflow-snapshot'
 
 export class FixtureChatStore implements ChatStore {
   readonly #listeners = new Set<() => void>()
   #cancelNotification: (() => void) | undefined
+  #identifier = 0
   #notificationCount = 0
   #snapshot: ChatSnapshot
+  #timestamp = 10_000
 
   constructor(mode: 'workflow' | 'stress' = 'workflow') {
     this.#snapshot =
@@ -174,7 +166,7 @@ export class FixtureChatStore implements ChatStore {
 
   addFiles(files: readonly File[], source: 'drop' | 'paste' | 'picker') {
     const attachments: DraftAttachment[] = files.map((file) => {
-      const id = fixtureId('attachment')
+      const id = this.#id('attachment')
       const attachment = {
         id,
         kind: file.type.startsWith('image/')
@@ -284,7 +276,7 @@ export class FixtureChatStore implements ChatStore {
     if (intent === 'queue' || this.#snapshot.activity.status !== 'idle') {
       const item: QueuedPrompt = {
         draft,
-        id: fixtureId('queue'),
+        id: this.#id('queue'),
         state: 'queued',
       }
       this.#snapshot = {
@@ -298,8 +290,8 @@ export class FixtureChatStore implements ChatStore {
 
     const text = composerDraftText(draft).trim()
     if (!text) return
-    const now = Date.now()
-    const id = fixtureId('submitted-turn')
+    const now = this.#now()
+    const id = this.#id('submitted-turn')
     const userId = `${id}:user`
     const turn: ChatTurn = {
       assistant: [],
@@ -307,7 +299,7 @@ export class FixtureChatStore implements ChatStore {
       state: { status: 'queued' },
       user: {
         createdAt: now,
-        delivery: { clientId: fixtureId('client'), status: 'optimistic' },
+        delivery: { clientId: this.#id('client'), status: 'optimistic' },
         id: userId,
         parts: [
           {
@@ -332,28 +324,16 @@ export class FixtureChatStore implements ChatStore {
     if (!this.#isActive(id)) return
 
     const assistantId = `${id}:assistant`
-    const reasoningId = `${assistantId}:reasoning`
     const toolId = `${assistantId}:tool`
-    const textId = `${assistantId}:text`
     this.#updateTurn(id, (current) => ({
       ...current,
       assistant: [
-        {
-          createdAt: now + 250,
-          delivery: { status: 'confirmed' },
-          id: assistantId,
-          parts: [
-            {
-              id: reasoningId,
-              startedAt: now + 250,
-              state: { status: 'streaming' },
-              text: '',
-              type: 'reasoning',
-            },
-          ],
-          role: 'assistant',
-          turnId: id,
-        },
+        applyStreamEvent(
+          assistantMessage(assistantId, id, now + 250),
+          { text: '', type: 'reasoning-delta' },
+          now + 250,
+          this.#at(now + 250),
+        ),
       ],
       state: { startedAt: now, status: 'running' },
       user: { ...current.user, delivery: { status: 'confirmed' } },
@@ -361,107 +341,73 @@ export class FixtureChatStore implements ChatStore {
     await delay(500)
     if (!this.#isActive(id)) return
 
-    this.#updateTurn(id, (current) => ({
-      ...current,
-      assistant: current.assistant.map((assistant) => ({
-        ...assistant,
-        parts: assistant.parts.map((part) =>
-          part.type === 'reasoning'
-            ? { ...part, text: 'Inspecting the fixture lifecycle.' }
-            : part,
-        ),
-      })),
-    }))
+    this.#applyEvent(id, assistantId, now + 250, {
+      text: 'Inspecting the fixture lifecycle.',
+      type: 'reasoning-delta',
+    })
     await delay(500)
     if (!this.#isActive(id)) return
 
-    this.#updateTurn(id, (current) => ({
-      ...current,
-      assistant: current.assistant.map((assistant) => ({
-        ...assistant,
-        parts: [
-          ...assistant.parts.map((part) =>
-            part.type === 'reasoning'
-              ? {
-                  ...part,
-                  endedAt: now + 1_250,
-                  state: { status: 'complete' as const },
-                }
-              : part,
-          ),
-          {
-            callId: `${toolId}:call`,
-            id: toolId,
-            presentation: { kind: 'web', operation: 'search', target: text },
-            state: {
-              input: { query: text },
-              startedAt: now + 1_250,
-              status: 'running',
-            },
-            toolName: 'search_web',
-            type: 'tool',
-          },
-        ],
-      })),
-    }))
+    this.#applyEvent(
+      id,
+      assistantId,
+      now + 250,
+      {
+        id: toolId,
+        input: text,
+        summary: 'Searching the web',
+        tool: 'search_web',
+        type: 'tool-started',
+      },
+      this.#at(now + 1_250),
+    )
     await delay(750)
     if (!this.#isActive(id)) return
 
-    this.#updateTurn(id, (current) => ({
-      ...current,
-      assistant: current.assistant.map((assistant) => ({
-        ...assistant,
-        parts: assistant.parts.map((part) =>
-          part.id === toolId && part.type === 'tool'
-            ? {
-                ...part,
-                state: {
-                  endedAt: now + 2_000,
-                  input: { query: text },
-                  output: 'Fixture search complete.',
-                  status: 'succeeded' as const,
-                },
-              }
-            : part,
-        ),
-      })),
-    }))
+    this.#applyEvent(
+      id,
+      assistantId,
+      now + 250,
+      {
+        id: toolId,
+        output: 'Fixture search complete.',
+        status: 'succeeded',
+        summary: 'Searched the web',
+        tool: 'search_web',
+        type: 'tool-completed',
+      },
+      this.#at(now + 2_000),
+    )
     await delay(750)
     if (!this.#isActive(id)) return
 
-    this.#updateTurn(id, (current) => ({
-      ...current,
-      assistant: current.assistant.map((assistant) => ({
-        ...assistant,
-        parts: [
-          ...assistant.parts,
-          {
-            id: textId,
-            markdown: 'Streaming the fixture response…',
-            state: { status: 'streaming' },
-            type: 'text',
-          },
-        ],
-      })),
-    }))
+    this.#applyEvent(id, assistantId, now + 250, {
+      text: 'Streaming the fixture response…',
+      type: 'assistant-delta',
+    })
     await delay(250)
     if (!this.#isActive(id)) return
 
+    const endedAt = this.#at(now + 2_750)
     this.#updateTurn(id, (current) => ({
       ...current,
-      assistant: current.assistant.map((assistant) => ({
-        ...assistant,
-        parts: assistant.parts.map((part) =>
-          part.id === textId && part.type === 'text'
-            ? {
-                ...part,
-                markdown: 'The deterministic fixture response is complete.',
-                state: { status: 'complete' },
-              }
-            : part,
-        ),
-      })),
-      state: { endedAt: Date.now(), startedAt: now, status: 'complete' },
+      assistant: current.assistant.map((message) =>
+        message.id === assistantId
+          ? settleAssistantParts(
+              applyStreamEvent(
+                message,
+                {
+                  text: 'The deterministic fixture response is complete.',
+                  type: 'assistant-message',
+                },
+                now + 250,
+                endedAt,
+              ),
+              { status: 'complete' },
+            )
+          : message,
+      ),
+      state: { endedAt, startedAt: now, status: 'complete' },
     }))
     this.#snapshot = { ...this.#snapshot, activity: { status: 'idle' } }
     this.#commit()
@@ -469,22 +415,16 @@ export class FixtureChatStore implements ChatStore {
 
   async stop(turnId: string) {
     if (!this.#isActive(turnId)) return
+    const endedAt = this.#now()
     this.#updateTurn(turnId, (turn) => ({
       ...turn,
-      assistant: turn.assistant.map((assistant) => ({
-        ...assistant,
-        parts: assistant.parts.map((part) =>
-          part.type === 'text' || part.type === 'reasoning'
-            ? { ...part, state: { status: 'interrupted' } }
-            : part.type === 'tool'
-              ? cancelTool(part)
-              : part,
-        ),
-      })),
+      assistant: turn.assistant.map((assistant) =>
+        settleAssistantParts(assistant, { status: 'interrupted' }, endedAt),
+      ),
       state: {
-        endedAt: Date.now(),
+        endedAt,
         startedAt:
-          turn.state.status === 'running' ? turn.state.startedAt : Date.now(),
+          turn.state.status === 'running' ? turn.state.startedAt : endedAt,
         status: 'interrupted',
       },
     }))
@@ -565,7 +505,6 @@ export class FixtureChatStore implements ChatStore {
   updateDraft(draft: ComposerDraft) {
     this.#snapshot = { ...this.#snapshot, composer: draft }
     for (const listener of this.#listeners) listener()
-    this.#commit()
   }
 
   editQueued(item: QueuedPrompt) {
@@ -645,16 +584,19 @@ export class FixtureChatStore implements ChatStore {
     await this.dismissReverted(reverted)
   }
 
-  dismissSubmissionError() {}
-  retrySubmission() {
-    return Promise.resolve()
+  #id(prefix: string) {
+    this.#identifier += 1
+    return `${prefix}:${this.#identifier}`
   }
-  reconnect() {
-    return Promise.resolve()
+
+  #now() {
+    this.#timestamp += 1
+    return this.#timestamp
   }
-  updateQueue(queue: readonly QueuedPrompt[]) {
-    this.#snapshot = { ...this.#snapshot, queue }
-    this.#commit()
+
+  #at(timestamp: number) {
+    this.#timestamp = Math.max(this.#timestamp, timestamp)
+    return timestamp
   }
 
   #isActive(turnId: string) {
@@ -701,6 +643,23 @@ export class FixtureChatStore implements ChatStore {
     this.#commit()
   }
 
+  #applyEvent(
+    turnId: string,
+    messageId: string,
+    startedAt: number,
+    event: Parameters<typeof applyStreamEvent>[1],
+    eventAt?: number,
+  ) {
+    this.#updateTurn(turnId, (turn) => ({
+      ...turn,
+      assistant: turn.assistant.map((message) =>
+        message.id === messageId
+          ? applyStreamEvent(message, event, startedAt, eventAt)
+          : message,
+      ),
+    }))
+  }
+
   #commit() {
     if (this.#cancelNotification) return
     this.#cancelNotification = scheduleOnAnimationFrame(() => {
@@ -711,352 +670,8 @@ export class FixtureChatStore implements ChatStore {
   }
 }
 
-export function createStressSnapshot(): ChatSnapshot {
-  const turns = Array.from({ length: 500 }, (_, index) =>
-    createStressTurn(index, index === 499),
-  )
-  return {
-    activity: { status: 'busy', turnId: 'fixture-turn:499' },
-    capabilities,
-    composer: createDraft(),
-    connection: { status: 'connected' },
-    history: { status: 'complete' },
-    queue: [],
-    requests: [],
-    sessionId: 'stress-fixture',
-    turns,
-  }
-}
-
-function createWorkflowSnapshot(): ChatSnapshot {
-  const turns = Array.from({ length: 18 }, (_, index) =>
-    createTurn(index, `Fixture response ${index + 1}`),
-  )
-  turns[17] = createToolFixtureTurn(17)
-  return {
-    activity: { status: 'idle' },
-    capabilities,
-    composer: createDraft(),
-    connection: { status: 'connected' },
-    history: { hasPrevious: true, status: 'ready' },
-    queue: [],
-    requests: [],
-    sessionId: 'workflow-fixture',
-    turns,
-  }
-}
-
-function createToolFixtureTurn(index: number): ChatTurn {
-  const turn = createTurn(index, 'The coding evidence is available below.')
-  const assistant = turn.assistant[0]
-  if (!assistant) return turn
-  const tools: ToolPart[] = [
-    completedTool(
-      'context-read',
-      'read',
-      {
-        kind: 'context',
-        operation: 'read',
-        target: 'packages/components/src/turn.tsx',
-      },
-      { path: 'packages/components/src/turn.tsx' },
-      'export function Turn() {}',
-    ),
-    completedTool(
-      'context-grep',
-      'grep',
-      { kind: 'context', operation: 'grep', target: 'data-slot' },
-      { pattern: 'data-slot' },
-      '12 matches',
-    ),
-    completedTool(
-      'shell',
-      'shell',
-      {
-        command: 'pnpm typecheck',
-        durationMs: 420,
-        exitCode: 0,
-        kind: 'shell',
-        outputTruncated: false,
-        workingDirectory: '/workspace',
-      },
-      { command: 'pnpm typecheck' },
-      'Done',
-    ),
-    completedTool(
-      'file-change',
-      'edit',
-      {
-        diagnostics: [],
-        files: [
-          {
-            additions: 1,
-            deletions: 1,
-            hunks: [
-              {
-                header: '@@ -1 +1 @@',
-                id: 'fixture-hunk',
-                lines: [
-                  {
-                    content: 'const density = "compact"',
-                    id: 'fixture-deletion',
-                    kind: 'deletion',
-                    oldLine: 1,
-                  },
-                  {
-                    content: 'const density = "comfortable"',
-                    id: 'fixture-addition',
-                    kind: 'addition',
-                    newLine: 1,
-                  },
-                ],
-              },
-            ],
-            id: 'fixture-file',
-            path: 'src/interface.ts',
-            status: 'modified',
-          },
-        ],
-        kind: 'file-change',
-        operation: 'edit',
-        path: 'src/interface.ts',
-        content: 'const density = "comfortable"',
-      },
-      { path: 'src/interface.ts' },
-      'Updated',
-    ),
-    completedTool(
-      'task',
-      'task',
-      {
-        agent: { id: 'review', label: 'Review agent' },
-        childSessionId: 'fixture-child-session',
-        description: 'Review the chat surface',
-        kind: 'task',
-        transcript: {
-          reasoning: 'I compared the activity states and transcript hierarchy.',
-          result:
-            '**No blocking issues.** The activity rail remains stable across states.',
-          steps: [
-            {
-              id: 'fixture-child-inspect',
-              input: 'activity hierarchy',
-              output: 'Reasoning, ToolActivity, MessageParts',
-              status: 'succeeded',
-              summary: 'Searched component catalog',
-              tool: 'inspect_component_catalog',
-            },
-          ],
-        },
-      },
-      { description: 'Review the chat surface' },
-      'No blocking issues.',
-    ),
-    completedTool(
-      'web',
-      'webfetch',
-      {
-        kind: 'web',
-        operation: 'fetch',
-        target: 'https://example.com/reference',
-      },
-      { url: 'https://example.com/reference' },
-      'Reference loaded.',
-    ),
-    completedTool(
-      'skill',
-      'skill',
-      { kind: 'skill', name: 'ui-review' },
-      { name: 'ui-review' },
-      'Skill loaded.',
-    ),
-    completedTool(
-      'generic',
-      'mcp_custom_tool',
-      { kind: 'generic' },
-      { query: 'component contract' },
-      { matches: 2 },
-    ),
-  ]
-  return {
-    ...turn,
-    assistant: [{ ...assistant, parts: [...assistant.parts, ...tools] }],
-  }
-}
-
-function completedTool(
-  id: string,
-  toolName: string,
-  presentation: ToolPresentation,
-  input: JsonValue,
-  output: JsonValue,
-): ToolPart {
-  return {
-    callId: `fixture:${id}:call`,
-    id: `fixture:${id}`,
-    presentation,
-    state: {
-      endedAt: Date.now(),
-      input,
-      output,
-      status: 'succeeded',
-    },
-    toolName,
-    type: 'tool',
-  }
-}
-
-function cancelTool(part: ToolPart): ToolPart {
-  const { state } = part
-  if (
-    state.status === 'succeeded' ||
-    state.status === 'failed' ||
-    state.status === 'cancelled'
-  ) {
-    return part
-  }
-  const input =
-    state.status === 'receiving-input' ? state.partialInput : state.input
-  return {
-    ...part,
-    state: {
-      endedAt: Date.now(),
-      ...(input === undefined ? {} : { input }),
-      status: 'cancelled',
-    },
-  }
-}
-
-function createStressTurn(index: number, large: boolean): ChatTurn {
-  const paragraph = 'Complete markdown source. '.repeat(20)
-  const turn = createTurn(
-    index,
-    large
-      ? `# Large response\n\n${`${paragraph}\n\n`.repeat(419)}${paragraph}`
-      : `Response ${index + 1}`,
-  )
-  const assistant = turn.assistant[0]
-  if (!assistant) return turn
-  const notices = Array.from({ length: 8 }, (_, partIndex) => ({
-    id: `${assistant.id}:notice:${partIndex}`,
-    message: `Evidence ${index + 1}.${partIndex + 1}`,
-    tone: 'neutral' as const,
-    type: 'notice' as const,
-  }))
-  const parts = large
-    ? [
-        ...notices.slice(0, 7),
-        {
-          callId: 'large-output-call',
-          id: 'large-output-tool',
-          metadata: { truncated: false },
-          presentation: {
-            command: 'generate-large-output',
-            kind: 'shell' as const,
-            outputTruncated: false,
-          },
-          state: {
-            endedAt: index + 2,
-            input: { command: 'generate-large-output' },
-            output: 'line\n'.repeat(200_000),
-            status: 'succeeded' as const,
-          },
-          toolName: 'shell',
-          type: 'tool' as const,
-        },
-        ...assistant.parts,
-      ]
-    : [...notices, ...assistant.parts]
-  return {
-    ...turn,
-    assistant: [
-      {
-        ...assistant,
-        parts: parts.map((part) =>
-          large && part.type === 'text'
-            ? { ...part, state: { status: 'streaming' } }
-            : part,
-        ),
-      },
-    ],
-    state: large
-      ? { startedAt: index * 10 + 1, status: 'running' }
-      : turn.state,
-  }
-}
-
-function createTurn(index: number, response: string): ChatTurn {
-  const id = `fixture-turn:${index}`
-  const userId = `${id}:user`
-  const assistantId = `${id}:assistant`
-  return {
-    assistant: [
-      {
-        createdAt: index * 10 + 2,
-        delivery: { status: 'confirmed' },
-        id: assistantId,
-        parts: [
-          {
-            id: `${assistantId}:text`,
-            markdown: response,
-            state: { status: 'complete' },
-            type: 'text',
-          },
-        ],
-        role: 'assistant',
-        turnId: id,
-      },
-    ],
-    id,
-    state: {
-      endedAt: index * 10 + 3,
-      startedAt: index * 10 + 1,
-      status: 'complete',
-    },
-    user: {
-      createdAt: index * 10 + 1,
-      delivery: { status: 'confirmed' },
-      id: userId,
-      parts: [
-        {
-          id: `${userId}:text`,
-          markdown: `Fixture prompt ${index + 1}`,
-          state: { status: 'complete' },
-          type: 'text',
-        },
-      ],
-      role: 'user',
-      turnId: id,
-    },
-  }
-}
-
-function createDraft(text = '', revision = 0): ComposerDraft {
-  const id = fixtureId('draft')
-  const agent = capabilities.agents[0]
-  const model = capabilities.models[0]
-  const variant = capabilities.variants[0]
-  return {
-    ...(agent === undefined ? {} : { agent }),
-    attachments: [],
-    mode: 'prompt',
-    ...(model === undefined ? {} : { model }),
-    revision,
-    segments: [{ id, text, type: 'text' }],
-    selection: {
-      anchor: { offset: text.length, segmentId: id },
-      focus: { offset: text.length, segmentId: id },
-    },
-    ...(variant === undefined ? {} : { variant: variant.id }),
-  }
-}
-
 function emptyDraft(draft: ComposerDraft) {
   return createDraft('', draft.revision + 1)
-}
-
-function fixtureId(prefix: string) {
-  return `${prefix}:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`
 }
 
 function delay(duration: number) {

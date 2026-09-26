@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build",
-    "dev": "node server.mjs",
+    "dev": "node --experimental-strip-types server.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

@@ -538,36 +538,36 @@ export type ChatSnapshot = Readonly<{
 export type SubmitIntent = 'send' | 'queue' | 'follow-up'
 
 export interface ChatStore {
-  answerQuestion(input: {
+  answerQuestion?(input: {
     originSessionId: string
     requestId: string
     response: QuestionResponse
   }): Promise<void>
-  decidePermission(input: {
+  decidePermission?(input: {
     decision: PermissionDecision
     originSessionId: string
     requestId: string
   }): Promise<void>
-  dismissReverted(reverted: RevertedPrompt): Promise<void>
-  dismissSubmissionError(): void
-  editQueued(item: QueuedPrompt): void
+  dismissReverted?(reverted: RevertedPrompt): Promise<void>
+  dismissSubmissionError?(): void
+  editQueued?(item: QueuedPrompt): void
   getSnapshot(): ChatSnapshot
-  loadPrevious(): Promise<void>
-  reconnect(): Promise<void>
-  redoReverted(reverted: RevertedPrompt): Promise<void>
-  rejectQuestion(input: {
+  loadPrevious?(): Promise<void>
+  reconnect?(): Promise<void>
+  redoReverted?(reverted: RevertedPrompt): Promise<void>
+  rejectQuestion?(input: {
     originSessionId: string
     requestId: string
   }): Promise<void>
-  removeQueued(item: QueuedPrompt): void
-  restoreReverted(reverted: RevertedPrompt): Promise<void>
-  retryQueued(item: QueuedPrompt): Promise<void>
-  retrySubmission(): Promise<void>
+  removeQueued?(item: QueuedPrompt): void
+  restoreReverted?(reverted: RevertedPrompt): Promise<void>
+  retryQueued?(item: QueuedPrompt): Promise<void>
+  retrySubmission?(): Promise<void>
   retryTurn?(turnId: string): Promise<void>
-  revert(turnId: string): Promise<void>
+  revert?(turnId: string): Promise<void>
   stop(turnId: string): Promise<void>
   submit(draft: ComposerDraft, intent: SubmitIntent): Promise<void>
   subscribe(listener: () => void): () => void
   updateDraft(draft: ComposerDraft): void
-  updateQueue(queue: readonly QueuedPrompt[]): void
+  updateQueue?(queue: readonly QueuedPrompt[]): void
 }

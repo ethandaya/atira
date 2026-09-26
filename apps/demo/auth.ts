@@ -1,20 +1,37 @@
-// @ts-check
 import {
   ChatGptSubscription,
   createMemoryChatGptSubscriptionStore,
   Transport,
+  type ChatGptLoginStatus,
+  type ChatGptSubscriptionHandle,
 } from 'nanocodex/node'
-import { ConversationError } from './conversations.mjs'
+import { ConversationError } from './conversations.ts'
 
-/** @typedef {{subscription?: import('nanocodex/node').ChatGptSubscriptionHandle, state: import('nanocodex/node').ChatGptLoginStatus, pending: number, lastUsed: number, tail: Promise<unknown>}} Account */
+export type Account = {
+  lastUsed: number
+  pending: number
+  state: ChatGptLoginStatus
+  subscription?: ChatGptSubscriptionHandle
+  tail: Promise<unknown>
+}
+
+type DemoAuthOptions = {
+  fetch?: typeof globalThis.fetch
+  reset: (id: string) => Promise<void>
+}
+
+type TransportEndpoints = {
+  apiBaseUrl?: string
+  websocketUrl?: string
+}
 
 // Demo credentials are deliberately process-local, never written to disk or sent to the browser.
 export class DemoAuth {
-  /** @type {Map<string, Account>} */
-  #accounts = new Map()
+  #accounts = new Map<string, Account>()
+  fetch: typeof globalThis.fetch
+  reset: DemoAuthOptions['reset']
 
-  /** @param {{reset: (id: string) => Promise<void>, fetch?: typeof globalThis.fetch}} options */
-  constructor({ reset, fetch }) {
+  constructor({ reset, fetch }: DemoAuthOptions) {
     this.reset = reset
     this.fetch =
       fetch ??
@@ -25,8 +42,7 @@ export class DemoAuth {
         }))
   }
 
-  /** @template T @param {string} id @param {(account: Account) => Promise<T>} operation @returns {Promise<T>} */
-  run(id, operation) {
+  run<T>(id: string, operation: (account: Account) => Promise<T>): Promise<T> {
     let account = this.#accounts.get(id)
     if (!account) {
       if (this.#accounts.size >= 100)
@@ -54,8 +70,7 @@ export class DemoAuth {
     return result
   }
 
-  /** @param {string} id @param {'start' | 'status' | 'logout'} action */
-  change(id, action) {
+  change(id: string, action: 'start' | 'status' | 'logout') {
     return this.run(id, async (account) => {
       if (action === 'start') {
         if (
@@ -85,8 +100,11 @@ export class DemoAuth {
     })
   }
 
-  /** @param {string} id @param {string | undefined} apiKey @param {{apiBaseUrl?: string, websocketUrl?: string}} endpoints */
-  transport(id, apiKey, endpoints) {
+  transport(
+    id: string,
+    apiKey: string | undefined,
+    endpoints: TransportEndpoints,
+  ) {
     const account = this.#accounts.get(id)
     if (account?.state.state === 'authenticated' && account.subscription) {
       return Transport.chatGpt({

@@ -1,25 +1,33 @@
 import type {
   ChatCapabilities,
-  ChatError,
   ChatMessage,
   ChatSnapshot,
   ChatStore,
   ChatTurn,
   ComposerDraft,
-  PermissionDecision,
-  QuestionResponse,
-  QueuedPrompt,
-  RevertedPrompt,
   SubmitIntent,
-  ToolPart,
 } from '@atira/foundations/chat'
 import { composerDraftText } from '@atira/foundations/chat-invariants'
+import type { StreamEvent } from '../chat-contract.ts'
 import {
-  runtimeResponseSchema,
-  savedHistorySchema,
-  streamEventSchema,
-  type StreamEvent,
-} from '../chat-contract.mjs'
+  applyStreamEvent,
+  assistantMessage,
+  providerError,
+  replaceText,
+  settleAssistantParts,
+} from './chat-stream-state'
+import {
+  readSavedHistory,
+  type SavedConversation,
+  writeSavedHistory,
+} from './conversation-persistence'
+import {
+  cancelTurn,
+  fetchRuntime,
+  readEvents,
+  reconnectTurn,
+  startTurn,
+} from './nanocodex-chat-client'
 
 export type RuntimeState =
   | { status: 'loading' }
@@ -45,42 +53,14 @@ const unavailableCapabilities: ChatCapabilities = {
   variants: [],
 }
 
-type SavedConversation = {
-  id: string
-  title: string
-  composer: ComposerDraft
-  turns: readonly ChatTurn[]
-  hasContext: boolean
-}
-
-type JsonDefined<T> = T extends readonly (infer Item)[]
-  ? JsonDefined<Item>[]
-  : T extends object
-    ? {
-        [Key in keyof T as undefined extends T[Key] ? never : Key]: JsonDefined<
-          T[Key]
-        >
-      } & {
-        [
-          Key in keyof T as undefined extends T[Key] ? Key : never
-        ]?: JsonDefined<Exclude<T[Key], undefined>>
-      }
-    : T
-type ParsedSavedHistory = ReturnType<typeof savedHistorySchema.parse>
-type SavedHistoryContract = {
-  activeId: string
-  conversations: SavedConversation[]
-}
-const savedHistoryTypeAgreement: JsonDefined<ParsedSavedHistory> extends SavedHistoryContract
-  ? true
-  : never = true
-
 const conversationStorageKey = 'atira:conversations:v1'
 
 export class NanocodexChatStore implements ChatStore {
   readonly #listeners = new Set<() => void>()
   #runtimeController: AbortController | undefined
+  #stopController: AbortController | undefined
   #turnController: AbortController | undefined
+  #stoppingTurnId: string | undefined
   #cancelNotification: (() => void) | undefined
   #disposed = false
   #failedDraft: ComposerDraft | undefined
@@ -108,13 +88,7 @@ export class NanocodexChatStore implements ChatStore {
         (typeof window === 'undefined' ? undefined : window.sessionStorage)
       const saved = this.#storage?.getItem(conversationStorageKey)
       if (saved) {
-        // JSON cannot contain explicit undefined values; schema-checked optional
-        // fields therefore satisfy the library's exact optional property types.
-        const parsed = savedHistorySchema.parse(JSON.parse(saved))
-        // JSON cannot represent explicit undefined, and the compile-time agreement
-        // above checks the schema's recursively defined shape against ChatStore.
-        const data = parsed as JsonDefined<typeof parsed>
-        void savedHistoryTypeAgreement
+        const data = readSavedHistory(saved)
         this.#conversations = data.conversations
         const current = this.#conversations.find(
           (item) => item.id === data.activeId,
@@ -124,7 +98,7 @@ export class NanocodexChatStore implements ChatStore {
     } catch {
       this.#snapshot = {
         ...this.#snapshot,
-        submissionError: chatError(
+        submissionError: providerError(
           'Saved conversations could not be restored. Browser session storage may be unavailable.',
           false,
         ),
@@ -218,26 +192,21 @@ export class NanocodexChatStore implements ChatStore {
     clearTimeout(this.#saveTimer)
     this.#remember()
     try {
-      this.#storage?.setItem(
-        conversationStorageKey,
-        JSON.stringify({
+      if (this.#storage) {
+        writeSavedHistory(this.#storage, conversationStorageKey, {
           activeId: this.#snapshot.sessionId,
           conversations: this.#conversations,
-        }),
-      )
+        })
+      }
     } catch {
       this.#snapshot = {
         ...this.#snapshot,
-        submissionError: chatError(
+        submissionError: providerError(
           'Conversation history could not be saved. Keep this tab open; browser session storage may be full or blocked.',
           false,
         ),
       }
     }
-  }
-
-  #conversationHeaders() {
-    return { 'X-Conversation-Id': this.#snapshot.sessionId }
   }
 
   subscribe = (listener: () => void) => {
@@ -252,14 +221,7 @@ export class NanocodexChatStore implements ChatStore {
     this.#runtimeController = controller
 
     try {
-      const response = await fetch('/api/runtime', {
-        signal: controller.signal,
-      })
-      if (!response.ok) throw new Error()
-      const result = runtimeResponseSchema.safeParse(await response.json())
-      controller.signal.throwIfAborted()
-      if (!result.success) throw new Error()
-      const body = result.data
+      const body = await fetchRuntime(controller.signal)
 
       this.#runtime = body.available
         ? {
@@ -330,8 +292,10 @@ export class NanocodexChatStore implements ChatStore {
     this.persist()
     this.#disposed = true
     this.#runtimeController?.abort()
+    this.#stopController?.abort()
     this.#turnController?.abort()
     this.#runtimeController = undefined
+    this.#stopController = undefined
     this.#turnController = undefined
     this.#cancelNotification?.()
     this.#cancelNotification = undefined
@@ -437,52 +401,34 @@ export class NanocodexChatStore implements ChatStore {
     this.#commit()
 
     try {
-      let response = await fetch(
-        reconnect
-          ? `/api/chat?turnId=${encodeURIComponent(turnId)}`
-          : '/api/chat',
-        {
-          ...(reconnect
-            ? {}
-            : {
-                body: JSON.stringify({
-                  input,
-                  model: model && {
-                    modelId: model.modelId,
-                    providerId: model.providerId,
-                  },
-                  reasoningEffort,
-                  resume: this.#hasContext,
-                  turnId,
-                  retry: Boolean(retry),
-                }),
-              }),
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.#conversationHeaders(),
-          },
-          method: reconnect ? 'GET' : 'POST',
-          signal: controller.signal,
-        },
-      )
+      let response = reconnect
+        ? await reconnectTurn(
+            this.#snapshot.sessionId,
+            turnId,
+            controller.signal,
+          )
+        : await startTurn({
+            conversationId: this.#snapshot.sessionId,
+            input,
+            model,
+            reasoningEffort,
+            resume: this.#hasContext,
+            retry: Boolean(retry),
+            signal: controller.signal,
+            turnId,
+          })
       controller.signal.throwIfAborted()
-      if (!response.ok) throw new Error(await responseError(response))
-
       accepted = true
       this.#hasContext = true
       for (let attempt = 0; ; attempt++) {
         try {
           if (attempt > 0) {
             await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
-            response = await fetch(
-              `/api/chat?turnId=${encodeURIComponent(turnId)}`,
-              {
-                headers: this.#conversationHeaders(),
-                signal: controller.signal,
-              },
+            response = await reconnectTurn(
+              this.#snapshot.sessionId,
+              turnId,
+              controller.signal,
             )
-            controller.signal.throwIfAborted()
-            if (!response.ok) throw new Error(await responseError(response))
           }
           // Rebuild from the server's full replay so text and tool events cannot duplicate.
           this.#updateTurn(turnId, (current) => ({
@@ -534,7 +480,7 @@ export class NanocodexChatStore implements ChatStore {
           turns: this.#snapshot.turns.map((item) =>
             item.id === turnId ? retry : item,
           ),
-          submissionError: chatError(failure, false),
+          submissionError: providerError(failure, false),
         }
       } else {
         this.#failedDraft = draft
@@ -543,7 +489,7 @@ export class NanocodexChatStore implements ChatStore {
           ...(this.#snapshot.composer.revision === clearedDraft.revision
             ? { composer: { ...draft, revision: clearedDraft.revision + 1 } }
             : {}),
-          submissionError: chatError(failure, true),
+          submissionError: providerError(failure, true),
           turns: this.#snapshot.turns.filter((item) => item.id !== turnId),
         }
       }
@@ -564,19 +510,30 @@ export class NanocodexChatStore implements ChatStore {
   }
 
   async stop(turnId: string) {
-    if (
-      this.#snapshot.activity.status === 'idle' ||
-      this.#snapshot.activity.turnId !== turnId
-    )
-      return
-    await fetch('/api/cancel', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.#conversationHeaders(),
-      },
-      body: JSON.stringify({ turnId }),
-    })
+    if (!this.#isTurnActive(turnId) || this.#stoppingTurnId === turnId) return
+    this.#stoppingTurnId = turnId
+    const controller = new AbortController()
+    this.#stopController = controller
+    try {
+      await cancelTurn(this.#snapshot.sessionId, turnId, controller.signal)
+    } catch (error) {
+      if (controller.signal.aborted) return
+      if (this.#isTurnActive(turnId)) {
+        this.#snapshot = {
+          ...this.#snapshot,
+          submissionError: providerError(
+            error instanceof Error
+              ? error.message
+              : 'The active response could not be stopped.',
+            false,
+          ),
+        }
+        this.#commit()
+      }
+    } finally {
+      if (this.#stoppingTurnId === turnId) this.#stoppingTurnId = undefined
+      if (this.#stopController === controller) this.#stopController = undefined
+    }
   }
 
   updateDraft(draft: ComposerDraft) {
@@ -604,51 +561,15 @@ export class NanocodexChatStore implements ChatStore {
     await this.submit(draft, 'send')
   }
 
-  loadPrevious() {
-    return Promise.resolve()
-  }
-
   reconnect() {
     return this.initialize()
   }
 
-  decidePermission(_input: {
-    decision: PermissionDecision
-    originSessionId: string
-    requestId: string
-  }) {
-    return Promise.resolve()
-  }
-
-  answerQuestion(_input: {
-    originSessionId: string
-    requestId: string
-    response: QuestionResponse
-  }) {
-    return Promise.resolve()
-  }
-
-  rejectQuestion(_input: { originSessionId: string; requestId: string }) {
-    return Promise.resolve()
-  }
-
-  editQueued(_item: QueuedPrompt) {}
-  removeQueued(_item: QueuedPrompt) {}
-  retryQueued(_item: QueuedPrompt) {
-    return Promise.resolve()
-  }
-  updateQueue(_queue: readonly QueuedPrompt[]) {}
-  revert(_turnId: string) {
-    return Promise.resolve()
-  }
-  dismissReverted(_reverted: RevertedPrompt) {
-    return Promise.resolve()
-  }
-  restoreReverted(_reverted: RevertedPrompt) {
-    return Promise.resolve()
-  }
-  redoReverted(_reverted: RevertedPrompt) {
-    return Promise.resolve()
+  #isTurnActive(turnId: string) {
+    return (
+      this.#snapshot.activity.status !== 'idle' &&
+      this.#snapshot.activity.turnId === turnId
+    )
   }
 
   #completeTurn(
@@ -689,7 +610,7 @@ export class NanocodexChatStore implements ChatStore {
     error: string,
     startedAt: number,
   ) {
-    const failure = chatError(error, false)
+    const failure = providerError(error, false)
     this.#updateAssistant(turnId, messageId, (message) =>
       settleAssistantParts(message, { error: failure, status: 'failed' }),
     )
@@ -754,247 +675,6 @@ export function createDraft(text = '', revision = 0): ComposerDraft {
   }
 }
 
-function assistantMessage(
-  id: string,
-  turnId: string,
-  createdAt: number,
-): ChatMessage {
-  return {
-    createdAt,
-    delivery: { status: 'confirmed' },
-    id,
-    parts: [],
-    role: 'assistant',
-    turnId,
-  }
-}
-
-function applyStreamEvent(
-  message: ChatMessage,
-  event: Exclude<
-    StreamEvent,
-    { type: 'started' | 'completed' | 'cancelled' | 'error' }
-  >,
-  startedAt: number,
-) {
-  if (event.type === 'assistant-delta') {
-    const parts = completeStreamingReasoning(message.parts)
-    return {
-      ...message,
-      parts: updateText(parts, `${message.id}:text`, event.text, false),
-    }
-  }
-  if (event.type === 'assistant-message') {
-    return {
-      ...message,
-      parts: replaceText(completeStreamingReasoning(message.parts), event.text),
-    }
-  }
-  if (event.type === 'reasoning-delta') {
-    return {
-      ...message,
-      parts: updateReasoning(message.parts, message.id, event.text, startedAt),
-    }
-  }
-  if (event.type === 'tool-started') {
-    const presentation = toolPresentation(event.tool, event.input)
-    const tool: ToolPart = {
-      callId: event.id,
-      id: event.id,
-      presentation,
-      state: {
-        input: event.input ?? '',
-        startedAt: Date.now(),
-        status: 'running',
-      },
-      toolName: event.tool,
-      type: 'tool',
-    }
-    return {
-      ...message,
-      parts: upsertPart(completeStreamingReasoning(message.parts), tool),
-    }
-  }
-
-  const existing = message.parts.find(
-    (part): part is ToolPart =>
-      part.type === 'tool' && part.callId === event.id,
-  )
-  const input =
-    existing && 'input' in existing.state ? existing.state.input : {}
-  const presentation = existing?.presentation ?? toolPresentation(event.tool)
-  const tool: ToolPart = {
-    callId: event.id,
-    id: event.id,
-    presentation,
-    state:
-      event.status === 'failed'
-        ? {
-            endedAt: Date.now(),
-            error: chatError(event.error, false),
-            input,
-            status: 'failed',
-          }
-        : {
-            endedAt: Date.now(),
-            input,
-            ...(event.output === undefined ? {} : { output: event.output }),
-            status: 'succeeded',
-          },
-    toolName: event.tool,
-    type: 'tool',
-  }
-  return { ...message, parts: upsertPart(message.parts, tool) }
-}
-
-function updateText(
-  parts: ChatMessage['parts'],
-  id: string,
-  text: string,
-  replace: boolean,
-) {
-  // Only adjacent text belongs to the same segment. A tool or reasoning part
-  // marks a new position in the response, even within one assistant message.
-  const tail = parts.at(-1)
-  const existing = tail?.type === 'text' ? tail : undefined
-  const part = {
-    id: existing?.id ?? `${id}:${parts.length}`,
-    markdown: `${replace ? '' : (existing?.markdown ?? '')}${text}`,
-    state: { status: 'streaming' as const },
-    type: 'text' as const,
-  }
-  return upsertPart(parts, part)
-}
-
-function replaceText(parts: ChatMessage['parts'], text: string) {
-  const streamed = parts
-    .flatMap((part) => (part.type === 'text' ? [part.markdown] : []))
-    .join('')
-  if (streamed.trim() === text.trim()) return parts
-
-  // Completion may carry the full accumulated response rather than just the
-  // last segment. Reconcile its suffix without moving earlier text past tools.
-  const tail = parts.at(-1)
-  const earlier = tail?.type === 'text' ? parts.slice(0, -1) : parts
-  const prefix = earlier
-    .flatMap((part) => (part.type === 'text' ? [part.markdown] : []))
-    .join('')
-    .trimStart()
-  const remaining = text.trimStart().startsWith(prefix)
-    ? text.trimStart().slice(prefix.length)
-    : text
-  return updateText(parts, 'response-text', remaining, true)
-}
-
-function updateReasoning(
-  parts: ChatMessage['parts'],
-  messageId: string,
-  text: string,
-  startedAt: number,
-) {
-  let existing:
-    | Extract<ChatMessage['parts'][number], { type: 'reasoning' }>
-    | undefined
-  for (let index = parts.length - 1; index >= 0; index -= 1) {
-    const part = parts[index]
-    if (part?.type === 'reasoning' && part.state.status === 'streaming') {
-      existing = part
-      break
-    }
-  }
-  const count = parts.filter((part) => part.type === 'reasoning').length
-  const id = existing?.id ?? `${messageId}:reasoning:${count}`
-  return upsertPart(parts, {
-    id,
-    startedAt: existing?.startedAt ?? startedAt,
-    state: { status: 'streaming' },
-    text: `${existing?.type === 'reasoning' ? existing.text : ''}${text}`,
-    type: 'reasoning',
-  })
-}
-
-function completeStreamingReasoning(parts: ChatMessage['parts']) {
-  const endedAt = Date.now()
-  return parts.map((part) =>
-    part.type === 'reasoning' && part.state.status === 'streaming'
-      ? { ...part, endedAt, state: { status: 'complete' as const } }
-      : part,
-  )
-}
-
-function upsertPart(
-  parts: ChatMessage['parts'],
-  part: ChatMessage['parts'][number],
-) {
-  const index = parts.findIndex((item) => item.id === part.id)
-  if (index === -1) return [...parts, part]
-  return parts.map((item, itemIndex) => (itemIndex === index ? part : item))
-}
-
-function settleAssistantParts(
-  message: ChatMessage,
-  state:
-    | { status: 'complete' | 'interrupted' }
-    | { error: ChatError; status: 'failed' },
-): ChatMessage {
-  return {
-    ...message,
-    parts: message.parts.map((part) => {
-      if (part.type === 'text' || part.type === 'reasoning') {
-        return { ...part, state }
-      }
-      if (part.type === 'tool' && !isTerminalTool(part)) {
-        if (state.status === 'failed') {
-          const input = toolInput(part)
-          return {
-            ...part,
-            state: {
-              endedAt: Date.now(),
-              error: state.error,
-              ...(input === undefined ? {} : { input }),
-              status: 'failed',
-            },
-          }
-        }
-        const input = toolInput(part)
-        return {
-          ...part,
-          state: {
-            endedAt: Date.now(),
-            ...(input === undefined ? {} : { input }),
-            status: 'cancelled',
-          },
-        }
-      }
-      return part
-    }),
-  }
-}
-
-function isTerminalTool(part: ToolPart) {
-  return (
-    part.state.status === 'succeeded' ||
-    part.state.status === 'failed' ||
-    part.state.status === 'cancelled'
-  )
-}
-
-function toolInput(part: ToolPart) {
-  return 'input' in part.state ? part.state.input : undefined
-}
-
-function toolPresentation(
-  tool: string,
-  input?: string,
-): ToolPart['presentation'] {
-  const target = input === undefined ? {} : { target: input }
-  if (tool === 'search_web')
-    return { kind: 'web', operation: 'search', ...target }
-  if (tool === 'inspect_component_catalog')
-    return { kind: 'context', operation: 'grep', ...target }
-  return { kind: 'generic' }
-}
-
 function capabilities(runtime: RuntimeState, busy: boolean): ChatCapabilities {
   return {
     ...unavailableCapabilities,
@@ -1003,58 +683,6 @@ function capabilities(runtime: RuntimeState, busy: boolean): ChatCapabilities {
     canSubmit: runtime.status === 'ready' && !busy,
     canRetryTurn: runtime.status === 'ready' && runtime.retryTurns === true,
   }
-}
-
-function chatError(
-  message = 'The response could not be completed.',
-  retryable: boolean,
-): ChatError {
-  return { kind: 'provider', message, retryable }
-}
-
-async function readEvents(
-  response: globalThis.Response,
-  onEvent: (event: StreamEvent) => void,
-) {
-  if (!response.body) throw new Error('The response stream is unavailable.')
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const result = await reader.read()
-    buffer += decoder.decode(result.value, { stream: !result.done })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      const event = parseEvent(line)
-      if (event) onEvent(event)
-    }
-    if (result.done) break
-  }
-  const finalEvent = parseEvent(buffer)
-  if (finalEvent) onEvent(finalEvent)
-}
-
-function parseEvent(line: string): StreamEvent | null {
-  if (!line.trim()) return null
-  try {
-    const result = streamEventSchema.safeParse(JSON.parse(line))
-    return result.success ? result.data : null
-  } catch {
-    return null
-  }
-}
-
-async function responseError(response: globalThis.Response) {
-  const body: unknown = await response.json().catch(() => null)
-  return isRecord(body) && typeof body.error === 'string'
-    ? body.error
-    : 'The model request failed.'
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
 }
 
 function isAbort(error: unknown) {
