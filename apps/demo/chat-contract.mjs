@@ -3,11 +3,17 @@ import { z } from 'zod'
 
 const timestamp = z.number().nonnegative()
 const agent = z.object({ id: z.string(), label: z.string() })
-export const modelSchema = z.object({
-  label: z.string(),
-  modelId: z.string(),
-  providerId: z.string(),
-})
+export const modelSchema = z
+  .object({
+    description: z.string().optional(),
+    label: z.string(),
+    modelId: z.string(),
+    providerId: z.string(),
+  })
+  .transform(({ description, ...model }) => ({
+    ...model,
+    ...(description === undefined ? {} : { description }),
+  }))
 
 // Requests identify a catalog entry; display metadata is optional for older clients.
 const requestedModelSchema = z.strictObject({

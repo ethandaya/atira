@@ -796,6 +796,9 @@ function ComposerModelControls({
             })
           }}
           options={capabilities.models.map((model) => ({
+            ...(model.description === undefined
+              ? {}
+              : { description: model.description }),
             label: model.label,
             value: modelOptionValue(model),
           }))}

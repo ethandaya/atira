@@ -648,7 +648,12 @@ function runtimeConfiguration(account) {
     label: 'Nanocodex',
     model: nanocodexModel,
     models: [
-      { label: nanocodexModel, modelId: nanocodexModel, providerId: 'openai' },
+      {
+        description: 'OpenAI via Nanocodex',
+        label: nanocodexModel,
+        modelId: nanocodexModel,
+        providerId: 'openai',
+      },
     ],
   }
 }

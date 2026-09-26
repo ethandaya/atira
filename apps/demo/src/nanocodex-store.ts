@@ -434,7 +434,14 @@ export class NanocodexChatStore implements ChatStore {
             : {
                 body: JSON.stringify({
                   input,
-                  model,
+                  model:
+                    model === undefined
+                      ? undefined
+                      : {
+                          label: model.label,
+                          modelId: model.modelId,
+                          providerId: model.providerId,
+                        },
                   resume: this.#hasContext,
                   turnId,
                   retry: Boolean(retry),

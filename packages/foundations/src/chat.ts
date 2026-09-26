@@ -35,6 +35,7 @@ export type HistoryState =
 
 export type ModelIdentity = Readonly<{
   defaultReasoningEffort?: string
+  description?: string
   label: string
   modelId: string
   providerId: string
