@@ -2,6 +2,12 @@ import { expect, test } from '@playwright/test'
 
 test.use({ video: 'on' })
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/chatgpt', (route) =>
+    route.fulfill({ json: { state: 'authenticated' } }),
+  )
+})
+
 for (const width of [1100, 390]) {
   test(`every pending position hands off without moving completed evidence (${width})`, async ({
     page,
@@ -14,7 +20,6 @@ for (const width of [1100, 390]) {
       route.fulfill({
         json: {
           available: true,
-          conversationSessions: true,
           model: 'test',
           runtime: 'Test',
         },
@@ -41,7 +46,7 @@ for (const width of [1100, 390]) {
         )
       }
     })
-    await page.goto('/?view=playground')
+    await page.goto('/playground')
     await page
       .getByRole('textbox', { name: 'Message', exact: true })
       .fill(
@@ -85,7 +90,9 @@ for (const width of [1100, 390]) {
     const completed: {
       node: Awaited<ReturnType<typeof owner.elementHandle>>
       top: number
+      scrollTop: number
     }[] = []
+    const viewport = page.locator('[data-slot="timeline-viewport"]')
     for (const [index, call] of calls.entries()) {
       await expect(pending).toHaveAttribute('data-handoff-slot', String(index))
       const slot = await pending.elementHandle()
@@ -152,8 +159,11 @@ for (const width of [1100, 390]) {
         expect(await previous.node!.evaluate((node) => node.isConnected)).toBe(
           true,
         )
-        expect((await previous.node!.boundingBox())!.y).toBeCloseTo(
-          previous.top,
+        const scrollTop = await viewport.evaluate(
+          (element) => element.scrollTop,
+        )
+        expect((await previous.node!.boundingBox())!.y + scrollTop).toBeCloseTo(
+          previous.top + previous.scrollTop,
           0,
         )
       }
@@ -172,6 +182,7 @@ for (const width of [1100, 390]) {
       completed.push({
         node: await incoming.elementHandle(),
         top: (await incoming.boundingBox())!.y,
+        scrollTop: await viewport.evaluate((element) => element.scrollTop),
       })
     }
     await expect(pending).toHaveAttribute('data-handoff-slot', '3')
@@ -251,8 +262,9 @@ for (const width of [1100, 390]) {
       width === 390 ? '0s' : '0.09s',
     )
     for (const previous of completed) {
-      expect((await previous.node!.boundingBox())!.y).toBeCloseTo(
-        previous.top,
+      const scrollTop = await viewport.evaluate((element) => element.scrollTop)
+      expect((await previous.node!.boundingBox())!.y + scrollTop).toBeCloseTo(
+        previous.top + previous.scrollTop,
         0,
       )
       expect(

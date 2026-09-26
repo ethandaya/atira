@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/chatgpt', (route) =>
+    route.fulfill({ json: { state: 'authenticated' } }),
+  )
+})
+
 const comparison = `| Carbon frameset | Frameset price | Stated tyre clearance | L-size fit: stack / reach, mm | BB / hanger | Availability |
 | --- | --- | --- | --- | --- | --- |
 | [Tavelo Grow](https://example.com/tavelo) — benchmark | **US$1,650**, listing labelled “frame only”; **US$1,880** with flat cockpit | **700c: 55mm front / 50mm rear** | **L: 579 / 395** | BSA 68 / UDH | General orders accepted; pre-orders fulfilled first. Immediate L stock unverified |
@@ -16,7 +22,6 @@ for (const width of [1100, 390]) {
       await page.route('**/api/runtime', (route) =>
         route.fulfill({
           json: {
-            conversationSessions: true,
             available: true,
             model: 'test',
             runtime: 'Test',
@@ -55,7 +60,7 @@ for (const width of [1100, 390]) {
           )
         }
       }, comparison)
-      await page.goto('/?view=playground')
+      await page.goto('/playground')
       await page
         .getByRole('textbox', { name: 'Message', exact: true })
         .fill('Compare these framesets')

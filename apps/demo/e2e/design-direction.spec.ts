@@ -1,6 +1,12 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/chatgpt', (route) =>
+    route.fulfill({ json: { state: 'authenticated' } }),
+  )
+})
+
 for (const theme of ['light', 'dark']) {
   for (const width of [390, 1280]) {
     test(`default components preserve evidence and approval state (${theme}, ${width})`, async ({
@@ -235,7 +241,7 @@ test('composer action retains its DOM identity through send, queue, stop and com
 test('actual app and catalog use the default components even with a legacy design URL', async ({
   page,
 }) => {
-  await page.goto('/?view=playground&design=studio&accent=blue')
+  await page.goto('/playground?design=studio&accent=blue')
   await expect(
     page.getByRole('combobox', { name: 'Design direction' }),
   ).toHaveCount(0)
@@ -243,7 +249,7 @@ test('actual app and catalog use the default components even with a legacy desig
     'border-radius',
     '18px',
   )
-  await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+  await page.getByRole('link', { name: 'Components', exact: true }).click()
   await expect(page.locator('[data-slot="composer"]')).toHaveCSS(
     'border-radius',
     '18px',
@@ -253,12 +259,12 @@ test('actual app and catalog use the default components even with a legacy desig
       .locator('[data-slot="composer"]')
       .evaluate((element) => getComputedStyle(element).boxShadow),
   ).toContain('0px 0px 0px 1px')
-  await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS(
-    'border-radius',
-    '18px',
-  )
-  await page.getByRole('link', { name: 'Live playground', exact: true }).click()
-  await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS(
+  await page.getByRole('link', { name: 'Playground', exact: true }).click()
+  const playground = page.getByRole('region', {
+    name: 'Live playground',
+    exact: true,
+  })
+  await expect(playground.locator('[data-slot="chat-composer"]')).toHaveCSS(
     'border-radius',
     '18px',
   )
@@ -341,12 +347,12 @@ for (const theme of ['light', 'dark']) {
         page.getByRole('textbox', { name: 'Message', exact: true }),
       ).toBeFocused()
 
-      await page.goto('/?view=playground')
-      await page.getByRole('button', { name: 'Catalog', exact: true }).click()
+      await page.goto('/playground')
+      await page.getByRole('link', { name: 'Components', exact: true }).click()
       await expect(
         page.getByRole('region', { name: 'Component gallery', exact: true }),
       ).toBeVisible()
-      if (theme === 'dark')
+      if (theme === 'dark' && width >= 800)
         await page
           .getByRole('button', {
             name: 'Dark theme',
@@ -371,6 +377,23 @@ for (const theme of ['light', 'dark']) {
             .analyze()
         ).violations,
       ).toEqual([])
+      const docks = page.getByRole('article', {
+        name: 'TodoDock and RevertDock',
+        exact: true,
+      })
+      await docks
+        .getByRole('button', { name: 'Edit prompt', exact: true })
+        .click()
+      const restored = docks.getByRole('textbox', {
+        name: 'Message',
+        exact: true,
+      })
+      await expect(restored).toHaveValue('Continue the interface audit.')
+      await restored.fill('Submit the restored prompt.')
+      await docks.getByRole('button', { name: 'Send', exact: true }).click()
+      await expect(docks.getByRole('status')).toHaveText(
+        'Submitted: Submit the restored prompt.',
+      )
       const queue = page.getByRole('article', {
         name: 'QueueList',
         exact: true,
@@ -388,15 +411,36 @@ for (const theme of ['light', 'dark']) {
       await queue.getByRole('button', { name: 'Retry', exact: true }).click()
       await expect(queue.locator('[data-state="failed"]')).toHaveCount(0)
       await queue
+        .locator('[data-queue-id="gallery-queued"]')
         .getByRole('button', { name: 'Remove', exact: true })
-        .first()
         .click()
       await expect(queue.locator('[data-queue-id]')).toHaveCount(1)
-      await queue.getByRole('button', { name: 'Edit', exact: true }).click()
+      await queue
+        .locator('[data-queue-id="gallery-queue-failed"]')
+        .getByRole('button', { name: 'Edit', exact: true })
+        .click()
       await expect(queue.locator('[data-queue-id]')).toHaveCount(0)
       await expect(
-        page.locator('[data-slot="chat-composer"] textarea'),
+        queue.locator('[data-slot="chat-composer"] textarea'),
       ).toHaveValue('Retry the visual check.')
+      await queue.getByRole('button', { name: 'Queue', exact: true }).click()
+      await expect(queue.locator('[data-queue-id]')).toHaveCount(1)
+      await expect(queue.getByRole('status')).toHaveText(
+        'Queued: Retry the visual check.',
+      )
+      await expect(
+        queue.getByRole('textbox', { name: 'Message', exact: true }),
+      ).toHaveValue('')
+      await queue.getByRole('button', { name: 'Stop', exact: true }).click()
+      const queueComposer = queue.getByRole('textbox', {
+        name: 'Message',
+        exact: true,
+      })
+      await queueComposer.fill('Submit from the gallery.')
+      await queue.getByRole('button', { name: 'Send', exact: true }).click()
+      await expect(queue.getByRole('status')).toHaveText(
+        'Submitted: Submit from the gallery.',
+      )
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,

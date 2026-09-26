@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/chatgpt', (route) =>
+    route.fulfill({ json: { state: 'authenticated' } }),
+  )
+})
+
 for (const reload of [false, true]) {
   test(`replays a running turn without resubmitting (${reload ? 'reload' : 'disconnect'})`, async ({
     page,
@@ -9,7 +15,6 @@ for (const reload of [false, true]) {
     await page.route('**/api/runtime', (route) =>
       route.fulfill({
         json: {
-          conversationSessions: true,
           available: true,
           runtime: 'Test',
           model: 'test',
@@ -76,7 +81,7 @@ for (const reload of [false, true]) {
       },
       { reload },
     )
-    await page.goto('/?view=playground')
+    await page.goto('/playground')
     await page
       .getByRole('textbox', { name: 'Message', exact: true })
       .fill('Inspect the catalog')
