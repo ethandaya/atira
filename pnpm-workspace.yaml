@@ -4,7 +4,9 @@ packages:
 
 allowBuilds:
   '@mongodb-js/zstd': false
+  esbuild: true
   node-liblzma: false
+  workerd: true
 
 catalog:
   '@base-ui/react': 1.7.0
@@ -28,3 +30,6 @@ minimumReleaseAgeExclude:
   - lucide-react@1.41.0
   - nanocodex-tools@0.6.5
   - nanocodex@0.6.5
+  - '@cloudflare/workers-types@5.20260927.1'
+  - miniflare@5.20260926.0-alpha
+  - wrangler@4.142.0

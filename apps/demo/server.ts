@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto'
+import { readFile, stat } from 'node:fs/promises'
 import {
   createServer,
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http'
+import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { Agent } from 'nanocodex/node'
-import { createServer as createViteServer, type ViteDevServer } from 'vite'
+import type { ViteDevServer } from 'vite'
 
 import { RunStream } from './run-stream.ts'
 import {
@@ -38,6 +40,8 @@ const nanocodexModel = (process.env.NANOCODEX_MODEL?.trim() ||
 const nanocodexApiBaseUrl = process.env.NANOCODEX_API_BASE_URL?.trim()
 const nanocodexWebsocketUrl = process.env.NANOCODEX_WEBSOCKET_URL?.trim()
 const root = fileURLToPath(new URL('.', import.meta.url))
+const production = process.argv.includes('--production')
+const dist = resolve(root, 'dist')
 const port = Number(process.env.PORT ?? readArgument('--port') ?? 5173)
 const host = process.env.HOST ?? readArgument('--host') ?? '0.0.0.0'
 const tools = await createDemoTools({
@@ -50,11 +54,16 @@ const conversations = new ConversationService({
 })
 const auth = new DemoAuth({ reset: (id) => conversations.resetAccount(id) })
 
-let vite: ViteDevServer
+let vite: ViteDevServer | undefined
 const server = createServer((request, response) => {
   void handleRequest(request, response)
-    .then((handled) => {
-      if (!handled) vite.middlewares(request, response)
+    .then(async (handled) => {
+      if (handled) return
+      if (vite) {
+        vite.middlewares(request, response)
+        return
+      }
+      await serveProductionApp(request, response)
     })
     .catch((error) => {
       const message = publicError(error)
@@ -72,14 +81,17 @@ const server = createServer((request, response) => {
     })
 })
 
-vite = await createViteServer({
-  appType: 'spa',
-  root,
-  server: {
-    middlewareMode: true,
-    ws: { server },
-  },
-})
+if (!production) {
+  const { createServer: createViteServer } = await import('vite')
+  vite = await createViteServer({
+    appType: 'spa',
+    root,
+    server: {
+      middlewareMode: true,
+      ws: { server },
+    },
+  })
+}
 
 server.listen(port, host, () => {
   console.log(`Atira demo listening on http://${host}:${port}`)
@@ -102,6 +114,11 @@ async function handleRequest(
   response: ServerResponse,
 ) {
   const url = new URL(request.url ?? '/', 'http://demo.local')
+
+  if (request.method === 'GET' && url.pathname === '/healthz') {
+    sendJson(response, 200, { status: 'ok' })
+    return true
+  }
 
   if (!url.pathname.startsWith('/api/')) return false
 
@@ -483,6 +500,56 @@ function sendJson(response: ServerResponse, status: number, body: unknown) {
   response.end(JSON.stringify(body))
 }
 
+async function serveProductionApp(
+  request: IncomingMessage,
+  response: ServerResponse,
+) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    response.writeHead(405, { Allow: 'GET, HEAD' })
+    response.end()
+    return
+  }
+
+  const url = new URL(request.url ?? '/', 'http://demo.local')
+  const requested = resolve(dist, `.${decodeURIComponent(url.pathname)}`)
+  const asset =
+    requested.startsWith(`${dist}${sep}`) && (await isFile(requested))
+      ? requested
+      : resolve(dist, 'index.html')
+  const type = contentTypes[extname(asset)] ?? 'application/octet-stream'
+
+  response.writeHead(200, {
+    'Cache-Control': asset.endsWith('index.html')
+      ? 'no-cache'
+      : 'public, max-age=31536000, immutable',
+    'Content-Type': type,
+    'X-Content-Type-Options': 'nosniff',
+  })
+  if (request.method === 'HEAD') {
+    response.end()
+    return
+  }
+  response.end(await readFile(asset))
+}
+
+async function isFile(path: string) {
+  return stat(path)
+    .then((entry) => entry.isFile())
+    .catch(() => false)
+}
+
+const contentTypes: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
+}
+
 class HttpError extends Error {
   status: number
 
@@ -519,7 +586,7 @@ async function disposeSession(session: Conversation) {
 async function shutdown() {
   clearInterval(pruneTimer)
   server.close()
-  await vite.close()
+  await vite?.close()
   await conversations.dispose()
   auth.dispose()
 }

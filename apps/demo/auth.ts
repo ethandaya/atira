@@ -128,6 +128,7 @@ export class DemoAuth {
       await this.run(id, async () => {
         await this.reset(id)
         if (account.pending > 1) return
+        await account.subscription?.logout()
         account.subscription?.dispose()
         this.#accounts.delete(id)
       })
