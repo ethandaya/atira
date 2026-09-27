@@ -66,7 +66,8 @@ The public demo is configured to run as one Cloudflare Container behind a Worker
 container preserves the server's session-isolated authentication, conversation
 contexts, streaming responses, and reconnect buffers. The container sleeps after
 30 minutes without traffic; a cold start resets the same in-memory state that a
-local server restart resets.
+local server restart resets. Placement is restricted to North America because
+ChatGPT device authentication is unavailable from some regions.
 
 Cloudflare Containers require a Workers Paid plan and Docker for local deploys:
 

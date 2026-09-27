@@ -11,6 +11,9 @@
       "class_name": "AtiraContainer",
       "image": "./Dockerfile",
       "max_instances": 1,
+      "constraints": {
+        "regions": ["ENAM", "WNAM"],
+      },
     },
   ],
   "durable_objects": {
