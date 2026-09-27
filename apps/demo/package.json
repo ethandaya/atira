@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && vite build",
     "dev": "node --experimental-strip-types server.ts",
+    "start": "node --experimental-strip-types server.ts --production",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

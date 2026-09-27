@@ -60,6 +60,30 @@ Integration tests direct the real Nanocodex agent to a local provider with
 `NANOCODEX_WEBSOCKET_URL` and `NANOCODEX_API_BASE_URL`. Leave both unset for normal
 use. These settings do not redirect the separate web-search tool.
 
+## Deployment
+
+The public demo is configured to run as one Cloudflare Container behind a Worker. A single
+container preserves the server's session-isolated authentication, conversation
+contexts, streaming responses, and reconnect buffers. The container sleeps after
+30 minutes without traffic; a cold start resets the same in-memory state that a
+local server restart resets.
+
+Cloudflare Containers require a Workers Paid plan and Docker for local deploys:
+
+```bash
+pnpm deploy:cloudflare
+```
+
+Cloudflare Builds deploys pushes to `main` from the repository root with no
+separate build command and `npx wrangler deploy` as the deploy command. The
+Dockerfile owns the production build, so building once before Wrangler would
+duplicate work whose output the container does not use.
+
+The production server serves the compiled Vite application and exposes
+`/healthz` for runtime checks. Do not configure a shared `OPENAI_API_KEY` for the
+public demo unless you intend to pay for visitor usage; users can authenticate
+with their own ChatGPT subscription instead.
+
 ## Library boundaries
 
 - `packages/foundations` — semantic StyleX tokens, themes, and neutral chat types
@@ -79,6 +103,19 @@ schemas or require Nanocodex.
 Library releases target the public npm registry under the `@atira` scope.
 `pnpm publish:library -- --dry-run` builds the compiled package contents and
 shows the packages that a publish would upload.
+
+The four library packages release as one fixed version group. Add a changeset to
+each pull request that changes their public contract:
+
+```bash
+pnpm changeset
+```
+
+Merging the generated **Version packages** pull request publishes the compiled
+packages through `.github/workflows/release.yml`. The repository needs an
+`NPM_TOKEN` Actions secret with publish access to the `@atira` scope. The initial
+changeset prepares version `0.1.0`; no package is published until that version
+pull request is merged.
 
 ## Verification
 

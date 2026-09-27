@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process'
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+  appendFile,
+  cp,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,6 +16,8 @@ const names = ['foundations', 'primitives', 'components', 'blocks']
 const publishArguments = process.argv
   .slice(2)
   .filter((argument) => argument !== '--')
+const dryRun = publishArguments.includes('--dry-run')
+const changesetsOutput = process.env.CHANGESETS_OUTPUT
 const catalog = JSON.parse(
   execFileSync('pnpm', ['config', 'get', 'catalog', '--json'], {
     cwd: root,
@@ -27,6 +36,7 @@ type SourceManifest = {
   devDependencies?: Record<string, string>
   exports: Record<string, string>
   files?: string[]
+  name: string
   peerDependencies?: Record<string, string>
   private: boolean
   publishConfig?: { access: string; registry: string }
@@ -166,10 +176,23 @@ try {
       )}\n`,
     )
     execFileSync(
-      'pnpm',
-      ['publish', '--access', 'public', '--no-git-checks', ...publishArguments],
-      { cwd: target, stdio: 'inherit' },
+      'npm',
+      ['publish', '--access', 'public', ...publishArguments],
+      {
+        cwd: target,
+        stdio: 'inherit',
+      },
     )
+    if (changesetsOutput && !dryRun) {
+      await appendFile(
+        changesetsOutput,
+        `${JSON.stringify({
+          packageName: manifest.name,
+          tag: `${manifest.name}@${manifest.version}`,
+          type: 'git-tag',
+        })}\n`,
+      )
+    }
   }
 } finally {
   await rm(staging, { recursive: true, force: true })
