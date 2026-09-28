@@ -1,6 +1,6 @@
 {
   "name": "@atiraui/foundations",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Types, themes, and design tokens for Atira agent interfaces.",
   "license": "MIT",
