@@ -16,6 +16,15 @@ for (const width of [390, 1280]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 })
+    await page.route('**/api/runtime', (route) =>
+      route.fulfill({
+        json: {
+          available: true,
+          model: 'test',
+          runtime: 'Test runtime',
+        },
+      }),
+    )
     await page.goto('/')
     await expect(
       page.getByRole('heading', { name: 'Build agent interfaces.' }),
