@@ -1,0 +1,55 @@
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-width: 20rem;
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: 'Geist Variable', 'Helvetica Neue', Arial, sans-serif;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+    font-optical-sizing: auto;
+    font-synthesis: none;
+    min-height: 100%;
+    margin: 0;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: 'Geist Mono Variable', 'SFMono-Regular', Consolas, monospace;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    touch-action: manipulation;
+  }
+
+  [data-theme-switching],
+  [data-theme-switching] *,
+  [data-theme-switching] *::before,
+  [data-theme-switching] *::after {
+    transition-duration: 0s !important;
+  }
+}

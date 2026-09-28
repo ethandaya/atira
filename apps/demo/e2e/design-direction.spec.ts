@@ -1,0 +1,524 @@
+import AxeBuilder from '@axe-core/playwright'
+import { expect, test } from '@playwright/test'
+
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/chatgpt', (route) =>
+    route.fulfill({ json: { state: 'authenticated' } }),
+  )
+})
+
+for (const theme of ['light', 'dark']) {
+  for (const width of [390, 1280]) {
+    test(`default components preserve evidence and approval state (${theme}, ${width})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(`/?fixture=workflow&review&theme=${theme}`)
+      const composer = page.locator('[data-slot="chat-composer"]')
+      const editor = composer.locator('textarea')
+      const activity = page.locator('[data-slot="activity-sequence"]').last()
+      await expect(composer).toHaveCSS('border-radius', '18px')
+      expect(
+        await composer.evaluate(
+          (element) => getComputedStyle(element).boxShadow,
+        ),
+      ).toContain('0px 0px 0px 1px')
+      await expect(editor).toHaveCSS('padding-inline-start', '16px')
+      await expect(editor).toHaveCSS('font-size', width < 768 ? '16px' : '15px')
+      const toolbar = composer.locator('[data-slot="chat-composer-toolbar"]')
+      await expect(toolbar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+      await expect(toolbar).toHaveCSS('box-shadow', 'none')
+      await expect(toolbar).toHaveCSS('padding-inline-start', '8px')
+      await expect(editor).toHaveCSS('min-height', '64px')
+      await expect(activity).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+      await expect(page.locator('[data-slot="markdown"]').first()).toHaveCSS(
+        'font-size',
+        '15px',
+      )
+      await expect(
+        page.locator('[data-slot="tool-activity-summary"]').first(),
+      ).toHaveCSS('font-size', '14px')
+      const transcript = page.locator('[data-slot="turn-assistant"]').last()
+      const prose = await transcript
+        .locator('[data-slot="markdown"]')
+        .first()
+        .boundingBox()
+      const toolHeader = await transcript
+        .locator('[data-slot="tool-activity-header"]')
+        .first()
+        .boundingBox()
+      expect(toolHeader!.x).toBeCloseTo(prose!.x, 0)
+      await editor.fill('Keep this draft while reviewing the evidence.')
+      const edit = page.getByRole('button', {
+        name: 'Complete Edit src/interface.ts',
+      })
+      const shell = page.getByRole('button', {
+        name: 'Complete pnpm typecheck',
+      })
+      await expect(shell).toHaveCSS('padding-inline-start', '8px')
+      await expect(shell).toHaveCSS('padding-inline-end', '8px')
+      const hitArea = await shell.boundingBox()
+      expect(prose!.x - hitArea!.x).toBeCloseTo(8, 0)
+      await edit.click()
+      await shell.click()
+      // Reversing a disclosure must settle to the most recent intent.
+      await edit.evaluate(async (element) => {
+        element.click()
+        await new Promise(requestAnimationFrame)
+        element.click()
+      })
+      await expect(edit).toHaveAttribute('aria-expanded', 'true')
+      await expect(shell).toHaveAttribute('aria-expanded', 'true')
+      await expect(
+        transcript.locator('[data-slot="tool-activity-evidence"]').first(),
+      ).toHaveCSS('border-inline-start-width', '0px')
+      const shellLabel = await shell
+        .locator('[data-slot="tool-activity-summary"]')
+        .boundingBox()
+      const shellEvidence = await transcript
+        .locator('[data-slot="tool-activity-evidence"]')
+        .first()
+        .locator(':scope > *')
+        .first()
+        .boundingBox()
+      expect(shellEvidence!.x).toBeCloseTo(shellLabel!.x, 0)
+      await page
+        .getByRole('button', {
+          name: theme === 'light' ? 'Dark' : 'Light',
+          exact: true,
+        })
+        .click()
+      await expect(editor).toHaveValue(
+        'Keep this draft while reviewing the evidence.',
+      )
+      await expect(edit).toHaveAttribute('aria-expanded', 'true')
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="chat-composer"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+      await page.getByRole('button', { name: 'Preview request' }).click()
+      await page
+        .getByRole('menuitem', { name: 'Permission request', exact: true })
+        .click()
+      const permission = page.locator('[data-slot="permission-prompt"]')
+      await expect(permission).toBeVisible()
+      await expect(permission.getByRole('heading')).toHaveCSS(
+        'font-size',
+        '17px',
+      )
+      await page
+        .locator('[data-slot="timeline-viewport"]')
+        .evaluate((element) => {
+          element.scrollTop = Math.max(0, element.scrollTop - 200)
+        })
+      await expect
+        .poll(() =>
+          permission.getByRole('heading').evaluate((element) => {
+            const bounds = element.getBoundingClientRect()
+            const topElement = document.elementFromPoint(
+              bounds.x + bounds.width / 2,
+              bounds.y + bounds.height / 2,
+            )
+            return topElement !== null && element.contains(topElement)
+          }),
+        )
+        .toBe(true)
+      for (const label of ['Reject', 'Always allow', 'Allow once']) {
+        const box = await permission
+          .getByRole('button', { name: label, exact: true })
+          .boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.x).toBeGreaterThanOrEqual(0)
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width)
+      }
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="permission-prompt"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+      await permission
+        .getByRole('button', {
+          name: width === 390 ? 'Reject' : 'Allow once',
+          exact: true,
+        })
+        .click()
+      await expect(permission).toBeHidden()
+      await expect(editor).toHaveValue(
+        'Keep this draft while reviewing the evidence.',
+      )
+      await expect(edit).toHaveAttribute('aria-expanded', 'true')
+      await expect(shell).toHaveAttribute('aria-expanded', 'true')
+      const history = page.locator('[data-slot="request-history"]')
+      await expect(history).toContainText(
+        width === 390 ? 'Permission rejected.' : 'Allowed once.',
+      )
+      await history.getByRole('button').click()
+      await expect(
+        history.getByRole('list', { name: 'Decision history' }),
+      ).toContainText('Publish the generated preview')
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="request-history"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true)
+    })
+  }
+}
+
+test('composer action retains its DOM identity through send, queue, stop and completion', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/?fixture=workflow')
+  const editor = page.getByRole('textbox', { name: 'Message', exact: true })
+  const originalAction = await page
+    .getByRole('button', { name: 'Send', exact: true })
+    .elementHandle()
+  await expect(
+    page.getByRole('button', { name: 'Send', exact: true }),
+  ).toBeDisabled()
+  await editor.fill('Inspect the interface')
+  await editor.press('Control+Enter')
+  await expect(
+    page.getByRole('button', { name: 'Stop', exact: true }),
+  ).toBeVisible()
+  expect(
+    await originalAction!.evaluate(
+      (element) =>
+        element ===
+        document.querySelector(
+          '[data-slot="chat-composer-submit-controls"] button',
+        ),
+    ),
+  ).toBe(true)
+  await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS(
+    'transition-duration',
+    '0s',
+  )
+  await editor.fill('A queued prompt to keep after stopping')
+  await page.getByRole('button', { name: 'Queue', exact: true }).click()
+  await page.getByRole('button', { name: 'Stop', exact: true }).click()
+  await expect(page.locator('[data-slot="turn"]').last()).toHaveAttribute(
+    'data-state',
+    'interrupted',
+  )
+  await expect(page.locator('[data-slot="queue-list"]')).toContainText(
+    'A queued prompt to keep after stopping',
+  )
+  await editor.fill('Finish the next response')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect(
+    page.getByText('The deterministic fixture response is complete.', {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Send', exact: true }),
+  ).toBeDisabled()
+  expect(
+    await originalAction!.evaluate(
+      (element) =>
+        element ===
+        document.querySelector(
+          '[data-slot="chat-composer-submit-controls"] button',
+        ),
+    ),
+  ).toBe(true)
+})
+
+test('actual app and catalog use the default components even with a legacy design URL', async ({
+  page,
+}) => {
+  await page.goto('/playground?design=studio&accent=blue')
+  await expect(
+    page.getByRole('combobox', { name: 'Design direction' }),
+  ).toHaveCount(0)
+  await expect(page.locator('[data-slot="chat-composer"]')).toHaveCSS(
+    'border-radius',
+    '18px',
+  )
+  await page.getByRole('link', { name: 'Components', exact: true }).click()
+  await expect(page.locator('[data-slot="composer"]')).toHaveCSS(
+    'border-radius',
+    '18px',
+  )
+  expect(
+    await page
+      .locator('[data-slot="composer"]')
+      .evaluate((element) => getComputedStyle(element).boxShadow),
+  ).toContain('0px 0px 0px 1px')
+  await page.getByRole('link', { name: 'Playground', exact: true }).click()
+  const playground = page.getByRole('region', {
+    name: 'Live playground',
+    exact: true,
+  })
+  await expect(playground.locator('[data-slot="chat-composer"]')).toHaveCSS(
+    'border-radius',
+    '18px',
+  )
+})
+
+for (const theme of ['light', 'dark']) {
+  for (const width of [390, 1280]) {
+    test(`refinement passes preserve recovery and keyboard behavior (${theme}, ${width})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(`/?fixture=workflow&review&theme=${theme}`)
+      await page.locator('input[type="file"]').setInputFiles([
+        {
+          name: 'a-long-interface-review-filename.md',
+          mimeType: 'text/markdown',
+          buffer: Buffer.from('review'),
+        },
+        {
+          name: 'retry.blocked',
+          mimeType: 'text/plain',
+          buffer: Buffer.from('retry'),
+        },
+      ])
+      const tray = page.locator('[data-slot="attachment-tray"]')
+      await expect(tray.locator('[data-state="failed"]')).toHaveCount(1)
+      await tray.getByRole('button', { name: 'Retry', exact: true }).click()
+      await expect(tray.locator('[data-state="failed"]')).toHaveCount(0)
+      await tray
+        .getByRole('button', { name: 'Remove', exact: true })
+        .first()
+        .click()
+      await expect(tray.locator('li')).toHaveCount(1)
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="attachment-tray"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+
+      const shell = page.getByRole('button', {
+        name: 'Complete pnpm typecheck',
+        exact: true,
+      })
+      await shell.focus()
+      await shell.press('Enter')
+      await expect(shell).toHaveAttribute('aria-expanded', 'true')
+      await expect(
+        shell.locator('[data-slot="disclosure-indicator"]'),
+      ).toHaveCSS('transition-duration', '0s')
+      await shell.click()
+      await expect(
+        shell.locator('[data-slot="disclosure-indicator"]'),
+      ).toHaveCSS('transition-duration', '0.14s')
+      await page
+        .getByRole('button', { name: 'Composer actions', exact: true })
+        .click()
+      await page
+        .getByRole('menuitem', { name: 'Commands', exact: true })
+        .click()
+      const input = page.locator('[data-slot="filter-menu-popup"] input')
+      await expect(input).toBeFocused()
+      await expect(page.getByRole('option')).toHaveCount(2)
+      const inputTop = (await input.boundingBox())!.y
+      await input.fill('no-matches-zzzz')
+      await expect(page.getByText('No matches.', { exact: true })).toBeVisible()
+      await expect
+        .poll(async () => Math.abs((await input.boundingBox())!.y - inputTop))
+        .toBeLessThanOrEqual(1)
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="filter-menu-popup"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+      await input.press('Escape')
+      await expect(
+        page.getByRole('textbox', { name: 'Message', exact: true }),
+      ).toBeFocused()
+
+      await page.goto('/playground')
+      await page.getByRole('link', { name: 'Components', exact: true }).click()
+      await expect(
+        page.getByRole('region', { name: 'Component gallery', exact: true }),
+      ).toBeVisible()
+      if (theme === 'dark' && width >= 800)
+        await page
+          .getByRole('button', {
+            name: 'Dark theme',
+            exact: true,
+          })
+          .click()
+      const sources = page.getByRole('article', {
+        name: 'CitationList',
+        exact: true,
+      })
+      const link = sources.getByRole('link')
+      await expect(
+        link.locator('[data-slot="citation-description"]'),
+      ).toBeVisible()
+      await expect(
+        sources.getByText('Invalid link', { exact: true }),
+      ).toBeVisible()
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="citation-list"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+      const docks = page.getByRole('article', {
+        name: 'TodoDock and RevertDock',
+        exact: true,
+      })
+      await docks
+        .getByRole('button', { name: 'Edit prompt', exact: true })
+        .click()
+      const restored = docks.getByRole('textbox', {
+        name: 'Message',
+        exact: true,
+      })
+      await expect(restored).toHaveValue('Continue the interface audit.')
+      await restored.fill('Submit the restored prompt.')
+      await docks.getByRole('button', { name: 'Send', exact: true }).click()
+      await expect(docks.getByRole('status')).toHaveText(
+        'Submitted: Submit the restored prompt.',
+      )
+      const queue = page.getByRole('article', {
+        name: 'QueueList',
+        exact: true,
+      })
+      await expect(queue.getByRole('alert')).toHaveText(
+        'The runtime disconnected.',
+      )
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="queue-list"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+      await queue.getByRole('button', { name: 'Retry', exact: true }).click()
+      await expect(queue.locator('[data-state="failed"]')).toHaveCount(0)
+      await queue
+        .locator('[data-queue-id="gallery-queued"]')
+        .getByRole('button', { name: 'Remove', exact: true })
+        .click()
+      await expect(queue.locator('[data-queue-id]')).toHaveCount(1)
+      await queue
+        .locator('[data-queue-id="gallery-queue-failed"]')
+        .getByRole('button', { name: 'Edit', exact: true })
+        .click()
+      await expect(queue.locator('[data-queue-id]')).toHaveCount(0)
+      await expect(
+        queue.locator('[data-slot="chat-composer"] textarea'),
+      ).toHaveValue('Retry the visual check.')
+      await queue.getByRole('button', { name: 'Queue', exact: true }).click()
+      await expect(queue.locator('[data-queue-id]')).toHaveCount(1)
+      await expect(queue.getByRole('status')).toHaveText(
+        'Queued: Retry the visual check.',
+      )
+      await expect(
+        queue.getByRole('textbox', { name: 'Message', exact: true }),
+      ).toHaveValue('')
+      await queue.getByRole('button', { name: 'Stop', exact: true }).click()
+      const queueComposer = queue.getByRole('textbox', {
+        name: 'Message',
+        exact: true,
+      })
+      await queueComposer.fill('Submit from the gallery.')
+      await queue.getByRole('button', { name: 'Send', exact: true }).click()
+      await expect(queue.getByRole('status')).toHaveText(
+        'Submitted: Submit from the gallery.',
+      )
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true)
+    })
+  }
+}
+
+for (const theme of ['light', 'dark']) {
+  for (const width of [390, 1280]) {
+    test(`choice selection carries spatial continuity without delaying keyboard input (${theme}, ${width})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(`/?fixture=workflow&review&theme=${theme}`)
+      await page.getByRole('button', { name: 'Preview request' }).click()
+      await page
+        .getByRole('menuitem', { name: 'Question request', exact: true })
+        .click()
+      const compact = page.getByRole('radio', { name: 'Compact', exact: true })
+      const comfortable = page.getByRole('radio', {
+        name: 'Comfortable',
+        exact: true,
+      })
+      const selection = page.locator('[data-slot="radio-selection"]')
+      await compact.click()
+      await expect(compact).toBeChecked()
+      await expect(selection).toHaveCSS('box-shadow', 'none')
+      const start = (await selection.boundingBox())!.y
+      const sample = page.evaluate(async () => {
+        const positions: number[] = []
+        for (let frame = 0; frame < 30; frame++) {
+          await new Promise(requestAnimationFrame)
+          positions.push(
+            document
+              .querySelector('[data-slot="radio-selection"]')!
+              .getBoundingClientRect().y,
+          )
+        }
+        return positions
+      })
+      await comfortable.click()
+      const positions = await sample
+      await expect(comfortable).toBeChecked()
+      await expect(selection).toHaveCount(1)
+      await expect(selection).toHaveCSS('transform', 'none')
+      const end = (await selection.boundingBox())!.y
+      expect(positions.some((y) => y > start + 1 && y < end - 1)).toBe(true)
+      await comfortable.press('ArrowUp')
+      await expect(compact).toBeChecked()
+      await expect(selection).toHaveAttribute('data-motion', 'immediate')
+      await expect(selection).toHaveCSS('transform', 'none')
+      expect((await selection.boundingBox())!.y).toBeCloseTo(start, 0)
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .include('[data-slot="question-request"]')
+            .analyze()
+        ).violations,
+      ).toEqual([])
+
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.reload()
+      await page.getByRole('button', { name: 'Preview request' }).click()
+      await page
+        .getByRole('menuitem', { name: 'Question request', exact: true })
+        .click()
+      await compact.click()
+      await comfortable.click()
+      await expect(comfortable).toBeChecked()
+      await expect(selection).toHaveAttribute('data-motion', 'immediate')
+      await expect(selection).toHaveCSS('transform', 'none')
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true)
+    })
+  }
+}

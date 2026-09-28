@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  printf '[resume] pnpm is missing; rerun .agents/setup.\n' >&2
+  exit 1
+fi
+
+if [[ ! -d "$repo_root/node_modules" ]]; then
+  printf '[resume] Workspace dependencies are missing; rerun .agents/setup.\n' >&2
+  exit 1
+fi
+
+printf '[resume] Toolchain and workspace dependencies are ready.\n'

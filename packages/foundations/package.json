@@ -1,0 +1,39 @@
+{
+  "name": "@atiraui/foundations",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Types, themes, and design tokens for Atira agent interfaces.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethandaya/atira.git",
+    "directory": "packages/foundations"
+  },
+  "homepage": "https://github.com/ethandaya/atira#readme",
+  "bugs": {
+    "url": "https://github.com/ethandaya/atira/issues"
+  },
+  "keywords": [
+    "agent-interface",
+    "react",
+    "stylex"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./chat": "./src/chat.ts",
+    "./chat-invariants": "./src/chat-invariants.ts",
+    "./themes": "./src/themes.ts",
+    "./tokens.stylex": "./src/tokens.stylex.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@stylexjs/stylex": "catalog:"
+  },
+  "devDependencies": {
+    "@stylexjs/stylex": "catalog:",
+    "typescript": "catalog:"
+  }
+}

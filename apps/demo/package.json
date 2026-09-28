@@ -1,0 +1,36 @@
+{
+  "name": "@atiraui/demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && vite build",
+    "dev": "node --experimental-strip-types server.ts",
+    "start": "node --experimental-strip-types server.ts --production",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "catalog:",
+    "@fontsource-variable/geist-mono": "catalog:",
+    "@atiraui/blocks": "workspace:*",
+    "@atiraui/components": "workspace:*",
+    "@atiraui/foundations": "workspace:*",
+    "@atiraui/primitives": "workspace:*",
+    "@stylexjs/stylex": "catalog:",
+    "lucide-react": "catalog:",
+    "nanocodex": "0.6.5",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@stylexjs/unplugin": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "typescript": "catalog:",
+    "unplugin": "catalog:",
+    "vite": "catalog:"
+  }
+}
