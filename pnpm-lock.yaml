@@ -131,16 +131,16 @@ importers:
 
   apps/demo:
     dependencies:
-      '@atira/blocks':
+      '@atiraui/blocks':
         specifier: workspace:*
         version: link:../../packages/blocks
-      '@atira/components':
+      '@atiraui/components':
         specifier: workspace:*
         version: link:../../packages/components
-      '@atira/foundations':
+      '@atiraui/foundations':
         specifier: workspace:*
         version: link:../../packages/foundations
-      '@atira/primitives':
+      '@atiraui/primitives':
         specifier: workspace:*
         version: link:../../packages/primitives
       '@fontsource-variable/geist':
@@ -195,13 +195,13 @@ importers:
 
   packages/blocks:
     dependencies:
-      '@atira/components':
+      '@atiraui/components':
         specifier: workspace:*
         version: link:../components
-      '@atira/foundations':
+      '@atiraui/foundations':
         specifier: workspace:*
         version: link:../foundations
-      '@atira/primitives':
+      '@atiraui/primitives':
         specifier: workspace:*
         version: link:../primitives
       lucide-react:
@@ -226,10 +226,10 @@ importers:
 
   packages/components:
     dependencies:
-      '@atira/foundations':
+      '@atiraui/foundations':
         specifier: workspace:*
         version: link:../foundations
-      '@atira/primitives':
+      '@atiraui/primitives':
         specifier: workspace:*
         version: link:../primitives
       lucide-react:
@@ -266,7 +266,7 @@ importers:
 
   packages/primitives:
     dependencies:
-      '@atira/foundations':
+      '@atiraui/foundations':
         specifier: workspace:*
         version: link:../foundations
       '@base-ui/react':

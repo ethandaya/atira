@@ -1,4 +1,4 @@
-import type { ChatCapabilities } from '@atira/foundations/chat'
+import type { ChatCapabilities } from '@atiraui/foundations/chat'
 
 import {
   apiErrorSchema,

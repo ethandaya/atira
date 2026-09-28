@@ -6,7 +6,7 @@ import {
   shadows,
   space,
   type,
-} from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { AnimatePresence, PresenceSurface } from './presence'

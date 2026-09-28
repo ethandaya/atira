@@ -1,11 +1,11 @@
-import { space } from '@atira/foundations/tokens.stylex'
+import { space } from '@atiraui/foundations/tokens.stylex'
 import {
   IconButton,
   StateTransition,
   type IconButtonProps,
   resolveStyleProps,
   type StyleProps,
-} from '@atira/primitives'
+} from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 

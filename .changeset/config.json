@@ -4,16 +4,16 @@
   "commit": false,
   "fixed": [
     [
-      "@atira/foundations",
-      "@atira/primitives",
-      "@atira/components",
-      "@atira/blocks"
+      "@atiraui/foundations",
+      "@atiraui/primitives",
+      "@atiraui/components",
+      "@atiraui/blocks"
     ]
   ],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@atira/demo"],
+  "ignore": ["@atiraui/demo"],
   "privatePackages": {
     "version": true,
     "tag": false

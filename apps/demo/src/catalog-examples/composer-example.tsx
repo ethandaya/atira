@@ -1,4 +1,4 @@
-import { Composer } from '@atira/components'
+import { Composer } from '@atiraui/components'
 import * as stylex from '@stylexjs/stylex'
 import { useState } from 'react'
 

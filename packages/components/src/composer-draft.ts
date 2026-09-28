@@ -2,7 +2,7 @@ import type {
   ComposerDraft,
   DraftPoint,
   DraftSegment,
-} from '@atira/foundations/chat'
+} from '@atiraui/foundations/chat'
 
 type EditableSelection = Readonly<{
   anchor: number

@@ -1,4 +1,4 @@
-import type { ChatStore } from '@atira/foundations/chat'
+import type { ChatStore } from '@atiraui/foundations/chat'
 import { useSyncExternalStore } from 'react'
 
 export function useChatStore(store: ChatStore) {

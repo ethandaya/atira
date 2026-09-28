@@ -1,6 +1,6 @@
 ---
 name: using-atira
-description: Builds React agent interfaces with Atira components, primitives, blocks, themes, and chat contracts. Use when choosing, composing, integrating, or explaining @atira packages and their public components.
+description: Builds React agent interfaces with Atira components, primitives, blocks, themes, and chat contracts. Use when choosing, composing, integrating, or explaining @atiraui packages and their public components.
 ---
 
 # Using Atira
@@ -8,7 +8,7 @@ description: Builds React agent interfaces with Atira components, primitives, bl
 Use Atira to present agent activity in React 19. The application owns providers,
 transport, credentials, persistence, and runtime mutations. Atira owns accessible
 presentation and interaction. Never pass provider events or SDK clients directly
-to Atira; normalize them into `@atira/foundations/chat` types first.
+to Atira; normalize them into `@atiraui/foundations/chat` types first.
 
 ## Choose the layer
 
@@ -16,19 +16,19 @@ What is being built?
 
 ```text
 Complete chat surface backed by an application store
-└─ Use ChatSession from @atira/blocks
+└─ Use ChatSession from @atiraui/blocks
 
 Long transcript with custom controls around it
-└─ Use Timeline from @atira/blocks
+└─ Use Timeline from @atiraui/blocks
 
 Agent-aware UI assembled by the application
-└─ Use @atira/components
+└─ Use @atiraui/components
 
 General controls or low-level interaction pieces
-└─ Use @atira/primitives
+└─ Use @atiraui/primitives
 
 Types, themes, or design tokens
-└─ Use @atira/foundations
+└─ Use @atiraui/foundations
 ```
 
 Start at the highest layer that fits. Do not rebuild timeline virtualization,
@@ -50,110 +50,110 @@ Drop to a lower layer only when the application needs to own that composition.
 
 ## Components
 
-### Blocks — complete compositions
+### Blocks: complete compositions
 
-- `ChatSession` — complete controlled chat surface: timeline, requests, queue,
+- `ChatSession`: complete controlled chat surface: timeline, requests, queue,
   recovery, and composer. Use when the app can provide a `ChatStore`.
-- `Timeline` — virtualized transcript with history loading, detached scrolling,
+- `Timeline`: virtualized transcript with history loading, detached scrolling,
   and jump-to-latest behavior. Use for long `ChatTurn` collections.
-- `HistoryControl` — load-earlier, loading, complete, and failure UI for history.
-- `JumpToLatest` — returns a detached transcript to the newest turn.
-- `useChatStore` — subscribes React to a `ChatStore` with
+- `HistoryControl`: load-earlier, loading, complete, and failure UI for history.
+- `JumpToLatest`: returns a detached transcript to the newest turn.
+- `useChatStore`: subscribes React to a `ChatStore` with
   `useSyncExternalStore`.
 
-### Components — agent interface pieces
+### Components: agent interface pieces
 
 **Conversation**
 
-- `Thread` — semantic shell for a short, application-composed message list.
-- `Turn` / `TurnStatus` — one normalized user/assistant turn and its lifecycle.
-- `MessageParts` — dispatches normalized message parts, including custom tools.
-- `Message` — visual and semantic shell for one user, assistant, or system
+- `Thread`: semantic shell for a short, application-composed message list.
+- `Turn` / `TurnStatus`: one normalized user/assistant turn and its lifecycle.
+- `MessageParts`: dispatches normalized message parts, including custom tools.
+- `Message`: visual and semantic shell for one user, assistant, or system
   message when working below the normalized turn model.
-- `Response` — streaming, complete, interrupted, or failed response content.
-- `Markdown` — safe model-authored Markdown with streaming presentation.
-- `Reasoning` — disclosed reasoning with thinking and complete states.
+- `Response`: streaming, complete, interrupted, or failed response content.
+- `Markdown`: safe model-authored Markdown with streaming presentation.
+- `Reasoning`: disclosed reasoning with thinking and complete states.
 
 **Tool and agent activity**
 
-- `ToolActivity` — one tool lifecycle row with optional disclosed evidence.
+- `ToolActivity`: one tool lifecycle row with optional disclosed evidence.
 - `ContextTool`, `ShellTool`, `FileChangeTool`, `TaskTool`, `WebTool`,
-  `SkillTool`, and `ImageGenerationTool` — specialized renderers for normalized
+  `SkillTool`, and `ImageGenerationTool`: specialized renderers for normalized
   `ToolPart` presentations.
-- `ContextToolGroup` — condenses adjacent context reads into one disclosure.
-- `GenericTool` — lossless fallback for unknown or unvalidated tools.
-- `Activity` — generic queued/running/waiting/terminal activity row.
-- `ActivityList` — expanded or disclosed collection of activities.
-- `Loader` — compact pending, streaming, or complete status.
+- `ContextToolGroup`: condenses adjacent context reads into one disclosure.
+- `GenericTool`: lossless fallback for unknown or unvalidated tools.
+- `Activity`: generic queued/running/waiting/terminal activity row.
+- `ActivityList`: expanded or disclosed collection of activities.
+- `Loader`: compact pending, streaming, or complete status.
 
 **Composer and recovery**
 
-- `Composer` — simple controlled text composer. Use for a text-only prompt box.
-- `ChatComposer` — structured `ComposerDraft` editor with runtime-gated models,
+- `Composer`: simple controlled text composer. Use for a text-only prompt box.
+- `ChatComposer`: structured `ComposerDraft` editor with runtime-gated models,
   agents, references, attachments, shell mode, queueing, follow-up, and stop.
-- `AttachmentTray` / `ReferenceTray` — structured draft attachments and refs.
-- `PromptHistory` — selects an earlier prompt into the controlled draft.
-- `QueueList` — edits, retries, or removes queued prompts.
-- `ConnectionNotice`, `SubmissionError`, and `StreamStatus` — connection,
+- `AttachmentTray` / `ReferenceTray`: structured draft attachments and refs.
+- `PromptHistory`: selects an earlier prompt into the controlled draft.
+- `QueueList`: edits, retries, or removes queued prompts.
+- `ConnectionNotice`, `SubmissionError`, and `StreamStatus`: connection,
   mutation failure, and coarse screen-reader stream feedback.
 
 **Requests and task state**
 
-- `RequestRegion` — selects one active permission/question ahead of the composer
+- `RequestRegion`: selects one active permission/question ahead of the composer
   and manages focus. Prefer it over manually stacking requests.
-- `PermissionPrompt` — renders a normalized chat permission request.
-- `QuestionRequest` — renders one or more normalized runtime questions.
-- `QuestionAnswerSummary` — read-only summary for a resolved question request.
-- `TodoDock` — progress for the runtime's normalized todo list.
-- `RevertDock` — restore, redo, or dismiss a reverted prompt.
-- `PermissionRequest` — standalone approval card outside the `ChatStore` flow.
+- `PermissionPrompt`: renders a normalized chat permission request.
+- `QuestionRequest`: renders one or more normalized runtime questions.
+- `QuestionAnswerSummary`: read-only summary for a resolved question request.
+- `TodoDock`: progress for the runtime's normalized todo list.
+- `RevertDock`: restore, redo, or dismiss a reverted prompt.
+- `PermissionRequest`: standalone approval card outside the `ChatStore` flow.
 
 **Results and content**
 
-- `CodeBlock` — labelled code with filename, language, wrap, and copy behavior.
-- `Diff` — one or more files with hunks and accessible line semantics.
-- `Artifact` — file, image, portal, or result lifecycle with optional open action.
-- `GeneratedImage` — generating, failed, load-failed, and ready image states.
-- `Plan` — proposed, active, partial, or complete ordered work plan.
-- `Outcome` — blocked, cancelled, complete, failed, or reviewable result.
-- `CitationList` / `InlineCitation` — source list and safe inline references.
-- `Actions` / `Action` — labelled message action group and icon actions.
-- `Suggestions` / `Suggestion` — selectable starter or follow-up prompts.
+- `CodeBlock`: labelled code with filename, language, wrap, and copy behavior.
+- `Diff`: one or more files with hunks and accessible line semantics.
+- `Artifact`: file, image, portal, or result lifecycle with optional open action.
+- `GeneratedImage`: generating, failed, load-failed, and ready image states.
+- `Plan`: proposed, active, partial, or complete ordered work plan.
+- `Outcome`: blocked, cancelled, complete, failed, or reviewable result.
+- `CitationList` / `InlineCitation`: source list and safe inline references.
+- `Actions` / `Action`: labelled message action group and icon actions.
+- `Suggestions` / `Suggestion`: selectable starter or follow-up prompts.
 
-### Primitives — general controls
+### Primitives: general controls
 
-- `Button` / `IconButton` — standard text and accessible icon-only actions.
-- `TextField` / `TextareaField` (`ComposerField` alias) — labelled controlled or
+- `Button` / `IconButton`: standard text and accessible icon-only actions.
+- `TextField` / `TextareaField` (`ComposerField` alias): labelled controlled or
   uncontrolled inputs with descriptions and invalid states.
-- `CheckboxField`, `RadioGroup`, `RadioOption`, `SelectPicker` — choices and
+- `CheckboxField`, `RadioGroup`, `RadioOption`, `SelectPicker`: choices and
   selection. `SelectPickerParts` is unstyled Base UI, not a styled replacement.
-- `ActionMenu` — short action list; `FilterMenu` — searchable item selection.
-- `Dialog` — styled modal composition. `DialogParts` is unstyled Base UI.
-- `Disclosure` — controlled or uncontrolled show/hide region.
-- `Progress` — determinate or indeterminate progress with a visible label.
-- `Status` — compact live status text; `Spinner` — visual busy indicator;
-  `Shimmer` — animated text treatment.
-- `VisuallyHidden` — screen-reader-only content.
+- `ActionMenu`: short action list; `FilterMenu`: searchable item selection.
+- `Dialog`: styled modal composition. `DialogParts` is unstyled Base UI.
+- `Disclosure`: controlled or uncontrolled show/hide region.
+- `Progress`: determinate or indeterminate progress with a visible label.
+- `Status`: compact live status text; `Spinner`: visual busy indicator;
+  `Shimmer`: animated text treatment.
+- `VisuallyHidden`: screen-reader-only content.
 - Presence exports (`PresenceSurface`, `ActivityPresence`, `ActivitySlot`,
-  `PresenceItem`, `StateTransition`, `TextTransition`) — Atira's low-level motion
+  `PresenceItem`, `StateTransition`, `TextTransition`): Atira's low-level motion
   vocabulary. Use them only when extending an existing Atira interaction pattern.
 
 ## Minimal usage
 
 Atira is currently unpublished. Inside this repository, import workspace
-packages directly. After a public npm release, install the needed `@atira/*`
+packages directly. After a public npm release, install the needed `@atiraui/*`
 packages from npm.
 
 When using compiled artifacts, import each used package's CSS once and apply a
 theme at an ancestor:
 
 ```tsx
-import '@atira/foundations/styles.css'
-import '@atira/primitives/styles.css'
-import '@atira/components/styles.css'
+import '@atiraui/foundations/styles.css'
+import '@atiraui/primitives/styles.css'
+import '@atiraui/components/styles.css'
 import * as stylex from '@stylexjs/stylex'
-import { lightTheme } from '@atira/foundations/themes'
-import { Composer, Message, Response } from '@atira/components'
+import { lightTheme } from '@atiraui/foundations/themes'
+import { Composer, Message, Response } from '@atiraui/components'
 import { useState } from 'react'
 
 export function AgentPanel() {
@@ -182,12 +182,12 @@ export function AgentPanel() {
 For a complete chat surface, keep the runtime adapter outside the component:
 
 ```tsx
-import '@atira/foundations/styles.css'
-import '@atira/primitives/styles.css'
-import '@atira/components/styles.css'
-import '@atira/blocks/styles.css'
-import { ChatSession } from '@atira/blocks'
-import type { ChatStore } from '@atira/foundations/chat'
+import '@atiraui/foundations/styles.css'
+import '@atiraui/primitives/styles.css'
+import '@atiraui/components/styles.css'
+import '@atiraui/blocks/styles.css'
+import { ChatSession } from '@atiraui/blocks'
+import type { ChatStore } from '@atiraui/foundations/chat'
 
 export function AgentChat({ store }: { store: ChatStore }) {
   return <ChatSession label="Agent conversation" store={store} />

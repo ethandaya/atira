@@ -3,9 +3,9 @@ import type {
   FileChangeHunk,
   FileChangeLine,
   FileChangeStatus,
-} from '@atira/foundations/chat'
-import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
-import { Disclosure, VisuallyHidden } from '@atira/primitives'
+} from '@atiraui/foundations/chat'
+import { colors, radii, space, type } from '@atiraui/foundations/tokens.stylex'
+import { Disclosure, VisuallyHidden } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useId, type ComponentPropsWithRef } from 'react'
 

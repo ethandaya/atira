@@ -1,7 +1,24 @@
 {
-  "name": "@atira/components",
+  "name": "@atiraui/components",
   "version": "0.0.0",
   "private": true,
+  "description": "React components for building agent interfaces with Atira.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethandaya/atira.git",
+    "directory": "packages/components"
+  },
+  "homepage": "https://github.com/ethandaya/atira#readme",
+  "bugs": {
+    "url": "https://github.com/ethandaya/atira/issues"
+  },
+  "keywords": [
+    "agent-interface",
+    "component-library",
+    "react",
+    "stylex"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -11,8 +28,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@atira/foundations": "workspace:*",
-    "@atira/primitives": "workspace:*",
+    "@atiraui/foundations": "workspace:*",
+    "@atiraui/primitives": "workspace:*",
     "lucide-react": "catalog:",
     "streamdown": "2.6.0"
   },

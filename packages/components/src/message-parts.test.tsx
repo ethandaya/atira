@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ChatMessage, ToolPart } from '@atira/foundations/chat'
+import type { ChatMessage, ToolPart } from '@atiraui/foundations/chat'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 

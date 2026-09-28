@@ -1,5 +1,5 @@
-import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
-import { Disclosure } from '@atira/primitives'
+import { colors, radii, space, type } from '@atiraui/foundations/tokens.stylex'
+import { Disclosure } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
   Children,

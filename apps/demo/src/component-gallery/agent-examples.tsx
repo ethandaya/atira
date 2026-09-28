@@ -4,8 +4,8 @@ import {
   Outcome,
   TaskTool,
   ToolActivity,
-} from '@atira/components'
-import type { ToolPart } from '@atira/foundations/chat'
+} from '@atiraui/components'
+import type { ToolPart } from '@atiraui/foundations/chat'
 import * as stylex from '@stylexjs/stylex'
 import { useState } from 'react'
 

@@ -7,7 +7,7 @@ import {
   Suggestion,
   Suggestions,
   Thread,
-} from '@atira/components'
+} from '@atiraui/components'
 import * as stylex from '@stylexjs/stylex'
 import { Copy as CopyIcon } from 'lucide-react'
 import { useState } from 'react'
@@ -72,7 +72,7 @@ export function ConversationExamples() {
 
         <ComponentSample
           title="Loader"
-          description="Named pending, streaming, and complete states—not motion alone."
+          description="Named pending, streaming, and complete states, not motion alone."
         >
           <div {...stylex.props(galleryStyles.stack)}>
             <Loader state={{ status: 'pending' }} />

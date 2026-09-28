@@ -4,10 +4,10 @@ import { z } from 'zod'
 const manifestUrls = [
   new URL(
     './primitives.manifest.json',
-    import.meta.resolve('@atira/primitives'),
+    import.meta.resolve('@atiraui/primitives'),
   ),
-  new URL('./chat.manifest.json', import.meta.resolve('@atira/components')),
-  new URL('./chat.manifest.json', import.meta.resolve('@atira/blocks')),
+  new URL('./chat.manifest.json', import.meta.resolve('@atiraui/components')),
+  new URL('./chat.manifest.json', import.meta.resolve('@atiraui/blocks')),
 ]
 
 type CatalogItem = {

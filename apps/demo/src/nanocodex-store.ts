@@ -6,8 +6,8 @@ import type {
   ChatTurn,
   ComposerDraft,
   SubmitIntent,
-} from '@atira/foundations/chat'
-import { composerDraftText } from '@atira/foundations/chat-invariants'
+} from '@atiraui/foundations/chat'
+import { composerDraftText } from '@atiraui/foundations/chat-invariants'
 import type { StreamEvent } from '../chat-contract.ts'
 import {
   applyStreamEvent,

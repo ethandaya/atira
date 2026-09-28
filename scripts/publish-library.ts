@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import {
   appendFile,
   cp,
+  mkdir,
   mkdtemp,
   readFile,
   rm,
@@ -32,14 +33,24 @@ type ConditionalExport = {
 }
 
 type SourceManifest = {
+  bugs?: { url: string }
   dependencies?: Record<string, string>
+  description?: string
   devDependencies?: Record<string, string>
   exports: Record<string, string>
   files?: string[]
+  homepage?: string
+  keywords?: string[]
+  license?: string
   name: string
   peerDependencies?: Record<string, string>
   private: boolean
-  publishConfig?: { access: string; registry: string }
+  publishConfig?: {
+    access: string
+    provenance: boolean
+    registry: string
+  }
+  repository?: { directory?: string; type: string; url: string }
   scripts?: Record<string, string>
   sideEffects?: boolean | string[]
   version: string
@@ -56,7 +67,11 @@ type ReleaseManifest = Omit<
 > & {
   exports: Record<string, ConditionalExport | string>
   files: string[]
-  publishConfig: { access: string; registry: string }
+  publishConfig: {
+    access: string
+    provenance: boolean
+    registry: string
+  }
   sideEffects: string[]
 }
 
@@ -96,10 +111,11 @@ function releaseManifest(
   const output: ReleaseManifest = {
     ...source,
     private: false,
-    files: ['dist'],
+    files: ['dist', 'README.md'],
     sideEffects: ['./dist/styles.css'],
     publishConfig: {
       access: 'public',
+      provenance: true,
       registry: 'https://registry.npmjs.org/',
     },
     exports: {
@@ -121,16 +137,30 @@ function releaseManifest(
       './package.json': './package.json',
     },
   }
-  for (const dependencies of [output.dependencies, output.peerDependencies]) {
-    if (!dependencies) continue
-    for (const [dependency, version] of Object.entries(dependencies)) {
-      if (version === 'catalog:') {
-        const catalogVersion = catalog[dependency]
-        if (!catalogVersion)
-          throw new Error(`Catalog has no version for ${dependency}`)
-        dependencies[dependency] = catalogVersion
-      }
-      if (version === 'workspace:*') dependencies[dependency] = manifest.version
+  for (const [dependency, version] of Object.entries(
+    output.dependencies ?? {},
+  )) {
+    if (version === 'catalog:') {
+      const catalogVersion = catalog[dependency]
+      if (!catalogVersion)
+        throw new Error(`Catalog has no version for ${dependency}`)
+      output.dependencies![dependency] = catalogVersion
+    }
+    if (version === 'workspace:*') {
+      output.dependencies![dependency] = manifest.version
+    }
+  }
+  for (const [dependency, version] of Object.entries(
+    output.peerDependencies ?? {},
+  )) {
+    if (version === 'catalog:') {
+      const catalogVersion = catalog[dependency]
+      if (!catalogVersion)
+        throw new Error(`Catalog has no version for ${dependency}`)
+      output.peerDependencies![dependency] = `^${catalogVersion}`
+    }
+    if (version === 'workspace:*') {
+      output.peerDependencies![dependency] = manifest.version
     }
   }
   return output
@@ -147,6 +177,89 @@ async function packageLeaves(source: string, manifest: SourceManifest) {
         .filter((leaf) => leaf !== 'style-props'),
     ),
   ]
+}
+
+async function verifyPackages(staging: string) {
+  const tarballs = join(staging, 'tarballs')
+  const consumer = join(staging, 'consumer')
+  await mkdir(tarballs)
+  await mkdir(consumer)
+
+  const packageFiles: string[] = []
+  for (const name of names) {
+    const output = JSON.parse(
+      execFileSync(
+        'npm',
+        ['pack', join(staging, name), '--json', '--pack-destination', tarballs],
+        { cwd: root, encoding: 'utf8' },
+      ),
+    ) as { filename: string }[]
+    const filename = output[0]?.filename
+    if (!filename) throw new Error(`npm pack produced no tarball for ${name}`)
+    packageFiles.push(join(tarballs, filename))
+  }
+
+  await writeFile(
+    join(consumer, 'package.json'),
+    `${JSON.stringify({ private: true, type: 'module' }, null, 2)}\n`,
+  )
+  execFileSync(
+    'npm',
+    [
+      'install',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--no-package-lock',
+      ...packageFiles,
+    ],
+    { cwd: consumer, stdio: 'inherit' },
+  )
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      [
+        "await import('@atiraui/foundations/chat')",
+        "await import('@atiraui/foundations/chat-invariants')",
+        "await import('@atiraui/foundations/themes')",
+        "await import('@atiraui/foundations/tokens.stylex')",
+        "await import('@atiraui/primitives')",
+        "await import('@atiraui/components')",
+        "await import('@atiraui/blocks')",
+        "import.meta.resolve('@atiraui/foundations/styles.css')",
+        "import.meta.resolve('@atiraui/primitives/styles.css')",
+        "import.meta.resolve('@atiraui/components/styles.css')",
+        "import.meta.resolve('@atiraui/blocks/styles.css')",
+      ].join(';'),
+    ],
+    { cwd: consumer, stdio: 'inherit' },
+  )
+  console.log('Verified packed library packages in a clean consumer')
+}
+
+function isPublished(manifest: ReleaseManifest) {
+  try {
+    return (
+      execFileSync(
+        'npm',
+        ['view', `${manifest.name}@${manifest.version}`, 'version'],
+        {
+          cwd: root,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      ).trim() === manifest.version
+    )
+  } catch (error) {
+    const stderr =
+      error && typeof error === 'object' && 'stderr' in error
+        ? String(error.stderr)
+        : ''
+    if (stderr.includes('E404')) return false
+    throw error
+  }
 }
 
 execFileSync(
@@ -167,6 +280,7 @@ try {
     ) as SourceManifest
     const target = join(staging, name)
     await cp(join(source, 'dist'), join(target, 'dist'), { recursive: true })
+    await cp(join(root, 'README.md'), join(target, 'README.md'))
     await writeFile(
       join(target, 'package.json'),
       `${JSON.stringify(
@@ -175,6 +289,21 @@ try {
         2,
       )}\n`,
     )
+  }
+
+  await verifyPackages(staging)
+
+  for (const name of names) {
+    const target = join(staging, name)
+    const manifest = JSON.parse(
+      await readFile(join(target, 'package.json'), 'utf8'),
+    ) as ReleaseManifest
+    if (!dryRun && isPublished(manifest)) {
+      console.log(
+        `Skipping ${manifest.name}@${manifest.version}; already published`,
+      )
+      continue
+    }
     execFileSync(
       'npm',
       ['publish', '--access', 'public', ...publishArguments],

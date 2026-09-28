@@ -9,7 +9,7 @@ import type {
   PermissionRequestView,
   QuestionRequestView,
   ToolPart,
-} from '@atira/foundations/chat'
+} from '@atiraui/foundations/chat'
 import {
   cleanup,
   fireEvent,

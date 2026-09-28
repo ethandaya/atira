@@ -452,14 +452,14 @@ test('component detail routes return to the overview', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Message', exact: true }),
   ).toBeVisible()
-  await expect(page).toHaveTitle('Message — Atira')
+  await expect(page).toHaveTitle('Message: Atira')
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
   await page.getByRole('link', { name: 'Atira', exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(
     page.getByRole('heading', { name: 'Build agent interfaces.' }),
   ).toBeVisible()
-  await expect(page).toHaveTitle('Overview — Atira')
+  await expect(page).toHaveTitle('Overview: Atira')
 })
 
 test('question outcomes resolve and reset, and displayed source remains stable', async ({

@@ -1,12 +1,12 @@
-import { darkTheme, lightTheme } from '@atira/foundations/themes'
-import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
+import { darkTheme, lightTheme } from '@atiraui/foundations/themes'
+import { colors, radii, space, type } from '@atiraui/foundations/tokens.stylex'
 import {
   CodeBlock,
   Message,
   PermissionRequest,
   Response,
-} from '@atira/components'
-import { Button } from '@atira/primitives'
+} from '@atiraui/components'
+import { Button } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Search } from 'lucide-react'
 import {
@@ -115,7 +115,7 @@ export function CatalogApp() {
   )
 
   useEffect(() => {
-    document.title = `${pageName} — Atira`
+    document.title = `${pageName}: Atira`
   }, [pageName])
 
   useEffect(() => {

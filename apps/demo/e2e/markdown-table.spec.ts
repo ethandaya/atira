@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 
 const comparison = `| Carbon frameset | Frameset price | Stated tyre clearance | L-size fit: stack / reach, mm | BB / hanger | Availability |
 | --- | --- | --- | --- | --- | --- |
-| [Tavelo Grow](https://example.com/tavelo) — benchmark | **US$1,650**, listing labelled “frame only”; **US$1,880** with flat cockpit | **700c: 55mm front / 50mm rear** | **L: 579 / 395** | BSA 68 / UDH | General orders accepted; pre-orders fulfilled first. Immediate L stock unverified |
+| [Tavelo Grow](https://example.com/tavelo), benchmark | **US$1,650**, listing labelled “frame only”; **US$1,880** with flat cockpit | **700c: 55mm front / 50mm rear** | **L: 579 / 395** | BSA 68 / UDH | General orders accepted; pre-orders fulfilled first. Immediate L stock unverified |
 | [Winspace G3](https://example.com/winspace) | **US$1,480** listed by retailer; current manufacturer-direct price unverified | **700c × 50mm** for L; also stated 650b × 2.1″ | **L: 582 / 388** | T47 / UDH | Order listings active; size-specific dispatch unverified |
 | Carbonda CFR707 | **Quote required**; current price and currency unverified | **700c × 50mm** or **650b × 2.1″** | **L: 596 / 400**, older independent chart | BSA 68 / current page provides UDH drawings | Direct enquiry; stock and lead time unverified |`
 

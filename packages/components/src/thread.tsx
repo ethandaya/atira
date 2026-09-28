@@ -1,6 +1,6 @@
-import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { colors, space, type } from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
-import { resolveStyleProps, type StyleProps } from '@atira/primitives'
+import { resolveStyleProps, type StyleProps } from '@atiraui/primitives'
 import { Children, type ComponentPropsWithRef, type ReactNode } from 'react'
 
 type NativeSectionProps = Omit<

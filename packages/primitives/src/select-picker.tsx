@@ -6,7 +6,7 @@ import {
   shadows,
   space,
   type,
-} from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { Check, ChevronDown } from 'lucide-react'
 import { useRef, type ComponentProps } from 'react'

@@ -2,12 +2,12 @@ import {
   PermissionRequest,
   QuestionRequest,
   type PermissionRequestState,
-} from '@atira/components'
+} from '@atiraui/components'
 import type {
   QuestionRequestView,
   QuestionResponse,
-} from '@atira/foundations/chat'
-import { Button } from '@atira/primitives'
+} from '@atiraui/foundations/chat'
+import { Button } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useRef, useState } from 'react'
 

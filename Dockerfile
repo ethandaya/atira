@@ -6,7 +6,7 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
-RUN pnpm --filter @atira/demo deploy --prod --legacy /app/deploy
+RUN pnpm --filter @atiraui/demo deploy --prod --legacy /app/deploy
 
 FROM node:22.14-bookworm-slim
 
