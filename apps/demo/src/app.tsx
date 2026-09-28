@@ -139,7 +139,9 @@ export function Playground({
   const runtimeLabel = getRuntimeLabel(runtime)
   const controlsDisabled =
     snapshot.activity.status !== 'idle' || runtime.status === 'loading'
-  const runtimeAvailable = runtime.status === 'ready'
+  const runtimeAvailable =
+    runtime.status === 'ready' &&
+    !(signin.busy && signin.status?.state === 'signed_out')
   const sessionControlsDisabled = controlsDisabled || !runtimeAvailable
   const currentConversation = conversations.find(
     (conversation) => conversation.id === snapshot.sessionId,
