@@ -20,9 +20,23 @@ for (const width of [390, 1280]) {
     await expect(
       page.getByRole('heading', { name: 'Build agent interfaces.' }),
     ).toBeVisible({ timeout: 15_000 })
+    const main = page.getByRole('main')
+    await expect(main.getByRole('heading')).toHaveText([
+      'Build agent interfaces.',
+      'Why StyleX',
+    ])
+    await expect(main.locator('article article')).toHaveCount(0)
     await expect(
-      page.getByRole('heading', { name: 'Components', exact: true }),
-    ).toBeVisible()
+      main.getByRole('heading', { name: 'Build agent interfaces.' }),
+    ).toHaveCSS('font-size', width >= 800 ? '52px' : '36px')
+    await expect(main.locator('article > header p')).toHaveCSS(
+      'font-size',
+      width >= 800 ? '20px' : '18px',
+    )
+    await expect(main.locator('article section p').first()).toHaveCSS(
+      'font-size',
+      '18px',
+    )
     await expect(
       page.getByRole('link', { name: 'Nanocodex', exact: true }),
     ).toHaveAttribute('href', 'https://github.com/gakonst/nanocodex')
@@ -52,9 +66,6 @@ for (const width of [390, 1280]) {
       'href',
       'https://x.com/emilwidlund/status/2066804861325217948',
     )
-    await expect(
-      page.getByRole('link', { name: /Conversation primitives/ }),
-    ).toHaveAttribute('href', '/components#gallery-conversation')
     const docs = page.getByRole('navigation', { name: 'Documentation' })
     await expect(docs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'aria-current',

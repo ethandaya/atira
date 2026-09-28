@@ -1,11 +1,5 @@
 import { darkTheme, lightTheme } from '@atiraui/foundations/themes'
 import { colors, radii, space, type } from '@atiraui/foundations/tokens.stylex'
-import {
-  CodeBlock,
-  Message,
-  PermissionRequest,
-  Response,
-} from '@atiraui/components'
 import { Button } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Search } from 'lucide-react'
@@ -323,158 +317,74 @@ function DocsSidebar({
 
 function OverviewPage() {
   return (
-    <div {...stylex.props(styles.page, styles.overviewPage)}>
-      <PageHeader
-        title="Build agent interfaces."
-        description={
-          <>
-            React and StyleX components for streaming conversations, approvals,
-            and agent workflows. Bring your own runtime, or try the{' '}
-            <a
-              href="https://github.com/gakonst/nanocodex"
-              target="_blank"
-              rel="noreferrer"
-              {...stylex.props(styles.pageDescriptionLink)}
-            >
-              Nanocodex
-            </a>
-            -powered ChatGPT{' '}
-            <a href="/playground" {...stylex.props(styles.pageDescriptionLink)}>
-              playground
-            </a>
-            .
-          </>
-        }
-      />
+    <article {...stylex.props(styles.page, styles.overviewPage)}>
+      <header {...stylex.props(styles.overviewHeader)}>
+        <h1 {...stylex.props(styles.overviewTitle)}>Build agent interfaces.</h1>
+        <p {...stylex.props(styles.overviewDescription)}>
+          React and StyleX components for streaming conversations, approvals,
+          and agent workflows. Bring your own runtime, or try the{' '}
+          <a
+            href="https://github.com/gakonst/nanocodex"
+            target="_blank"
+            rel="noreferrer"
+            {...stylex.props(styles.pageDescriptionLink)}
+          >
+            Nanocodex
+          </a>
+          -powered ChatGPT{' '}
+          <a href="/playground" {...stylex.props(styles.pageDescriptionLink)}>
+            playground
+          </a>
+          .
+        </p>
+      </header>
       <section
         aria-labelledby="why-stylex-heading"
         {...stylex.props(styles.whyStylex)}
       >
-        <div {...stylex.props(styles.whyStylexCopy)}>
-          <h2 id="why-stylex-heading" {...stylex.props(styles.whyStylexTitle)}>
-            Why StyleX
-          </h2>
-          <p {...stylex.props(styles.whyStylexDescription)}>
+        <h2 id="why-stylex-heading" {...stylex.props(styles.whyStylexTitle)}>
+          Why StyleX
+        </h2>
+        <div {...stylex.props(styles.overviewBody)}>
+          <p {...stylex.props(styles.overviewParagraph)}>
             Styles stay typed and close to components, then compile to static,
             deduplicated CSS. Composition is predictable without specificity
             fights, so component styling contracts remain clear as the system
             grows.
           </p>
-        </div>
-        <p {...stylex.props(styles.adopterReferences)}>
-          Read{' '}
-          <a
-            href="https://linear.app/now/styling-linear-for-the-future-stylex"
-            target="_blank"
-            rel="noreferrer"
-            {...stylex.props(styles.adopterLink)}
-          >
-            Linear’s migration story
-          </a>
-          , then see its{' '}
-          <a
-            href="https://x.com/linear/status/2092965309992861994"
-            target="_blank"
-            rel="noreferrer"
-            {...stylex.props(styles.adopterLink)}
-          >
-            1,000-PR recap
-          </a>{' '}
-          on better defaults for people and agents.{' '}
-          <a
-            href="https://x.com/emilwidlund/status/2066804861325217948"
-            target="_blank"
-            rel="noreferrer"
-            {...stylex.props(styles.adopterLink)}
-          >
-            Polar’s migration
-          </a>{' '}
-          focuses on type-safe design decisions and moving beyond Tailwind.
-        </p>
-      </section>
-      <section
-        aria-labelledby="capabilities-heading"
-        {...stylex.props(styles.overviewSection)}
-      >
-        <div {...stylex.props(styles.overviewSectionHeader)}>
-          <h2
-            id="capabilities-heading"
-            {...stylex.props(styles.overviewSectionTitle)}
-          >
-            Components
-          </h2>
-          <a href="/components" {...stylex.props(styles.sectionLink)}>
-            Browse all components
-          </a>
-        </div>
-        <div {...stylex.props(styles.capabilities)}>
-          <article
-            {...stylex.props(styles.capability, styles.capabilityFeatured)}
-          >
-            <div {...stylex.props(styles.capabilityCopy)}>
-              <h3 {...stylex.props(styles.overviewItemTitle)}>
-                <a
-                  href="/components#gallery-conversation"
-                  {...stylex.props(styles.capabilityLink)}
-                >
-                  Conversation primitives
-                </a>
-              </h3>
-            </div>
-            <div {...stylex.props(styles.capabilityPreview)}>
-              <ol {...stylex.props(styles.messagePreview)}>
-                <Message actor="user">Audit this tool call.</Message>
-                <Message actor="assistant" label="Assistant response">
-                  <Response status="complete">
-                    The request is ready for approval.
-                  </Response>
-                </Message>
-              </ol>
-            </div>
-          </article>
-          <article {...stylex.props(styles.capability)}>
-            <div {...stylex.props(styles.capabilityCopy)}>
-              <h3 {...stylex.props(styles.overviewItemTitle)}>
-                <a
-                  href="/components#gallery-agents"
-                  {...stylex.props(styles.capabilityLink)}
-                >
-                  Agent workflow boundaries
-                </a>
-              </h3>
-            </div>
-            <div {...stylex.props(styles.capabilityPreview)}>
-              <PermissionRequest
-                consequence="external"
-                effect="Create a draft issue."
-                id="overview-permission"
-                state={{ status: 'resolved', decision: 'approved' }}
-                title="External action"
-              />
-            </div>
-          </article>
-          <article {...stylex.props(styles.capability)}>
-            <div {...stylex.props(styles.capabilityCopy)}>
-              <h3 {...stylex.props(styles.overviewItemTitle)}>
-                <a
-                  href="/components#gallery-output"
-                  {...stylex.props(styles.capabilityLink)}
-                >
-                  Structured output
-                </a>
-              </h3>
-            </div>
-            <div {...stylex.props(styles.capabilityPreview)}>
-              <CodeBlock
-                code={'{\n  "status": "complete"\n}'}
-                filename="result.json"
-                language="json"
-              />
-            </div>
-          </article>
+          <p {...stylex.props(styles.overviewParagraph)}>
+            Read{' '}
+            <a
+              href="https://linear.app/now/styling-linear-for-the-future-stylex"
+              target="_blank"
+              rel="noreferrer"
+              {...stylex.props(styles.adopterLink)}
+            >
+              Linear’s migration story
+            </a>
+            , then see its{' '}
+            <a
+              href="https://x.com/linear/status/2092965309992861994"
+              target="_blank"
+              rel="noreferrer"
+              {...stylex.props(styles.adopterLink)}
+            >
+              1,000-PR recap
+            </a>{' '}
+            on better defaults for people and agents.{' '}
+            <a
+              href="https://x.com/emilwidlund/status/2066804861325217948"
+              target="_blank"
+              rel="noreferrer"
+              {...stylex.props(styles.adopterLink)}
+            >
+              Polar’s migration
+            </a>{' '}
+            focuses on type-safe design decisions and moving beyond Tailwind.
+          </p>
         </div>
       </section>
-    </div>
+    </article>
   )
 }
 
@@ -907,11 +817,11 @@ const styles = stylex.create({
     },
   },
   overviewPage: {
-    gap: { default: space.x6, '@media (min-width: 50rem)': space.x8 },
-    maxInlineSize: '52rem',
+    gap: { default: '3.5rem', '@media (min-width: 50rem)': '5rem' },
+    maxInlineSize: '46rem',
     padding: {
-      default: '2.5rem 1rem 5rem',
-      '@media (min-width: 50rem)': '3.5rem 3.5rem 5rem',
+      default: '3rem 1.25rem 5rem',
+      '@media (min-width: 50rem)': '5rem 3.5rem 7rem',
     },
   },
   explorerPage: {
@@ -954,135 +864,56 @@ const styles = stylex.create({
     textDecorationThickness: '1px',
     textUnderlineOffset: '3px',
   },
+  overviewHeader: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.x5,
+  },
+  overviewTitle: {
+    fontSize: 'clamp(2.25rem, 4.1vw, 3.25rem)',
+    fontWeight: type.weightMedium,
+    letterSpacing: '-0.055em',
+    lineHeight: 0.98,
+    margin: 0,
+    textWrap: 'balance',
+  },
+  overviewDescription: {
+    color: colors.textMuted,
+    fontSize: 'clamp(1.125rem, 1.75vw, 1.25rem)',
+    lineHeight: 1.55,
+    margin: 0,
+    maxInlineSize: '60ch',
+  },
   whyStylex: {
     display: 'flex',
     flexDirection: 'column',
-    gap: space.x5,
-  },
-  whyStylexCopy: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x2,
+    gap: space.x6,
   },
   whyStylexTitle: {
-    fontSize: type.sizeHeading,
+    fontSize: '1.75rem',
     fontWeight: type.weightStrong,
-    lineHeight: type.lineHeading,
+    letterSpacing: '-0.025em',
+    lineHeight: 1.2,
     margin: 0,
+    textWrap: 'balance',
   },
-  whyStylexDescription: {
-    color: colors.textMuted,
-    fontSize: type.sizeSmall,
-    lineHeight: type.lineBody,
-    margin: 0,
-    maxInlineSize: '64ch',
+  overviewBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.75rem',
   },
-  adopterReferences: {
+  overviewParagraph: {
     color: colors.textMuted,
-    fontSize: type.sizeSmall,
-    lineHeight: type.lineBody,
+    fontSize: '1.125rem',
+    lineHeight: 1.7,
     margin: 0,
-    maxInlineSize: '65ch',
+    maxInlineSize: '62ch',
   },
   adopterLink: {
     color: colors.text,
-    fontSize: type.sizeSmall,
     fontWeight: type.weightMedium,
     textDecorationThickness: '1px',
     textUnderlineOffset: '3px',
-  },
-  overviewSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x5,
-  },
-  overviewSectionHeader: {
-    alignItems: 'baseline',
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: `${space.x3} ${space.x6}`,
-    justifyContent: 'space-between',
-  },
-  overviewSectionTitle: {
-    fontSize: type.sizeHeading,
-    fontWeight: type.weightStrong,
-    lineHeight: type.lineHeading,
-    margin: 0,
-  },
-  overviewItemTitle: {
-    fontSize: type.sizeInput,
-    fontWeight: type.weightMedium,
-    lineHeight: type.lineCompact,
-    margin: 0,
-  },
-  capabilities: {
-    display: 'grid',
-    gap: space.x3,
-    gridTemplateColumns: {
-      default: 'minmax(0, 1fr)',
-      '@media (min-width: 50rem)': 'repeat(2, minmax(0, 1fr))',
-    },
-  },
-  capability: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.panel,
-    color: colors.text,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.x3,
-    minInlineSize: 0,
-    padding: space.x4,
-    textDecoration: 'none',
-  },
-  capabilityFeatured: {
-    alignItems: { default: 'stretch', '@media (min-width: 50rem)': 'center' },
-    gridColumn: { default: 'auto', '@media (min-width: 50rem)': '1 / -1' },
-    gridTemplateColumns: {
-      default: 'minmax(0, 1fr)',
-      '@media (min-width: 50rem)': 'minmax(11rem, 0.7fr) minmax(0, 1.3fr)',
-    },
-    display: { default: 'flex', '@media (min-width: 50rem)': 'grid' },
-    minBlockSize: { default: 'auto', '@media (min-width: 50rem)': '11rem' },
-  },
-  capabilityCopy: {
-    minBlockSize: 'auto',
-  },
-  capabilityLink: {
-    color: 'inherit',
-    textDecoration: 'none',
-    ':hover': {
-      textDecoration: 'underline',
-      textUnderlineOffset: '3px',
-    },
-  },
-  capabilityPreview: {
-    alignItems: 'flex-start',
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radii.surface,
-    display: 'flex',
-    flex: 1,
-    inlineSize: '100%',
-    minBlockSize: '7rem',
-    minInlineSize: 0,
-    overflow: 'hidden',
-    padding: space.x4,
-  },
-  messagePreview: {
-    inlineSize: '100%',
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-  },
-  sectionLink: {
-    color: colors.textMuted,
-    fontSize: type.sizeSmall,
-    fontWeight: type.weightMedium,
-    textDecoration: 'none',
-    ':hover': {
-      color: colors.text,
-      textDecoration: 'underline',
-      textUnderlineOffset: '3px',
-    },
   },
   preview: {
     backgroundColor: colors.surface,
