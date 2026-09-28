@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       'packages/**/*.test.{ts,tsx}',
       'apps/**/*.test.{ts,tsx}',
+      'cloudflare/**/*.test.ts',
       'scripts/**/*.test.ts',
     ],
   },
