@@ -115,6 +115,8 @@ async function handleRequest(
   request: IncomingMessage,
   response: ServerResponse,
 ) {
+  if (request.url?.startsWith('//'))
+    throw new HttpError('Invalid request path.', 400)
   const url = new URL(request.url ?? '/', 'http://demo.local')
 
   if (request.method === 'GET' && url.pathname === '/healthz') {
@@ -148,6 +150,7 @@ async function handleRequest(
         : request.method === 'DELETE'
           ? 'logout'
           : 'status',
+      trustedClientKey(request),
     )
     sendJson(response, 200, authStatusSchema.parse(status))
     return true
@@ -155,9 +158,9 @@ async function handleRequest(
 
   if (request.method === 'GET' && url.pathname === '/api/runtime') {
     const id = sessionId(request, response)
-    const runtime = await auth.run(id, async (account) =>
-      runtimeConfiguration(account),
-    )
+    const runtime = auth.has(id)
+      ? await auth.run(id, runtimeConfiguration)
+      : await runtimeConfiguration()
     sendJson(
       response,
       200,
@@ -230,7 +233,13 @@ async function streamChat(request: IncomingMessage, response: ServerResponse) {
   const key = conversationKey(request, id)
   const turnId = body.turnId ?? randomUUID()
   await conversations.prune()
-  const acquisition = await auth.run(id, async (account) => {
+  if (!openAiApiKey && !auth.has(id)) {
+    throw new HttpError(
+      'Sign in with ChatGPT or set OPENAI_API_KEY on the server.',
+      503,
+    )
+  }
+  const acquire = async (account?: Account) => {
     const runtime = await runtimeConfiguration(account)
     if (!runtime || runtime.modelError)
       throw new HttpError(
@@ -273,7 +282,10 @@ async function streamChat(request: IncomingMessage, response: ServerResponse) {
       turnId,
       input,
     })
-  })
+  }
+  const acquisition = auth.has(id)
+    ? await auth.run(id, acquire)
+    : await acquire()
   if (acquisition.kind === 'replay') {
     acquisition.replay.attach(response)
     return
@@ -478,6 +490,11 @@ function existingSessionId(request: IncomingMessage) {
   return id && /^[0-9a-f-]{36}$/i.test(id) ? id : undefined
 }
 
+function trustedClientKey(request: IncomingMessage) {
+  const value = request.headers['x-atira-client-key']
+  return typeof value === 'string' ? value : undefined
+}
+
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
   let size = 0
@@ -510,10 +527,11 @@ function payloadString(payload: Record<string, unknown>, key: string) {
   return typeof result === 'string' ? result : ''
 }
 
-async function runtimeConfiguration(account: Account) {
-  if (!openAiApiKey && account.state.state !== 'authenticated') return undefined
+async function runtimeConfiguration(account?: Account) {
+  if (!openAiApiKey && account?.state.state !== 'authenticated')
+    return undefined
   const credential =
-    account.state.state === 'authenticated'
+    account?.state.state === 'authenticated'
       ? await account.subscription?.credential()
       : undefined
   try {

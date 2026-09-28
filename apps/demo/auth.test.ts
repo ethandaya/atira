@@ -159,12 +159,125 @@ it('serializes account changes with turn acquisition without blocking other brow
       operations.push('next')
     })
     await auth.change('two', 'logout')
-    expect(operations).toEqual(['acquire', 'reset:two'])
+    expect(operations).toEqual(['reset:two', 'acquire'])
     finish()
     await Promise.all([acquire, logout, next])
-    expect(operations).toEqual(['acquire', 'reset:two', 'reset:one', 'next'])
+    expect(operations).toEqual(['reset:two', 'acquire', 'reset:one', 'next'])
   } finally {
     finish()
+    auth.dispose()
+  }
+})
+
+it('does not allocate accounts for status checks or redundant logout', async () => {
+  const reset = vi.fn(async () => {})
+  const auth = new DemoAuth({ reset })
+
+  try {
+    for (let index = 0; index < 110; index++) {
+      const id = randomUUID()
+      expect(await auth.change(id, 'status')).toEqual({ state: 'signed_out' })
+      expect(await auth.change(id, 'logout')).toEqual({ state: 'signed_out' })
+      expect(auth.has(id)).toBe(false)
+    }
+    expect(reset).toHaveBeenCalledTimes(110)
+  } finally {
+    auth.dispose()
+  }
+})
+
+it('expires unauthenticated accounts on an absolute fifteen-minute limit', async () => {
+  let now = 0
+  const reset = vi.fn(async () => {})
+  const auth = new DemoAuth({ reset, now: () => now })
+  const id = randomUUID()
+
+  try {
+    await auth.run(id, async () => {})
+    expect(auth.has(id)).toBe(true)
+
+    now = 15 * 60 * 1000
+    await auth.prune()
+
+    expect(auth.has(id)).toBe(false)
+    expect(reset).toHaveBeenCalledWith(id)
+  } finally {
+    auth.dispose()
+  }
+})
+
+it('keeps a restarted login tracked when logout and start are queued together', async () => {
+  const userCodes: string[] = []
+  const auth = new DemoAuth({
+    reset: async () => {},
+    fetch: async (input) => {
+      const path = new URL(String(input)).pathname
+      if (!path.endsWith('/usercode'))
+        throw new Error(`Unexpected auth request: ${path}`)
+      const userCode = `DEMO-${userCodes.length + 1}`
+      userCodes.push(userCode)
+      return Response.json({
+        device_auth_id: `device-${userCodes.length}`,
+        user_code: userCode,
+        interval: 1,
+      })
+    },
+  })
+  const id = randomUUID()
+
+  try {
+    await auth.change(id, 'start', 'client')
+    const logout = auth.change(id, 'logout', 'client')
+    const restart = auth.change(id, 'start', 'client')
+
+    await expect(logout).resolves.toEqual({ state: 'signed_out' })
+    await expect(restart).resolves.toMatchObject({
+      state: 'pending',
+      userCode: 'DEMO-2',
+    })
+    expect(auth.has(id)).toBe(true)
+    await expect(auth.change(id, 'start', 'client')).resolves.toMatchObject({
+      state: 'pending',
+      userCode: 'DEMO-2',
+    })
+    expect(userCodes).toEqual(['DEMO-1', 'DEMO-2'])
+  } finally {
+    auth.dispose()
+  }
+})
+
+it('atomically caps pending sign-ins per trusted client key', async () => {
+  const auth = new DemoAuth({
+    reset: async () => {},
+    fetch: async () =>
+      Response.json({
+        device_auth_id: randomUUID(),
+        user_code: 'DEMO-CODE',
+        interval: 1,
+      }),
+  })
+
+  try {
+    const ids = Array.from({ length: 4 }, () => randomUUID())
+    const admissions = await Promise.allSettled(
+      ids.map((id) => auth.change(id, 'start', '2001:db8:1:2::/64')),
+    )
+    expect(
+      admissions.filter(({ status }) => status === 'fulfilled'),
+    ).toHaveLength(3)
+    expect(admissions.filter(({ status }) => status === 'rejected')).toEqual([
+      expect.objectContaining({
+        reason: expect.objectContaining({
+          message: 'Too many sign-in attempts. Try again shortly.',
+          status: 429,
+        }),
+      }),
+    ])
+    expect(ids.filter((id) => auth.has(id))).toHaveLength(3)
+    await expect(
+      auth.change(randomUUID(), 'start', '2001:db8:1:3::/64'),
+    ).resolves.toMatchObject({ state: 'pending' })
+  } finally {
     auth.dispose()
   }
 })

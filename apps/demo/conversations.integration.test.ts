@@ -138,6 +138,29 @@ it(
         'Content-Type': 'application/json',
         'X-Conversation-Id': conversationId,
       }
+
+      const ambiguousPath = await fetch(`${base}//foreign/api/auth/chatgpt`, {
+        method: 'POST',
+        headers: { 'X-Atira-Client-Key': 'forged' },
+      })
+      expect(ambiguousPath.status).toBe(400)
+      expect(await ambiguousPath.json()).toEqual({
+        error: 'Invalid request path.',
+      })
+
+      for (let index = 0; index < 101; index++) {
+        const unsupported = await fetch(`${base}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input: 'Do not run this request',
+            model: { modelId: 'unsupported', providerId: 'openai' },
+            turnId: randomUUID(),
+          }),
+        })
+        expect(unsupported.status).toBe(400)
+      }
+
       const body = JSON.stringify({
         input: 'Find the button component',
         turnId,
