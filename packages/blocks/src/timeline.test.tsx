@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ChatMessage, ChatTurn } from '@atira/foundations/chat'
+import type { ChatMessage, ChatTurn } from '@atiraui/foundations/chat'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 

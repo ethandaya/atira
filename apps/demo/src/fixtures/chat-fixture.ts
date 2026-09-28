@@ -2,7 +2,7 @@ import type {
   ChatCapabilities,
   ChatTurn,
   ComposerDraft,
-} from '@atira/foundations/chat'
+} from '@atiraui/foundations/chat'
 
 export const fixtureCapabilities: ChatCapabilities = {
   agents: [

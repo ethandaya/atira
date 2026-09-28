@@ -1,4 +1,4 @@
-import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { colors, space, type } from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 
 export const appStyles = stylex.create({

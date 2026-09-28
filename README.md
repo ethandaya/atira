@@ -4,6 +4,42 @@ A React 19 and StyleX component library for agent interfaces, with an interactiv
 catalog and a Nanocodex playground. Applications own providers, transport,
 credentials, and persistence; the library owns presentation and interaction.
 
+## Installation
+
+Install the highest-level package you need together with its stylesheet
+dependencies and peers. For the complete chat surface:
+
+```bash
+npm install @atiraui/blocks @atiraui/components @atiraui/primitives @atiraui/foundations \
+  @stylexjs/stylex react react-dom
+```
+
+Import each package's CSS once, then render Atira inside a theme:
+
+```tsx
+import '@atiraui/foundations/styles.css'
+import '@atiraui/primitives/styles.css'
+import '@atiraui/components/styles.css'
+import '@atiraui/blocks/styles.css'
+import * as stylex from '@stylexjs/stylex'
+import { ChatSession } from '@atiraui/blocks'
+import type { ChatStore } from '@atiraui/foundations/chat'
+import { lightTheme } from '@atiraui/foundations/themes'
+
+export function AgentChat({ store }: { store: ChatStore }) {
+  return (
+    <main {...stylex.props(lightTheme)}>
+      <ChatSession label="Agent conversation" store={store} />
+    </main>
+  )
+}
+```
+
+Applications own the `ChatStore` implementation and adapt provider events into
+the neutral types exported by `@atiraui/foundations/chat`. Install
+`@atiraui/components` instead of `@atiraui/blocks` when composing the chat surface
+yourself, or `@atiraui/primitives` for general controls.
+
 ## Development
 
 Use Node 22.13 or newer and the declared pnpm version:
@@ -101,9 +137,10 @@ Zod validates untrusted HTTP, stream, model, and saved-history data in the demo.
 The library receives typed props and controlled state; it does not import these
 schemas or require Nanocodex.
 
-Library releases target the public npm registry under the `@atira` scope.
+Library releases target the public npm registry under the `@atiraui` scope.
 `pnpm publish:library -- --dry-run` builds the compiled package contents and
-shows the packages that a publish would upload.
+installs and imports the packed artifacts in a clean consumer before showing the
+packages that a publish would upload.
 
 The four library packages release as one fixed version group. Add a changeset to
 each pull request that changes their public contract:
@@ -113,10 +150,17 @@ pnpm changeset
 ```
 
 Merging the generated **Version packages** pull request publishes the compiled
-packages through `.github/workflows/release.yml`. The repository needs an
-`NPM_TOKEN` Actions secret with publish access to the `@atira` scope. The initial
-changeset prepares version `0.1.0`; no package is published until that version
-pull request is merged.
+packages through `.github/workflows/release.yml` using npm trusted publishing
+and provenance, without a repository token. Configure each package on npm with
+GitHub owner `ethandaya`, repository `atira`, workflow `release.yml`, and direct
+publish permission.
+
+npm requires a package to exist before it can trust a publisher. Bootstrap the
+four packages once with
+`pnpm publish:library -- --provenance=false` from an npm-authenticated terminal,
+then configure the trusted publisher before merging the initial version pull
+request. npm prompts for the account's one-time password during this bootstrap.
+The pending initial changeset prepares version `0.1.0`.
 
 ## Verification
 

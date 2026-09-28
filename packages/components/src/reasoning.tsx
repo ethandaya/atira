@@ -1,4 +1,4 @@
-import { colors, space, type } from '@atira/foundations/tokens.stylex'
+import { colors, space, type } from '@atiraui/foundations/tokens.stylex'
 import {
   Disclosure,
   Spinner,
@@ -7,7 +7,7 @@ import {
   VisuallyHidden,
   resolveStyleProps,
   type StyleProps,
-} from '@atira/primitives'
+} from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
 import type { ComponentPropsWithRef, ReactNode } from 'react'

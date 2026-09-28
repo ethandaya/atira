@@ -1,10 +1,10 @@
-import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
+import { colors, radii, space, type } from '@atiraui/foundations/tokens.stylex'
 import {
   Button,
   VisuallyHidden,
   resolveStyleProps,
   type StyleProps,
-} from '@atira/primitives'
+} from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useState, type ComponentPropsWithRef, type ReactNode } from 'react'
 

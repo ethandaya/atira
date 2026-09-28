@@ -1,5 +1,5 @@
-import { CodeBlock } from '@atira/components'
-import { TextareaField } from '@atira/primitives'
+import { CodeBlock } from '@atiraui/components'
+import { TextareaField } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { useState } from 'react'
 

@@ -3,15 +3,15 @@ import type {
   TaskTranscript,
   ToolPart,
   ToolState,
-} from '@atira/foundations/chat'
-import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/chat'
+import { colors, radii, space, type } from '@atiraui/foundations/tokens.stylex'
 import {
   ActivityPresence,
   AnimatePresence,
   Button,
   Disclosure,
   PresenceSurface,
-} from '@atira/primitives'
+} from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { Check } from 'lucide-react'
 import { useState, type ReactNode } from 'react'

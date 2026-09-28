@@ -1,4 +1,4 @@
-import type { ChatTurn, ComposerDraft } from '@atira/foundations/chat'
+import type { ChatTurn, ComposerDraft } from '@atiraui/foundations/chat'
 import { z } from 'zod'
 
 const identifier = z.string().min(1)

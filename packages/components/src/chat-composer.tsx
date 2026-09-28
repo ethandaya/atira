@@ -7,8 +7,8 @@ import type {
   QueuedPrompt,
   SessionActivity,
   SubmitIntent,
-} from '@atira/foundations/chat'
-import { composerDraftText } from '@atira/foundations/chat-invariants'
+} from '@atiraui/foundations/chat'
+import { composerDraftText } from '@atiraui/foundations/chat-invariants'
 import {
   chatAppearance,
   colors,
@@ -17,7 +17,7 @@ import {
   shadows,
   space,
   type,
-} from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/tokens.stylex'
 import {
   ActionMenu,
   AnimatePresence,
@@ -29,7 +29,7 @@ import {
   SelectPicker,
   TextareaField,
   VisuallyHidden,
-} from '@atira/primitives'
+} from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
   AtSign,

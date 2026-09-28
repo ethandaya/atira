@@ -1,5 +1,5 @@
-import { colors, space, type } from '@atira/foundations/tokens.stylex'
-import { Button, Dialog, Status, VisuallyHidden } from '@atira/primitives'
+import { colors, space, type } from '@atiraui/foundations/tokens.stylex'
+import { Button, Dialog, Status, VisuallyHidden } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import {
   CircleCheck,

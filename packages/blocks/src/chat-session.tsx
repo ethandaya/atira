@@ -11,15 +11,15 @@ import {
   type ComposerReference,
   type PromptHistoryItem,
   type ToolRenderer,
-} from '@atira/components'
+} from '@atiraui/components'
 import type {
   ChatStore,
   ChatTurn,
   DraftAttachment,
   DraftSegment,
-} from '@atira/foundations/chat'
-import { space } from '@atira/foundations/tokens.stylex'
-import { Button } from '@atira/primitives'
+} from '@atiraui/foundations/chat'
+import { space } from '@atiraui/foundations/tokens.stylex'
+import { Button } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { RotateCcw } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'

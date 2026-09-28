@@ -1,6 +1,6 @@
-import type { ChatTurn, TurnState } from '@atira/foundations/chat'
-import { colors, radii, space, type } from '@atira/foundations/tokens.stylex'
-import { LayoutGroup, Spinner, VisuallyHidden } from '@atira/primitives'
+import type { ChatTurn, TurnState } from '@atiraui/foundations/chat'
+import { colors, radii, space, type } from '@atiraui/foundations/tokens.stylex'
+import { LayoutGroup, Spinner, VisuallyHidden } from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 

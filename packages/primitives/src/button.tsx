@@ -6,7 +6,7 @@ import {
   shadows,
   space,
   type,
-} from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 // react-doctor-disable-next-line react-doctor/use-lazy-motion -- Public primitives animate without requiring consumers to install a LazyMotion provider.
 import { motion as animate, useReducedMotion } from 'motion/react'

@@ -1,5 +1,5 @@
-import type { ComposerDraft } from '@atira/foundations/chat'
-import { validateComposerDraft } from '@atira/foundations/chat-invariants'
+import type { ComposerDraft } from '@atiraui/foundations/chat'
+import { validateComposerDraft } from '@atiraui/foundations/chat-invariants'
 import { describe, expect, it } from 'vitest'
 import {
   editableDraftText,

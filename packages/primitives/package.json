@@ -1,7 +1,23 @@
 {
-  "name": "@atira/primitives",
+  "name": "@atiraui/primitives",
   "version": "0.0.0",
   "private": true,
+  "description": "Accessible React primitives for Atira agent interfaces.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethandaya/atira.git",
+    "directory": "packages/primitives"
+  },
+  "homepage": "https://github.com/ethandaya/atira#readme",
+  "bugs": {
+    "url": "https://github.com/ethandaya/atira/issues"
+  },
+  "keywords": [
+    "agent-interface",
+    "react",
+    "stylex"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -12,7 +28,7 @@
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
-    "@atira/foundations": "workspace:*",
+    "@atiraui/foundations": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "13.2.0"
   },

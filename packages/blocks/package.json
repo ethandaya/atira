@@ -1,7 +1,24 @@
 {
-  "name": "@atira/blocks",
+  "name": "@atiraui/blocks",
   "version": "0.0.0",
   "private": true,
+  "description": "Complete React chat surfaces for Atira agent interfaces.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethandaya/atira.git",
+    "directory": "packages/blocks"
+  },
+  "homepage": "https://github.com/ethandaya/atira#readme",
+  "bugs": {
+    "url": "https://github.com/ethandaya/atira/issues"
+  },
+  "keywords": [
+    "agent-interface",
+    "chat",
+    "react",
+    "stylex"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -11,9 +28,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@atira/components": "workspace:*",
-    "@atira/foundations": "workspace:*",
-    "@atira/primitives": "workspace:*",
+    "@atiraui/components": "workspace:*",
+    "@atiraui/foundations": "workspace:*",
+    "@atiraui/primitives": "workspace:*",
     "lucide-react": "catalog:"
   },
   "peerDependencies": {

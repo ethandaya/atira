@@ -1,5 +1,5 @@
 {
-  "name": "@atira/demo",
+  "name": "@atiraui/demo",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,10 +12,10 @@
   "dependencies": {
     "@fontsource-variable/geist": "catalog:",
     "@fontsource-variable/geist-mono": "catalog:",
-    "@atira/blocks": "workspace:*",
-    "@atira/components": "workspace:*",
-    "@atira/foundations": "workspace:*",
-    "@atira/primitives": "workspace:*",
+    "@atiraui/blocks": "workspace:*",
+    "@atiraui/components": "workspace:*",
+    "@atiraui/foundations": "workspace:*",
+    "@atiraui/primitives": "workspace:*",
     "@stylexjs/stylex": "catalog:",
     "lucide-react": "catalog:",
     "nanocodex": "0.6.5",

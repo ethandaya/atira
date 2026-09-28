@@ -4,7 +4,7 @@ import type {
   JsonValue,
   ToolPart,
   ToolPresentation,
-} from '@atira/foundations/chat'
+} from '@atiraui/foundations/chat'
 
 import { createDraft, createTurn, fixtureCapabilities } from './chat-fixture'
 

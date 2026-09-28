@@ -1,4 +1,4 @@
-import { Reasoning } from '@atira/components'
+import { Reasoning } from '@atiraui/components'
 
 export function ReasoningExample() {
   return (

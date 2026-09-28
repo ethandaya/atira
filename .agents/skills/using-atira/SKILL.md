@@ -1,6 +1,6 @@
 ---
 name: using-atira
-description: Builds React agent interfaces with Atira components, primitives, blocks, themes, and chat contracts. Use when choosing, composing, integrating, or explaining @atira packages and their public components.
+description: Builds React agent interfaces with Atira components, primitives, blocks, themes, and chat contracts. Use when choosing, composing, integrating, or explaining @atiraui packages and their public components.
 ---
 
 # Using Atira
@@ -8,7 +8,7 @@ description: Builds React agent interfaces with Atira components, primitives, bl
 Use Atira to present agent activity in React 19. The application owns providers,
 transport, credentials, persistence, and runtime mutations. Atira owns accessible
 presentation and interaction. Never pass provider events or SDK clients directly
-to Atira; normalize them into `@atira/foundations/chat` types first.
+to Atira; normalize them into `@atiraui/foundations/chat` types first.
 
 ## Choose the layer
 
@@ -16,19 +16,19 @@ What is being built?
 
 ```text
 Complete chat surface backed by an application store
-└─ Use ChatSession from @atira/blocks
+└─ Use ChatSession from @atiraui/blocks
 
 Long transcript with custom controls around it
-└─ Use Timeline from @atira/blocks
+└─ Use Timeline from @atiraui/blocks
 
 Agent-aware UI assembled by the application
-└─ Use @atira/components
+└─ Use @atiraui/components
 
 General controls or low-level interaction pieces
-└─ Use @atira/primitives
+└─ Use @atiraui/primitives
 
 Types, themes, or design tokens
-└─ Use @atira/foundations
+└─ Use @atiraui/foundations
 ```
 
 Start at the highest layer that fits. Do not rebuild timeline virtualization,
@@ -141,19 +141,19 @@ Drop to a lower layer only when the application needs to own that composition.
 ## Minimal usage
 
 Atira is currently unpublished. Inside this repository, import workspace
-packages directly. After a public npm release, install the needed `@atira/*`
+packages directly. After a public npm release, install the needed `@atiraui/*`
 packages from npm.
 
 When using compiled artifacts, import each used package's CSS once and apply a
 theme at an ancestor:
 
 ```tsx
-import '@atira/foundations/styles.css'
-import '@atira/primitives/styles.css'
-import '@atira/components/styles.css'
+import '@atiraui/foundations/styles.css'
+import '@atiraui/primitives/styles.css'
+import '@atiraui/components/styles.css'
 import * as stylex from '@stylexjs/stylex'
-import { lightTheme } from '@atira/foundations/themes'
-import { Composer, Message, Response } from '@atira/components'
+import { lightTheme } from '@atiraui/foundations/themes'
+import { Composer, Message, Response } from '@atiraui/components'
 import { useState } from 'react'
 
 export function AgentPanel() {
@@ -182,12 +182,12 @@ export function AgentPanel() {
 For a complete chat surface, keep the runtime adapter outside the component:
 
 ```tsx
-import '@atira/foundations/styles.css'
-import '@atira/primitives/styles.css'
-import '@atira/components/styles.css'
-import '@atira/blocks/styles.css'
-import { ChatSession } from '@atira/blocks'
-import type { ChatStore } from '@atira/foundations/chat'
+import '@atiraui/foundations/styles.css'
+import '@atiraui/primitives/styles.css'
+import '@atiraui/components/styles.css'
+import '@atiraui/blocks/styles.css'
+import { ChatSession } from '@atiraui/blocks'
+import type { ChatStore } from '@atiraui/foundations/chat'
 
 export function AgentChat({ store }: { store: ChatStore }) {
   return <ChatSession label="Agent conversation" store={store} />

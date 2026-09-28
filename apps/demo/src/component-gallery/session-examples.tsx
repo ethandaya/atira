@@ -8,7 +8,7 @@ import {
   RevertDock,
   TodoDock,
   Turn,
-} from '@atira/components'
+} from '@atiraui/components'
 import type {
   ComposerDraft,
   PermissionRequestView,
@@ -16,9 +16,9 @@ import type {
   QueuedPrompt,
   RevertedPrompt,
   SessionActivity,
-} from '@atira/foundations/chat'
-import { composerDraftText } from '@atira/foundations/chat-invariants'
-import { colors } from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/chat'
+import { composerDraftText } from '@atiraui/foundations/chat-invariants'
+import { colors } from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { useRef, useState } from 'react'
 

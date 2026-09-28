@@ -4,10 +4,10 @@ import {
   radii,
   space,
   type,
-} from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import type { ComponentPropsWithRef, ReactNode } from 'react'
-import { resolveStyleProps, type StyleProps } from '@atira/primitives'
+import { resolveStyleProps, type StyleProps } from '@atiraui/primitives'
 
 export type MessageActor = 'user' | 'assistant' | 'system'
 

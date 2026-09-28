@@ -4,13 +4,13 @@ import {
   motion,
   radii,
   space,
-} from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/tokens.stylex'
 import {
   IconButton,
   TextareaField,
   resolveStyleProps,
   type StyleProps,
-} from '@atira/primitives'
+} from '@atiraui/primitives'
 import * as stylex from '@stylexjs/stylex'
 import { SendHorizontal, Square } from 'lucide-react'
 import type {

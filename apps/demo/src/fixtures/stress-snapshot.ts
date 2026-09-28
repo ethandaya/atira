@@ -1,4 +1,4 @@
-import type { ChatSnapshot, ChatTurn } from '@atira/foundations/chat'
+import type { ChatSnapshot, ChatTurn } from '@atiraui/foundations/chat'
 
 import { createDraft, createTurn, fixtureCapabilities } from './chat-fixture'
 

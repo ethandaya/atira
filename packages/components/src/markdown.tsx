@@ -4,7 +4,7 @@ import {
   radii,
   space,
   type,
-} from '@atira/foundations/tokens.stylex'
+} from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import {
   parseMarkdownIntoBlocks,

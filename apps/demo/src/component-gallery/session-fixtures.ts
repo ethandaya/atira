@@ -4,7 +4,7 @@ import type {
   QueuedPrompt,
   RevertedPrompt,
   TodoListView,
-} from '@atira/foundations/chat'
+} from '@atiraui/foundations/chat'
 
 import { createDraft, fixtureCapabilities } from '../fixtures/chat-fixture'
 import { createWorkflowSnapshot } from '../fixtures/workflow-snapshot'

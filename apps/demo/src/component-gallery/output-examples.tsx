@@ -1,4 +1,4 @@
-import { Artifact, CitationList, Diff, Plan } from '@atira/components'
+import { Artifact, CitationList, Diff, Plan } from '@atiraui/components'
 import * as stylex from '@stylexjs/stylex'
 import { useState } from 'react'
 

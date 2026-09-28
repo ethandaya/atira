@@ -1,4 +1,4 @@
-import { ToolActivity } from '@atira/components'
+import { ToolActivity } from '@atiraui/components'
 
 export function ToolActivityExample() {
   return (

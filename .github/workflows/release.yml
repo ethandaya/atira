@@ -28,12 +28,11 @@ jobs:
           node-version: 22.14.0
           cache: pnpm
           registry-url: https://registry.npmjs.org
+      - run: npm install --global npm@11.6.2
       - run: pnpm install --frozen-lockfile
-      - uses: changesets/action@v2
+      - uses: changesets/action@v2.1.2
         with:
           commit-message: Version packages
           pr-title: Version packages
           publish-script: pnpm release
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
+          create-github-releases: true

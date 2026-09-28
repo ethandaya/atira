@@ -10,8 +10,8 @@ import {
   Status,
   TextField,
   VisuallyHidden,
-} from '@atira/primitives'
-import { colors, radii } from '@atira/foundations/tokens.stylex'
+} from '@atiraui/primitives'
+import { colors, radii } from '@atiraui/foundations/tokens.stylex'
 import * as stylex from '@stylexjs/stylex'
 import { Minus as MinusIcon, Plus as PlusIcon } from 'lucide-react'
 import { useState } from 'react'

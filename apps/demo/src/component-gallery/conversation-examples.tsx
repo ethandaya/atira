@@ -7,7 +7,7 @@ import {
   Suggestion,
   Suggestions,
   Thread,
-} from '@atira/components'
+} from '@atiraui/components'
 import * as stylex from '@stylexjs/stylex'
 import { Copy as CopyIcon } from 'lucide-react'
 import { useState } from 'react'

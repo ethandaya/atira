@@ -1,4 +1,8 @@
-import type { ChatError, ChatMessage, ToolPart } from '@atira/foundations/chat'
+import type {
+  ChatError,
+  ChatMessage,
+  ToolPart,
+} from '@atiraui/foundations/chat'
 
 import type { StreamEvent } from '../chat-contract.ts'
 

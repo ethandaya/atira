@@ -1,4 +1,4 @@
-import { Message, Response } from '@atira/components'
+import { Message, Response } from '@atiraui/components'
 import * as stylex from '@stylexjs/stylex'
 
 export function MessageExample() {
