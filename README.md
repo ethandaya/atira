@@ -142,26 +142,6 @@ Library releases target the public npm registry under the `@atiraui` scope.
 installs and imports the packed artifacts in a clean consumer before showing the
 packages that a publish would upload.
 
-The four library packages release as one fixed version group. Add a changeset to
-each pull request that changes their public contract:
-
-```bash
-pnpm changeset
-```
-
-Merging the generated **Version packages** pull request publishes the compiled
-packages through `.github/workflows/release.yml` using npm trusted publishing
-and provenance, without a repository token. Configure each package on npm with
-GitHub owner `ethandaya`, repository `atira`, workflow `release.yml`, and direct
-publish permission.
-
-npm requires a package to exist before it can trust a publisher. Bootstrap the
-four packages once with
-`pnpm publish:library -- --provenance=false` from an npm-authenticated terminal,
-then configure the trusted publisher before merging the initial version pull
-request. npm prompts for the account's one-time password during this bootstrap.
-The pending initial changeset prepares version `0.1.0`.
-
 ## Verification
 
 ```bash
